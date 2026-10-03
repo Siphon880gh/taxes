@@ -7,6 +7,17 @@ function money(amount: number): string {
 }
 
 export const tips: Record<string, Tip> = {
+  capital_gain: {
+    id: "capital_gain",
+    toast: "Capital gain means a profit from selling a capital asset. Read more",
+    readMore: () => ({
+      title: "Capital gains",
+      paragraphs: [
+        "A capital gain is the profit you make when you sell a capital asset—such as stocks, real estate, or crypto—for a price higher than your original purchase price.",
+      ],
+      citations: [],
+    }),
+  },
   se_tax: {
     id: "se_tax",
     toast: "There are calculations to figure out how much you owe in self employment (SE) tax. Read more",
@@ -40,7 +51,7 @@ export const tips: Record<string, Tip> = {
       title: "Schedule C on the prepared return",
       paragraphs: [
         "Schedule C is for self-employment income and expenses, including 1099-NEC freelance jobs. On the 2025 form, line 1 is gross receipts and should include amounts properly shown on Forms 1099-NEC. A separate Schedule C is used for each business.",
-        "Line 31, the net profit or loss, is included on Schedule 1 (Form 1040) line 3 and on Schedule SE line 2. Those schedules flow onto Form 1040. Verify what FreeTaxUSA already prepared. This is not an instruction to start a form.",
+        "Line 31, the net profit or loss, is included on Schedule 1 (Form 1040) line 3 and on Schedule SE line 2. Those schedules flow onto Form 1040. Verify what was already prepared. This is not an instruction to start a form.",
       ],
       citations: [citations.scheduleC_2025, citations.pub334_2025],
     }),
@@ -116,7 +127,7 @@ export const tips: Record<string, Tip> = {
       title: "How the schedules meet Form 1040",
       paragraphs: [
         "Schedule C and Schedule E, and any other schedule this path turns up, flow onto the main Form 1040. On the 2025 form, Schedule C line 31 is included on Schedule 1 line 3. Schedule E's rental total is line 26; confirm on the form where that total is carried. Form 1040 line 11b is adjusted gross income and line 12e is the deduction.",
-        "Every one of these is a line to verify in FreeTaxUSA. The chart is not an instruction to start a form.",
+        "Every one of these is a line to verify on the prepared return. The chart is not an instruction to start a form.",
       ],
       citations: [citations.form1040_2025, citations.scheduleC_2025, citations.scheduleE_2025],
     }),
