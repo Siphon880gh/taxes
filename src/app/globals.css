@@ -220,8 +220,10 @@ body {
 }
 
 .chart-level-navigator {
-  position: relative;
-  z-index: 11;
+  position: fixed;
+  bottom: 1rem;
+  left: 1rem;
+  z-index: 30;
 }
 
 .chart-level-toggle {
@@ -292,11 +294,24 @@ body {
   }
 }
 
+.question-dock-inner {
+  width: min(40rem, 100%);
+  margin-inline: auto;
+}
+
+@media (min-width: 960px) {
+  .question-dock-inner {
+    width: min(40rem, calc(100% - 32rem));
+    margin-left: 18rem;
+    margin-right: 14rem;
+  }
+}
+
 .chart-magnifier {
-  position: absolute;
-  top: 0.75rem;
-  right: 0.75rem;
-  z-index: 10;
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 30;
   width: 11.25rem;
   height: 11.25rem;
   overflow: hidden;

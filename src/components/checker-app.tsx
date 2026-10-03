@@ -6,6 +6,7 @@ import { DISCLAIMER } from "@/lib/disclaimer";
 import {
   applyAnswer,
   applyCase,
+  addInstance,
   blankSession,
   buildChecklist,
   caseStudies,
@@ -17,6 +18,9 @@ import {
   getNode,
   mermaidSource,
   openQuestions,
+  removeInstance,
+  renameInstance,
+  repeatableNodes,
   tips,
 } from "@/lib/graph";
 import { answerOf } from "@/lib/graph/session";
@@ -44,6 +48,10 @@ export function CheckerApp() {
   const [selectedId, setSelectedId] = useState<string>("filing_status");
   const [toastId, setToastId] = useState<string | null>(null);
   const [modalId, setModalId] = useState<string | null>(null);
+  const [costOpen, setCostOpen] = useState(false);
+  const [purposeOpen, setPurposeOpen] = useState(false);
+  const [levelExpanded, setLevelExpanded] = useState(false);
+  const [topCollapsed, setTopCollapsed] = useState(false);
   const [draft, setDraft] = useState("");
 
   const source = useMemo(() => mermaidSource(session), [session]);
@@ -52,23 +60,49 @@ export function CheckerApp() {
   const deduction = useMemo(() => deductionNarrative(session), [session]);
   const open = openQuestions(session);
   const selected = session.revealed.includes(selectedId) ? getNode(selectedId) : null;
+  const repeatable = selected ? repeatableNodes[selected.id] : null;
+  const instances = selected ? session.instances[selected.id] ?? [] : [];
   const stored = selected ? session.answers[selected.id] : undefined;
   const study = caseStudies.find((item) => item.id === session.caseStudyId) ?? null;
   const toast = toastId ? tips[toastId] : null;
   const modal = modalId ? tipBody(modalId, session) : null;
+
+  const nodeLevels = useMemo(() => {
+    const levels = new Map<string, number>([["year", 0]]);
+    const queue = ["year"];
+    const outgoing = edgesFor(session);
+    while (queue.length) {
+      const from = queue.shift()!;
+      const level = levels.get(from)!;
+      for (const edge of outgoing) {
+        if (edge.from !== from || levels.has(edge.to)) continue;
+        levels.set(edge.to, level + 1);
+        queue.push(edge.to);
+      }
+    }
+    for (const id of session.revealed) {
+      if (!levels.has(id)) levels.set(id, 0);
+    }
+    return levels;
+  }, [session]);
+  const selectedLevel = selectedId ? nodeLevels.get(selectedId) ?? 0 : 0;
+  const levelNodes = session.revealed.filter((id) => (nodeLevels.get(id) ?? 0) === selectedLevel);
+  const returnYear = YEARS.find((year) => year.id === answerOf(session, "year"))?.label ?? "Not selected";
 
   useEffect(() => {
     setDraft(session.answers[selectedId]?.text ?? "");
   }, [selectedId, session]);
 
   useEffect(() => {
-    if (!modalId) return;
+    if (!modalId && !costOpen && !purposeOpen) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") setModalId(null);
+      if (event.key === "Escape") setCostOpen(false);
+      if (event.key === "Escape") setPurposeOpen(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [modalId]);
+  }, [modalId, costOpen, purposeOpen]);
 
   const nodeTips = useMemo(
     () =>
@@ -99,6 +133,8 @@ export function CheckerApp() {
     setSelectedId("filing_status");
     setToastId(null);
     setModalId(null);
+    setLevelExpanded(false);
+    setTopCollapsed(false);
     setDraft("");
   }
 
@@ -109,6 +145,8 @@ export function CheckerApp() {
     setSelectedId(firstOpen);
     setToastId(null);
     setModalId(null);
+    setLevelExpanded(false);
+    setTopCollapsed(false);
     setDraft("");
   }
 
@@ -118,6 +156,7 @@ export function CheckerApp() {
     setDraft("");
     if (!next.revealed.includes(selectedId)) {
       setSelectedId(openQuestions(next)[0] ?? nodeId);
+      setLevelExpanded(false);
     }
   }
 
@@ -125,14 +164,39 @@ export function CheckerApp() {
     setToastId(tipId);
   }
 
+  function selectNode(id: string) {
+    if ((nodeLevels.get(id) ?? 0) !== selectedLevel) setLevelExpanded(false);
+    setSelectedId(id);
+    setTopCollapsed(true);
+  }
+
+  function addAnotherInstance() {
+    if (!selected || !repeatable) return;
+    setSession((current) => addInstance(current, selected.id));
+  }
+
   return (
     <div className="min-h-screen">
-      <header className="border-b border-stone-300 bg-[#fffdf8]">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-5 sm:px-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <header className={topCollapsed ? "sticky top-0 z-30 border-b border-stone-300 bg-[#fffdf8] shadow-sm" : "border-b border-stone-300 bg-[#fffdf8]"}>
+        {topCollapsed ? (
+          <div className="flex w-full items-center justify-between gap-3 px-4 py-2 sm:px-6 lg:px-8">
+            <p className="font-display text-lg text-stone-900">Taxes Final Check</p>
+            <div className="flex items-center gap-3 text-sm text-stone-700">
+              <span>Return year: {returnYear}</span>
+              <button type="button" className="btn-secondary" onClick={() => setTopCollapsed(false)}>Expand</button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex w-full flex-col gap-4 px-4 py-5 sm:px-6 lg:px-8">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="text-sm font-medium uppercase tracking-[0.14em] text-stone-500">FreeTaxUSA</p>
-              <h1 className="font-display text-3xl text-stone-900 sm:text-4xl">Final check</h1>
+              <p className="text-sm font-medium uppercase tracking-[0.14em] text-stone-500">Return review</p>
+              <div className="flex items-center gap-2">
+                <h1 className="font-display text-3xl text-stone-900 sm:text-4xl">Tax Final Confirmation</h1>
+                <button type="button" className="info-dot info-dot-inline" aria-label="About Tax Final Confirmation" onClick={() => setPurposeOpen(true)}>
+                  i
+                </button>
+              </div>
               <p className="mt-1 max-w-2xl text-stone-700">
                 Walk the return you already prepared. The chart names schedules and lines to verify. It does not prepare a return.
               </p>
@@ -158,82 +222,89 @@ export function CheckerApp() {
                 })}
               </div>
             </div>
+            </div>
+            <p className="disclaimer" role="note">
+              {DISCLAIMER}
+            </p>
           </div>
-          <p className="disclaimer" role="note">
-            {DISCLAIMER}
-          </p>
-        </div>
+        )}
       </header>
 
-      <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6">
-        <section aria-labelledby="cases-heading">
-          <div className="mb-3 flex items-baseline justify-between gap-3">
+      <main className="flex w-full flex-col gap-6 px-4 py-6 pb-[25rem] sm:px-6 lg:px-8">
+        {!topCollapsed ? <section aria-labelledby="cases-heading">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-stone-300 bg-[#fffdf8] px-4 py-3">
             <h2 id="cases-heading" className="font-display text-2xl text-stone-900">
-              Start blank or open a case study
+              Path library
             </h2>
-          </div>
-          <div className="grid gap-3 md:grid-cols-3">
-            <button type="button" className={study ? "case-card" : "case-card case-card-on"} onClick={loadBlank}>
-              <span className="font-display text-xl">Start blank</span>
-              <span className="text-sm text-stone-700">
-                Tax year 2025 is selected. Nothing else is filled in. Answer only what is on the return you are checking.
-              </span>
-            </button>
-            {caseStudies.map((item) => {
-              const on = session.caseStudyId === item.id;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  className={on ? "case-card case-card-on" : "case-card"}
-                  aria-pressed={on}
-                  onClick={() => loadCase(item.id)}
-                >
-                  <span className="font-display text-xl">{item.title}</span>
-                  <span className="text-sm text-stone-700">{item.summary}</span>
-                  <span className="text-xs font-medium uppercase tracking-wide text-stone-500">
-                    {on ? "Open — click again to reset" : "Open this saved path"}
-                  </span>
-                </button>
-              );
-            })}
+            <label className="flex items-center gap-2 text-sm font-medium text-stone-700" htmlFor="case-library">
+              Open an example
+              <select
+                id="case-library"
+                className="rounded-md border border-stone-300 bg-white px-3 py-2 text-stone-900"
+                value={session.caseStudyId ?? "blank"}
+                onChange={(event) => {
+                  if (event.target.value === "blank") loadBlank();
+                  else loadCase(event.target.value);
+                }}
+              >
+                <option value="blank">Start blank</option>
+                {caseStudies.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.title}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
           {study ? (
             <p className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950" role="status">
               {study.title} is a saved set of answers, not tax advice. Unanswered items stay on the unknown path or stay open. The info buttons on the chart still open the same notes.
             </p>
           ) : null}
-        </section>
+        </section> : null}
 
-        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(18rem,0.9fr)]">
-          <section aria-labelledby="chart-heading" className="min-w-0">
-            <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-              <h2 id="chart-heading" className="font-display text-2xl text-stone-900">
-                What this path turns up
-              </h2>
+        <section aria-label="What this path turns up" className="min-w-0">
+          {!topCollapsed ? <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+            <h2 id="chart-heading" className="font-display text-2xl text-stone-900">
+              What this path turns up
+            </h2>
               <p className="text-sm text-stone-600">
                 Click a box to answer it. The <span className="info-dot info-dot-inline">i</span> opens a note and does not answer the question.
               </p>
-            </div>
-            <MermaidView
-              source={source}
-              nodeIds={session.revealed}
-              nodeTips={nodeTips}
-              edgeTips={visibleEdgeTips}
-              selectedId={selectedId}
-              onSelect={setSelectedId}
-              onTip={showTip}
-            />
-            <p className="mt-2 text-sm text-stone-600">
-              A rust outline marks an answer left unknown. Those nodes are not treated as a yes.
-            </p>
-          </section>
+              <button type="button" className="btn-secondary" onClick={() => setCostOpen(true)}>
+                Preparation cost comparison
+              </button>
+          </div> : null}
+          <MermaidView
+            source={source}
+            nodeIds={session.revealed}
+            nodeTips={nodeTips}
+            edgeTips={visibleEdgeTips}
+            selectedId={selectedId}
+            onSelect={selectNode}
+            onTip={showTip}
+            levelNodes={levelNodes.map((id) => ({ id, title: getNode(id).title }))}
+            levelExpanded={levelExpanded}
+            onToggleLevel={() => setLevelExpanded((expanded) => !expanded)}
+          />
+          <p className="mt-2 text-sm text-stone-600">
+            A rust outline marks an answer left unknown. Those nodes are not treated as a yes.
+          </p>
+        </section>
 
-          <div className="flex flex-col gap-4">
+        <aside className="question-dock" aria-label="Selected chart node">
+          <div className="question-dock-inner flex flex-col gap-4">
             <section className="panel" aria-labelledby="question-heading">
-              <h2 id="question-heading" className="font-display text-2xl text-stone-900">
-                {selected ? selected.title : "Pick a box"}
-              </h2>
+              <div className="flex items-start justify-between gap-3">
+                <h2 id="question-heading" className="font-display text-2xl text-stone-900">
+                  {selected ? selected.title : "Pick a box"}
+                </h2>
+                {repeatable && stored?.answerId === "yes" ? (
+                  <button type="button" className="add-instance" onClick={addAnotherInstance} aria-label={`Add another ${repeatable.singular}`} title={`Add another ${repeatable.singular}`}>
+                    +
+                  </button>
+                ) : null}
+              </div>
               {selected?.tipId ? (
                 <button type="button" className="btn-secondary mt-3" onClick={() => showTip(selected.tipId!)}>
                   i · Note on this box
@@ -284,12 +355,42 @@ export function CheckerApp() {
                       );
                     })}
                   </div>
+                  {repeatable && stored?.answerId === "yes" ? (
+                    <div className="mt-4 border-t border-stone-200 pt-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <h3 className="text-sm font-semibold text-stone-800">
+                          {instances.length} {instances.length === 1 ? repeatable.singular : repeatable.plural}
+                        </h3>
+                        <button type="button" className="text-sm text-rust underline-offset-2 hover:underline" onClick={addAnotherInstance}>
+                          + Add another
+                        </button>
+                      </div>
+                      <p className="mt-1 text-sm text-stone-600">Name each record so you can verify it separately. The chart keeps the shared tax path in one place.</p>
+                      <div className="mt-2 flex flex-col gap-2">
+                        {instances.map((instance, index) => (
+                          <div key={`${selected.id}-${index}`} className="flex items-center gap-2">
+                            <input
+                              className="min-w-0 flex-1 rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900"
+                              aria-label={`${repeatable.singular} ${index + 1} name`}
+                              value={instance}
+                              onChange={(event) => setSession((current) => renameInstance(current, selected.id, index, event.target.value))}
+                            />
+                            {instances.length > 1 ? (
+                              <button type="button" className="btn-secondary" onClick={() => setSession((current) => removeInstance(current, selected.id, index))} aria-label={`Remove ${instance || `${repeatable.singular} ${index + 1}`}`}>
+                                Remove
+                              </button>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                 </>
               ) : selected ? (
                 <>
                   <p className="mt-2 text-stone-800">{selected.help ?? selected.chart}</p>
                   <p className="mt-2 text-sm text-stone-600">
-                    This is a line to verify in FreeTaxUSA. It is not an instruction to start the form.
+                    This is a line to verify on the prepared return. It is not an instruction to start the form.
                   </p>
                 </>
               ) : (
@@ -301,7 +402,7 @@ export function CheckerApp() {
                   <ul className="mt-2 flex flex-col gap-1">
                     {open.map((id) => (
                       <li key={id}>
-                        <button type="button" className="text-left text-sm text-rust underline-offset-2 hover:underline" onClick={() => setSelectedId(id)}>
+                        <button type="button" className="text-left text-sm text-rust underline-offset-2 hover:underline" onClick={() => selectNode(id)}>
                           {getNode(id).title}
                         </button>
                       </li>
@@ -324,9 +425,9 @@ export function CheckerApp() {
               </section>
             ) : null}
           </div>
-        </div>
+        </aside>
 
-        <div className="grid items-start gap-6 lg:grid-cols-2">
+        <div className="grid items-start gap-6">
           <section className="panel" aria-labelledby="check-heading">
             <h2 id="check-heading" className="font-display text-2xl text-stone-900">
               {checklistTitle(session)}
@@ -357,13 +458,38 @@ export function CheckerApp() {
             )}
           </section>
 
-          <section className="panel" aria-labelledby="cost-heading">
-            <h2 id="cost-heading" className="font-display text-2xl text-stone-900">
-              Preparation cost comparison
-            </h2>
-            <p className="mt-1 text-sm text-stone-600">
+        </div>
+      </main>
+
+      {costOpen ? (
+        <div className="sidebar-backdrop" role="presentation" onClick={() => setCostOpen(false)}>
+          <aside
+            className="cost-sidebar"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cost-heading"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <h2 id="cost-heading" className="font-display text-2xl text-stone-900">
+                Preparation cost comparison
+              </h2>
+              <button type="button" className="btn-secondary" onClick={() => setCostOpen(false)}>
+                Close
+              </button>
+            </div>
+            <p className="mt-2 text-sm text-stone-600">
               Published prices for preparing a return of this shape. These are not tax figures and not a quote unless a case study loaded one.
             </p>
+            {open.length > 0 ? (
+              <p className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950" role="status">
+                Your path is not complete yet: {open.length} {open.length === 1 ? "decision remains" : "decisions remain"}. Finish the open boxes for a more accurate comparison.
+              </p>
+            ) : (
+              <p className="mt-3 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-950" role="status">
+                This path is fully clicked through. The comparison reflects the answers shown, subject to the notes on each price.
+              </p>
+            )}
             {cost.framing ? <p className="mt-3 text-sm text-stone-800">{cost.framing}</p> : null}
             {cost.quoteNote ? <p className="mt-2 text-sm font-medium text-stone-900">{cost.quoteNote}</p> : null}
             {cost.rows.length === 0 ? (
@@ -391,9 +517,24 @@ export function CheckerApp() {
                 ))}
               </ul>
             )}
-          </section>
+          </aside>
         </div>
-      </main>
+      ) : null}
+
+      {purposeOpen ? (
+        <div className="modal-backdrop" role="presentation" onClick={() => setPurposeOpen(false)}>
+          <div className="modal-card" role="dialog" aria-modal="true" aria-labelledby="purpose-title" onClick={(event) => event.stopPropagation()}>
+            <h2 id="purpose-title" className="font-display text-2xl text-stone-900">What Tax Final Confirmation is for</h2>
+            <p className="mt-3 text-stone-800">
+              Use this after a professional or tax platform has already prepared the return. It is a structured double-check for forms, schedules, and details that may have been missed.
+            </p>
+            <p className="mt-3 text-stone-800">
+              It does not prepare a return, replace professional advice, or tell you to add a form. Confirm any flagged item against the prepared return and its supporting records.
+            </p>
+            <button type="button" className="btn-primary mt-4" onClick={() => setPurposeOpen(false)}>Close</button>
+          </div>
+        </div>
+      ) : null}
 
       {toast ? (
         <div className="toast" role="status">

@@ -272,31 +272,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
 
   return (
     <div className="rounded-md border border-stone-300 bg-[#fffdf8]">
-      <div className="flex flex-wrap items-start justify-between gap-2 border-b border-stone-200 px-3 py-2" role="group" aria-label="Chart zoom controls">
-        <div className="chart-level-navigator">
-          {levelExpanded ? (
-            <div className="chart-level-list" role="list" aria-label="Nodes at this chart level">
-              {levelNodes.map((node) => {
-                const active = node.id === selectedId;
-                return (
-                  <button
-                    key={node.id}
-                    type="button"
-                    role="listitem"
-                    className={active ? "chart-level-node chart-level-node-active" : "chart-level-node"}
-                    aria-current={active ? "true" : undefined}
-                    onClick={() => onSelect(node.id)}
-                  >
-                    {node.title}
-                  </button>
-                );
-              })}
-            </div>
-          ) : null}
-          <button type="button" className="chart-level-toggle" aria-expanded={levelExpanded} onClick={onToggleLevel}>
-            Level&apos;s nodes ({levelNodes.length}) <span aria-hidden="true">{levelExpanded ? "−" : "+"}</span>
-          </button>
-        </div>
+      <div className="flex flex-wrap items-center justify-end gap-2 border-b border-stone-200 px-3 py-2" role="group" aria-label="Chart zoom controls">
         <div className="flex flex-wrap items-center justify-end gap-2">
         <button type="button" className="btn-secondary" onClick={() => setZoom((current) => Math.max(0.35, current - 0.15))} aria-label="Zoom out">
           −
@@ -344,6 +320,30 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
               </div>
             </div>
           </div>
+        </div>
+        <div className="chart-level-navigator">
+          {levelExpanded ? (
+            <div className="chart-level-list" role="list" aria-label="Nodes at this chart level">
+              {levelNodes.map((node) => {
+                const active = node.id === selectedId;
+                return (
+                  <button
+                    key={node.id}
+                    type="button"
+                    role="listitem"
+                    className={active ? "chart-level-node chart-level-node-active" : "chart-level-node"}
+                    aria-current={active ? "true" : undefined}
+                    onClick={() => onSelect(node.id)}
+                  >
+                    {node.title}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+          <button type="button" className="chart-level-toggle" aria-expanded={levelExpanded} onClick={onToggleLevel}>
+            Level&apos;s nodes ({levelNodes.length}) <span aria-hidden="true">{levelExpanded ? "−" : "+"}</span>
+          </button>
         </div>
         <div className="chart-magnifier" aria-live="polite" aria-label="Magnified chart area under the pointer">
           {lensPoint && lensMarkup ? (
