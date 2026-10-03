@@ -74,6 +74,26 @@ body {
   font-size: 0.95rem;
 }
 
+.add-instance {
+  display: inline-flex;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #9a3412;
+  border-radius: 999px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+.add-instance:hover {
+  background: #9a3412;
+  color: #fffdf8;
+}
+
 .year-btn,
 .btn-secondary {
   border: 1px solid #d6d3d1;
@@ -99,6 +119,7 @@ body {
 .btn-unknown:focus-visible,
 .year-btn:focus-visible,
 .case-card:focus-visible,
+.add-instance:focus-visible,
 .info-dot:focus-visible {
   outline: 2px solid #9a3412;
   outline-offset: 2px;
@@ -160,6 +181,25 @@ body {
   padding: 1.25rem;
 }
 
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgb(28 25 23 / 0.3);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.cost-sidebar {
+  width: min(32rem, 100%);
+  height: 100%;
+  overflow-y: auto;
+  border-left: 1px solid #d6d3d1;
+  background: #fffdf8;
+  padding: 1.25rem;
+  box-shadow: -12px 0 30px rgb(28 25 23 / 0.12);
+}
+
 @media (min-width: 640px) {
   .modal-backdrop {
     align-items: center;
@@ -168,6 +208,136 @@ body {
 
 .mermaid-host svg {
   display: block;
+}
+
+.chart-viewport {
+  overflow: auto;
+  max-height: 78vh;
+}
+
+.chart-viewport-shell {
+  position: relative;
+}
+
+.chart-level-navigator {
+  position: relative;
+  z-index: 11;
+}
+
+.chart-level-toggle {
+  border: 1px solid #9a3412;
+  border-radius: 999px;
+  background: #fffdf8;
+  box-shadow: 0 5px 14px rgb(28 25 23 / 0.16);
+  color: #7c2d12;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 650;
+}
+
+.chart-level-toggle:focus-visible,
+.chart-level-node:focus-visible {
+  outline: 2px solid #9a3412;
+  outline-offset: 2px;
+}
+
+.chart-level-list {
+  display: flex;
+  max-height: min(18rem, 42vh);
+  width: min(17rem, calc(100vw - 3rem));
+  flex-direction: column;
+  gap: 0.2rem;
+  overflow-y: auto;
+  margin-bottom: 0.55rem;
+  border: 1px solid #d6d3d1;
+  border-radius: 0.5rem;
+  background: #fffdf8;
+  padding: 0.4rem;
+  box-shadow: 0 8px 22px rgb(28 25 23 / 0.16);
+}
+
+.chart-level-node {
+  border-left: 3px solid transparent;
+  border-radius: 0.25rem;
+  padding: 0.4rem 0.55rem;
+  text-align: left;
+  color: #44403c;
+  font-size: 0.9rem;
+}
+
+.chart-level-node:hover,
+.chart-level-node-active {
+  border-left-color: #9a3412;
+  background: #fff7ed;
+  color: #7c2d12;
+}
+
+.question-dock {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 20;
+  max-height: min(48vh, 34rem);
+  overflow-y: auto;
+  border-top: 1px solid #d6d3d1;
+  background: rgb(244 239 230 / 0.97);
+  box-shadow: 0 -8px 24px rgb(28 25 23 / 0.12);
+  padding: 0.85rem 1rem;
+}
+
+@media (min-width: 640px) {
+  .question-dock {
+    padding: 1rem 1.5rem;
+  }
+}
+
+.chart-magnifier {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 10;
+  width: 11.25rem;
+  height: 11.25rem;
+  overflow: hidden;
+  pointer-events: none;
+  border: 3px solid #9a3412;
+  border-radius: 999px;
+  background: #fffdf8;
+  box-shadow: 0 8px 22px rgb(28 25 23 / 0.2);
+}
+
+.chart-magnifier::after {
+  content: "2×";
+  position: absolute;
+  right: 0.45rem;
+  bottom: 0.3rem;
+  border-radius: 999px;
+  background: #9a3412;
+  color: #fffdf8;
+  padding: 0.05rem 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.chart-magnifier-content {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 0;
+}
+
+.chart-magnifier-content svg {
+  display: block;
+  max-width: none !important;
+}
+
+.chart-magnifier-empty {
+  display: grid;
+  height: 100%;
+  place-items: center;
+  color: #9a3412;
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 4rem;
 }
 
 .mermaid-host g.node {

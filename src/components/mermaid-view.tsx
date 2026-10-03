@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type PointerEvent } from "react";
 
 type Marker = {
   key: string;
@@ -18,6 +18,9 @@ type Props = {
   selectedId: string | null;
   onSelect: (id: string) => void;
   onTip: (tipId: string) => void;
+  levelNodes: { id: string; title: string }[];
+  levelExpanded: boolean;
+  onToggleLevel: () => void;
 };
 
 let renderSeq = 0;
@@ -36,8 +39,10 @@ function distToRect(x: number, y: number, rect: DOMRect): number {
   return Math.hypot(dx, dy);
 }
 
-export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, onSelect, onTip }: Props) {
+export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, onSelect, onTip, levelNodes, levelExpanded, onToggleLevel }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const zoomRef = useRef(1);
   const onSelectRef = useRef(onSelect);
   const onTipRef = useRef(onTip);
   const propsRef = useRef({ nodeIds, nodeTips, edgeTips, selectedId });
@@ -48,11 +53,17 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
   const [markers, setMarkers] = useState<Marker[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [box, setBox] = useState({ width: 0, height: 320 });
+  const [zoom, setZoom] = useState(1);
+  const [lensMarkup, setLensMarkup] = useState("");
+  const [lensPoint, setLensPoint] = useState<{ x: number; y: number } | null>(null);
+  const pendingFit = useRef(true);
+  zoomRef.current = zoom;
 
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
     let cancelled = false;
+    pendingFit.current = true;
 
     const measure = () => {
       try {
@@ -62,6 +73,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
       const { nodeIds: ids, nodeTips: tipsForNodes, edgeTips: tipsForEdges, selectedId: current } = propsRef.current;
       const known = new Set(ids);
       const stageRect = stage.getBoundingClientRect();
+      const scale = zoomRef.current;
       const next: Marker[] = [];
       const nodeRects = new Map<string, DOMRect>();
 
@@ -77,8 +89,8 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
           key: `node-${id}`,
           tipId: tip.tipId,
           label: tip.label,
-          x: rect.right - stageRect.left - 16,
-          y: rect.top - stageRect.top - 8,
+          x: (rect.right - stageRect.left - 16 * scale) / scale,
+          y: (rect.top - stageRect.top - 8 * scale) / scale,
         });
       });
 
@@ -142,16 +154,25 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
           key: `edge-${from}-${to}`,
           tipId: tip.tipId,
           label: tip.label,
-          x: mid.x - stageRect.left - 10,
-          y: mid.y - stageRect.top - 22,
+          x: (mid.x - stageRect.left - 10 * scale) / scale,
+          y: (mid.y - stageRect.top - 22 * scale) / scale,
         });
       });
 
       const bounds = svg.getBoundingClientRect();
+      const naturalWidth = Math.max(bounds.width / scale, stage.clientWidth);
       setBox({
-        width: Math.max(bounds.width, stage.clientWidth),
-        height: Math.max(bounds.height, 280),
+        width: naturalWidth,
+        height: Math.max(bounds.height / scale, 280),
       });
+      if (pendingFit.current && naturalWidth > 0) {
+        const available = viewportRef.current?.clientWidth ?? 0;
+        if (available) {
+          pendingFit.current = false;
+          const nextZoom = Math.min(1, Math.max(0.35, Math.round(((available - 32) / naturalWidth) * 20) / 20));
+          if (nextZoom !== zoomRef.current) setZoom(nextZoom);
+        }
+      }
       setMarkers(next);
       } catch (err) {
         if (!cancelled) {
@@ -195,6 +216,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
             drawn.style.height = `${viewBox.height}px`;
           }
           drawn.style.maxWidth = "none";
+          setLensMarkup(drawn.outerHTML);
         }
         hostRef.current.querySelectorAll("g.node").forEach((node) => {
           const id = matchNodeId(node.id, new Set(propsRef.current.nodeIds));
@@ -232,26 +254,103 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
     });
   }, [selectedId, nodeIds, source]);
 
+  function fitZoom() {
+    const available = viewportRef.current?.clientWidth ?? 0;
+    if (!available || !box.width) return;
+    setZoom(Math.min(1, Math.max(0.35, Math.round(((available - 32) / box.width) * 20) / 20)));
+  }
+
+  function updateLens(event: PointerEvent<HTMLDivElement>) {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const rect = viewport.getBoundingClientRect();
+    setLensPoint({
+      x: (viewport.scrollLeft + event.clientX - rect.left) / zoom,
+      y: (viewport.scrollTop + event.clientY - rect.top) / zoom,
+    });
+  }
+
   return (
-    <div className="overflow-auto rounded-md border border-stone-300 bg-[#fffdf8] max-h-[78vh]">
-      <div className="relative" style={{ width: box.width || "100%", height: box.height }}>
-        <div ref={hostRef} className="mermaid-host" />
-        <div className="pointer-events-none absolute inset-0">
-          {markers.map((marker) => (
-            <button
-              key={marker.key}
-              type="button"
-              className="info-dot pointer-events-auto"
-              style={{ left: marker.x, top: marker.y }}
-              aria-label={marker.label}
-              onClick={(event) => {
-                event.stopPropagation();
-                onTipRef.current(marker.tipId);
-              }}
+    <div className="rounded-md border border-stone-300 bg-[#fffdf8]">
+      <div className="flex flex-wrap items-start justify-between gap-2 border-b border-stone-200 px-3 py-2" role="group" aria-label="Chart zoom controls">
+        <div className="chart-level-navigator">
+          {levelExpanded ? (
+            <div className="chart-level-list" role="list" aria-label="Nodes at this chart level">
+              {levelNodes.map((node) => {
+                const active = node.id === selectedId;
+                return (
+                  <button
+                    key={node.id}
+                    type="button"
+                    role="listitem"
+                    className={active ? "chart-level-node chart-level-node-active" : "chart-level-node"}
+                    aria-current={active ? "true" : undefined}
+                    onClick={() => onSelect(node.id)}
+                  >
+                    {node.title}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+          <button type="button" className="chart-level-toggle" aria-expanded={levelExpanded} onClick={onToggleLevel}>
+            Level&apos;s nodes ({levelNodes.length}) <span aria-hidden="true">{levelExpanded ? "−" : "+"}</span>
+          </button>
+        </div>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+        <button type="button" className="btn-secondary" onClick={() => setZoom((current) => Math.max(0.35, current - 0.15))} aria-label="Zoom out">
+          −
+        </button>
+        <output className="min-w-12 text-center text-sm text-stone-700" aria-label={`Zoom level ${Math.round(zoom * 100)} percent`}>
+          {Math.round(zoom * 100)}%
+        </output>
+        <button type="button" className="btn-secondary" onClick={() => setZoom((current) => Math.min(2, current + 0.15))} aria-label="Zoom in">
+          +
+        </button>
+        <button type="button" className="btn-secondary" onClick={fitZoom}>
+          Fit zoom
+        </button>
+        </div>
+      </div>
+      <div className="chart-viewport-shell">
+        <div
+          ref={viewportRef}
+          className="chart-viewport"
+          onPointerMove={updateLens}
+          onPointerLeave={() => setLensPoint(null)}
+        >
+          <div className="relative" style={{ width: box.width ? box.width * zoom : "100%", height: box.height * zoom }}>
+            <div
+              className="relative origin-top-left"
+              style={{ width: box.width || "100%", height: box.height, transform: `scale(${zoom})` }}
             >
-              i
-            </button>
-          ))}
+              <div ref={hostRef} className="mermaid-host" />
+              <div className="pointer-events-none absolute inset-0">
+                {markers.map((marker) => (
+                  <button
+                    key={marker.key}
+                    type="button"
+                    className="info-dot pointer-events-auto"
+                    style={{ left: marker.x, top: marker.y }}
+                    aria-label={marker.label}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onTipRef.current(marker.tipId);
+                    }}
+                  >
+                    i
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="chart-magnifier" aria-live="polite" aria-label="Magnified chart area under the pointer">
+          {lensPoint && lensMarkup ? (
+            <div className="chart-magnifier-content" style={{ transform: `scale(2) translate(${90 / 2 - lensPoint.x}px, ${90 / 2 - lensPoint.y}px)` }} dangerouslySetInnerHTML={{ __html: lensMarkup }} />
+          ) : (
+            <span className="chart-magnifier-empty" aria-hidden="true">⌕</span>
+          )}
         </div>
       </div>
       {error ? (
