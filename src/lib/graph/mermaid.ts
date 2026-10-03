@@ -1,4 +1,5 @@
 import { getNode, listNodes } from "./nodes";
+import { activeInstanceName, instanceScope, readAnswer } from "./session";
 import type { Session } from "./types";
 
 function escapeUser(value: string): string {
@@ -23,24 +24,33 @@ export function scheduleCLabel(session: Session | null): string {
       : names
         ? `Schedule C is for self-employment income and expenses, including the 1099-NEC freelance jobs (${safeNames}).`
         : "Schedule C is for self-employment income and expenses, including 1099-NEC freelance jobs.";
-  return `${named}<br/>Verify in FreeTaxUSA. Not an instruction to start a form.`;
+  return withInstance(`${named}<br/>Verify on the prepared return. Not an instruction to start a form.`, "schedule_c", session);
+}
+
+function withInstance(label: string, id: string, session: Session | null): string {
+  if (!session) return label;
+  const scope = instanceScope(id);
+  if (!scope) return label;
+  const name = activeInstanceName(session, scope);
+  if (!name) return label;
+  return `${label}<br/>Checking ${escapeUser(name)}`;
 }
 
 export function nodeLabel(id: string, session: Session | null): string {
   const node = getNode(id);
   if (id === "schedule_c") return scheduleCLabel(session);
   if (session && node.kind === "question") {
-    const stored = session.answers[id];
+    const stored = readAnswer(session, id);
     if (stored) {
       if (node.textInput && stored.answerId === node.textInput.answerId) {
-        return `${escapeUser(node.title)}<br/>${escapeUser(stored.text?.trim() || "Entered")}`;
+        return withInstance(`${escapeUser(node.title)}<br/>${escapeUser(stored.text?.trim() || "Entered")}`, id, session);
       }
       const choice = node.answers?.find((answer) => answer.id === stored.answerId);
       const label = choice?.label ?? stored.answerId;
-      return `${escapeUser(node.title)}<br/>${escapeUser(label)}`;
+      return withInstance(`${escapeUser(node.title)}<br/>${escapeUser(label)}`, id, session);
     }
   }
-  return node.chart;
+  return withInstance(node.chart, id, session);
 }
 
 type Edge = { from: string; to: string; label: string };
@@ -52,7 +62,7 @@ export function edgesFor(session: Session | null): Edge[] {
   for (const node of nodes) {
     if (node.kind === "question") {
       const answers = session
-        ? node.answers?.filter((answer) => answer.id === session.answers[node.id]?.answerId)
+        ? node.answers?.filter((answer) => answer.id === readAnswer(session, node.id)?.answerId)
         : node.answers;
       for (const answer of answers ?? []) {
         for (const to of answer.next) {
@@ -66,7 +76,7 @@ export function edgesFor(session: Session | null): Edge[] {
           edges.push({ from: node.id, to, label: node.textInput.edge ?? "Entered" });
         }
       }
-      if (session && node.textInput && session.answers[node.id]?.answerId === node.textInput.answerId) {
+      if (session && node.textInput && readAnswer(session, node.id)?.answerId === node.textInput.answerId) {
         for (const to of node.textInput.next) {
           if (revealed.has(to)) {
             edges.push({ from: node.id, to, label: node.textInput.edge ?? "Entered" });
@@ -100,7 +110,7 @@ export function mermaidSource(session: Session | null): string {
   }
   if (session) {
     const unknownIds = ids.filter((id) => {
-      if (session.answers[id]?.answerId === "unknown") return true;
+      if (readAnswer(session, id)?.answerId === "unknown") return true;
       return id.startsWith("flag_");
     });
     if (unknownIds.length > 0) {

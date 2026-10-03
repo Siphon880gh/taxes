@@ -3,6 +3,7 @@ import { answerOf } from "./session";
 import { ten99kThreshold } from "./thresholds";
 import type { ChecklistItem, Session } from "./types";
 import { getNode } from "./nodes";
+import { readAnswer } from "./session";
 
 function has(session: Session, id: string): boolean {
   return session.revealed.includes(id);
@@ -78,7 +79,7 @@ export function buildChecklist(session: Session): ChecklistItem[] {
       line: "Schedule C line 1, if the payments belong to a sole proprietorship",
       summary: amount
         ? `Goods-and-services payments are reportable even without Form 1099-K. You entered: ${amount}. Compare that with the ${ten99kThreshold.year} threshold only if it includes both a dollar total and a transaction count. Verify the manual entry.`
-        : `Goods-and-services payments are reportable even when no Form 1099-K is generated. The amount is unknown, so the ${ten99kThreshold.year} threshold (over $${ten99kThreshold.grossExceeds.toLocaleString("en-US")} and over ${ten99kThreshold.transactionsExceed} transactions) is not applied to a guessed number. Verify the manual entry in FreeTaxUSA.`,
+        : `Goods-and-services payments are reportable even when no Form 1099-K is generated. The amount is unknown, so the ${ten99kThreshold.year} threshold (over $${ten99kThreshold.grossExceeds.toLocaleString("en-US")} and over ${ten99kThreshold.transactionsExceed} transactions) is not applied to a guessed number. Verify the manual entry on the prepared return.`,
       certainty: amount ? "verify" : "verify",
       source: citations.ir2025_107,
     });
@@ -185,7 +186,7 @@ export function buildChecklist(session: Session): ChecklistItem[] {
       id: "crypto",
       form: "Form 1040",
       line: "Digital-asset question — line flagged",
-      summary: "Verify the digital-asset question on Form 1040. The checkbox position is flagged so it is read off the form in FreeTaxUSA.",
+      summary: "Verify the digital-asset question on Form 1040. The checkbox position is flagged so it is read off the prepared return.",
       certainty: "verify",
     });
   }
@@ -269,6 +270,6 @@ export function buildChecklist(session: Session): ChecklistItem[] {
 }
 
 export function checklistTitle(session: Session): string {
-  const open = session.revealed.filter((id) => getNode(id).kind === "question" && !session.answers[id]).length;
-  return open ? `FreeTaxUSA checklist — ${open} question${open === 1 ? "" : "s"} still open` : "FreeTaxUSA checklist";
+  const open = session.revealed.filter((id) => getNode(id).kind === "question" && !readAnswer(session, id)).length;
+  return open ? `Confirmation checklist — ${open} question${open === 1 ? "" : "s"} still open` : "Confirmation checklist";
 }

@@ -350,6 +350,13 @@ body {
   font-size: 1.3em;
 }
 
+.instance-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+}
+
 .dock-tabs {
   display: flex;
   gap: 0.35rem;

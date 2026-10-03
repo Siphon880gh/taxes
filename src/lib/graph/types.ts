@@ -59,6 +59,12 @@ export type StoredAnswer = {
 
 export type Session = {
   answers: Record<string, StoredAnswer>;
+  /** Named records within a repeatable return category, such as businesses or rentals. */
+  instances: Record<string, string[]>;
+  /** Which named record is on the chart for a repeatable group such as self-employment. */
+  activeInstance: Record<string, number>;
+  /** Answers for one named record, keyed by scope then `${index}:${nodeId}`. */
+  instanceAnswers: Record<string, Record<string, StoredAnswer>>;
   revealed: string[];
   quote: number | null;
   caseStudyId: string | null;
@@ -99,4 +105,5 @@ export type CaseStudy = {
   summary: string;
   quote: number | null;
   answers: Record<string, StoredAnswer>;
+  instances?: Record<string, string[]>;
 };

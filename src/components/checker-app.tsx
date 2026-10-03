@@ -18,9 +18,12 @@ import {
   getNode,
   mermaidSource,
   openQuestions,
+  instanceScope,
+  readAnswer,
   removeInstance,
   renameInstance,
   repeatableNodes,
+  selectInstance,
   tips,
 } from "@/lib/graph";
 import { answerOf } from "@/lib/graph/session";
@@ -134,7 +137,7 @@ export function CheckerApp() {
   const selected = session.revealed.includes(selectedId) ? getNode(selectedId) : null;
   const repeatable = selected ? repeatableNodes[selected.id] : null;
   const instances = selected ? session.instances[selected.id] ?? [] : [];
-  const stored = selected ? session.answers[selected.id] : undefined;
+  const stored = selected ? readAnswer(session, selected.id) : undefined;
   const study = caseStudies.find((item) => item.id === session.caseStudyId) ?? null;
   const toast = toastId ? tips[toastId] : null;
   const modal = modalId ? tipBody(modalId, session) : null;
@@ -162,7 +165,7 @@ export function CheckerApp() {
   const returnYear = YEARS.find((year) => year.id === answerOf(session, "year"))?.label ?? "Not selected";
 
   useEffect(() => {
-    setDraft(session.answers[selectedId]?.text ?? "");
+    setDraft(readAnswer(session, selectedId)?.text ?? "");
   }, [selectedId, session]);
 
   useEffect(() => {
@@ -409,6 +412,28 @@ export function CheckerApp() {
                   </button>
                 ) : null}
               </div>
+              {(() => {
+                const scope = selected ? instanceScope(selected.id) ?? (repeatableNodes[selected.id] ? selected.id : null) : null;
+                const names = scope ? session.instances[scope] ?? [] : [];
+                if (!scope || names.length < 2) return null;
+                const active = session.activeInstance[scope] ?? 0;
+                return (
+                  <div className="instance-switch" role="tablist" aria-label="Which record this path is checking">
+                    {names.map((name, index) => (
+                      <button
+                        key={`${scope}-${index}`}
+                        type="button"
+                        role="tab"
+                        aria-selected={index === active}
+                        className={index === active ? "year-btn year-btn-on" : "year-btn"}
+                        onClick={() => setSession((current) => selectInstance(current, scope, index))}
+                      >
+                        {name.trim() || `Record ${index + 1}`}
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
               {selected && selected.kind === "question" && selected.tipId && (selected.answers?.length || selected.textInput) ? (
                 <div className="dock-tabs" role="tablist" aria-label="Answer or information">
                   <button type="button" role="tab" aria-selected={dockTab === "answer"} className={dockTab === "answer" ? "dock-tab dock-tab-on" : "dock-tab"} onClick={() => setDockTab("answer")}>
