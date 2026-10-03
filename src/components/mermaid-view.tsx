@@ -25,7 +25,7 @@ let mermaidReady = false;
 
 function matchNodeId(elementId: string, known: Set<string>): string | null {
   if (known.has(elementId)) return elementId;
-  const prefixed = elementId.match(/^(?:flowchart|agentflow)-(.+)-\d+$/);
+  const prefixed = elementId.match(/(?:flowchart|agentflow)-(.+)-\d+$/);
   if (prefixed && known.has(prefixed[1])) return prefixed[1];
   return null;
 }
@@ -55,6 +55,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
     let cancelled = false;
 
     const measure = () => {
+      try {
       const svg = host.querySelector("svg");
       const stage = host.parentElement;
       if (!svg || !stage || cancelled) return;
@@ -84,8 +85,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
       const claimed = new Set<string>();
       svg.querySelectorAll("path.flowchart-link, .edge path, g.edge path").forEach((path) => {
         const line = path as SVGPathElement;
-        const owner = line.closest("g");
-        const ownerId = owner?.id ?? line.id;
+        const ownerId = line.id || line.closest("g")?.id || "";
         const idMatch = ownerId.match(/L_(.+)_(\d+)$/);
         let from: string | null = null;
         let to: string | null = null;
@@ -153,6 +153,11 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
         height: Math.max(bounds.height, 280),
       });
       setMarkers(next);
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Could not place the info buttons.");
+        }
+      }
     };
 
     (async () => {

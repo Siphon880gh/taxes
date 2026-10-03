@@ -59,7 +59,7 @@ export function costReport(session: Session): CostReport {
         amountLabel: "$139",
         yearLabel: citations.turbotax_premium.yearLabel,
         unverified: false,
-        note: "Published federal price for the online product that covers rental property and self-employment, including Schedule C and Schedule E. The online state add-on was not a fixed published dollar on the page retrieved October 3, 2026, so no state fee is added.",
+        note: "Published federal price for the online product whose forms include rental property, investments, and self-employment. The online state add-on was not a fixed published dollar on the page retrieved October 3, 2026, so no state fee is added.",
         citation: citations.turbotax_premium,
       });
     } else if (answerOf(session, "deduction_choice") === "itemized") {
