@@ -33,7 +33,7 @@ function matchNodeId(elementId: string, known: Set<string>): string | null {
   return null;
 }
 
-const lensZooms = [2, 3, 4, 6];
+const lensZooms = [1, 1.5, 2, 3, 4, 6];
 
 function zoomThatFitsWidth(naturalWidth: number, available: number): number | null {
   if (!available || !naturalWidth) return null;
@@ -67,6 +67,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
   const [lensMarkup, setLensMarkup] = useState("");
   const [lensPoint, setLensPoint] = useState<{ x: number; y: number } | null>(null);
   const [lensZoom, setLensZoom] = useState(2);
+  const [viewportMaxHeight, setViewportMaxHeight] = useState<number | null>(null);
   const pendingFit = useRef(true);
   zoomRef.current = zoom;
 
@@ -178,14 +179,19 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
         width: naturalWidth,
         height: Math.max(naturalHeight, 280),
       });
-      if (pendingFit.current && naturalWidth > 0) {
-        const nextZoom = zoomThatFitsWidth(naturalWidth, viewportRef.current?.clientWidth ?? 0);
-        if (nextZoom != null) {
-          pendingFit.current = false;
-          zoomRef.current = nextZoom;
-          if (nextZoom !== scale) setZoom(nextZoom);
-        }
+      const available = viewportRef.current?.clientWidth ?? 0;
+      const fittedZoom = zoomThatFitsWidth(naturalWidth, available) ?? scale;
+      if (pendingFit.current && naturalWidth > 0 && fittedZoom != null) {
+        pendingFit.current = false;
+        zoomRef.current = fittedZoom;
+        if (fittedZoom !== scale) setZoom(fittedZoom);
       }
+      const dock = document.querySelector(".question-dock");
+      const dockHeight = dock?.getBoundingClientRect().height ?? 0;
+      const room = Math.max(280, window.innerHeight - dockHeight - 88);
+      const wide = available > 0 && naturalWidth > available - 24;
+      const fittedHeight = Math.max(naturalHeight, 280) * (wide ? fittedZoom : 1);
+      setViewportMaxHeight(wide ? Math.min(Math.max(fittedHeight, 360), room) : Math.min(room, window.innerHeight * 0.78));
       setMarkers(next);
       } catch (err) {
         if (!cancelled) {
@@ -251,9 +257,13 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
 
     const onResize = () => measure();
     window.addEventListener("resize", onResize);
+    const dock = document.querySelector(".question-dock");
+    const dockObserver = dock ? new ResizeObserver(() => measure()) : null;
+    dockObserver?.observe(dock!);
     return () => {
       cancelled = true;
       window.removeEventListener("resize", onResize);
+      dockObserver?.disconnect();
     };
   }, [source]);
 
@@ -266,6 +276,40 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
       node.classList.toggle("is-selected", id === selectedId);
     });
   }, [selectedId, nodeIds, source]);
+
+  function flashLevelNode(id: string) {
+    onSelect(id);
+    const svg = hostRef.current?.querySelector("svg");
+    const viewport = viewportRef.current;
+    if (!svg || !viewport) return;
+    const known = new Set(nodeIds);
+    const matches: Element[] = [];
+    svg.querySelectorAll("g.node").forEach((node) => {
+      const match = matchNodeId(node.id, known) === id;
+      node.classList.toggle("is-flash", match);
+      if (match) matches.push(node);
+    });
+    const target = matches[0];
+    if (target) {
+      const nodeRect = target.getBoundingClientRect();
+      const viewRect = viewport.getBoundingClientRect();
+      viewport.scrollTo({
+        left: viewport.scrollLeft + nodeRect.left - viewRect.left - viewRect.width / 2 + nodeRect.width / 2,
+        top: viewport.scrollTop + nodeRect.top - viewRect.top - viewRect.height / 2 + nodeRect.height / 2,
+        behavior: "smooth",
+      });
+    }
+    window.setTimeout(() => {
+      svg.querySelectorAll("g.node.is-flash").forEach((node) => node.classList.remove("is-flash"));
+    }, 1500);
+  }
+
+  function stepLens(direction: -1 | 1) {
+    setLensZoom((current) => {
+      const index = Math.max(0, lensZooms.indexOf(current));
+      return lensZooms[Math.min(lensZooms.length - 1, Math.max(0, index + direction))];
+    });
+  }
 
   function fitZoom() {
     const svg = hostRef.current?.querySelector("svg");
@@ -309,6 +353,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
         <div
           ref={viewportRef}
           className="chart-viewport"
+          style={viewportMaxHeight ? { maxHeight: viewportMaxHeight } : undefined}
           onPointerMove={updateLens}
           onPointerLeave={() => setLensPoint(null)}
         >
@@ -356,7 +401,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
                     role="listitem"
                     className={active ? "chart-level-node chart-level-node-active" : "chart-level-node"}
                     aria-current={active ? "true" : undefined}
-                    onClick={() => onSelect(node.id)}
+                    onClick={() => flashLevelNode(node.id)}
                   >
                     {node.title}
                   </button>
@@ -374,14 +419,15 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
           ) : (
             <span className="chart-magnifier-empty" aria-hidden="true">⌕</span>
           )}
-          <button
-            type="button"
-            className="chart-magnifier-zoom"
-            aria-label={`Magnifier is ${lensZoom} times. Click to change the zoom.`}
-            onClick={() => setLensZoom((current) => lensZooms[(lensZooms.indexOf(current) + 1) % lensZooms.length])}
-          >
-            {lensZoom}×
-          </button>
+          <div className="chart-magnifier-zoom" role="group" aria-label="Magnifier zoom">
+            <button type="button" aria-label="Decrease magnifier zoom" disabled={lensZoom <= lensZooms[0]} onClick={() => stepLens(-1)}>
+              −
+            </button>
+            <span>{lensZoom}×</span>
+            <button type="button" aria-label="Increase magnifier zoom" disabled={lensZoom >= lensZooms[lensZooms.length - 1]} onClick={() => stepLens(1)}>
+              +
+            </button>
+          </div>
         </div>
       </div>
       {error ? (

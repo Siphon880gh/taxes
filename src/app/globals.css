@@ -414,23 +414,39 @@ body {
 
 .chart-magnifier-zoom {
   position: absolute;
-  right: 0.45rem;
-  bottom: 0.3rem;
+  right: 0.35rem;
+  bottom: 0.25rem;
   z-index: 1;
-  border: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.1rem;
   border-radius: 999px;
   background: #9a3412;
   color: #fffdf8;
-  padding: 0.05rem 0.4rem;
+  padding: 0.05rem 0.15rem;
   font-size: 0.75rem;
   font-weight: 700;
   pointer-events: auto;
+}
+
+.chart-magnifier-zoom button {
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  padding: 0 0.28rem;
+  font-weight: 700;
   cursor: pointer;
 }
 
-.chart-magnifier-zoom:focus-visible {
+.chart-magnifier-zoom button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.chart-magnifier-zoom button:focus-visible {
   outline: 2px solid #fffdf8;
-  outline-offset: 2px;
+  outline-offset: 1px;
 }
 
 .chart-magnifier-content {
@@ -469,6 +485,24 @@ body {
 .mermaid-host g.node.is-selected path,
 .mermaid-host g.node.is-selected .nodeLabel {
   stroke: #9a3412;
+}
+
+.mermaid-host g.node.is-flash rect,
+.mermaid-host g.node.is-flash polygon,
+.mermaid-host g.node.is-flash path {
+  stroke: #c2410c !important;
+  stroke-width: 4px;
+  animation: node-flash 1.4s ease;
+}
+
+@keyframes node-flash {
+  0%,
+  100% {
+    filter: none;
+  }
+  35% {
+    filter: drop-shadow(0 0 8px #ea580c);
+  }
 }
 
 .text-rust {
