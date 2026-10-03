@@ -59,6 +59,13 @@ export const citations = {
     citation:
       "Line A: if you owned more than one business, complete a separate Schedule C for each business. Line 1: gross receipts, including amounts properly shown on Forms 1099-NEC. Line 31: net profit or loss, included on Schedule 1 (Form 1040), line 3, and on Schedule SE, line 2. One-half of self-employment tax is deducted on Schedule 1, line 15.",
   } satisfies Citation,
+  estimated_taxes: {
+    title: "IRS estimated taxes",
+    url: "https://www.irs.gov/businesses/small-businesses-self-employed/estimated-taxes",
+    yearLabel: "Page last reviewed September 25, 2026",
+    citation:
+      "IRS, Estimated taxes, page last reviewed or updated September 25, 2026. Tax is paid as income is earned, through withholding or estimated tax payments. Estimated tax covers income tax and other taxes such as self-employment tax. Individuals, including sole proprietors, generally must make estimated payments if they expect to owe $1,000 or more when the return is filed. Individuals generally use Form 1040-ES. Paying too little through withholding and estimated payments can bring a penalty. This page does not name the Form 1040 line where payments already made are entered.",
+  } satisfies Citation,
   scheduleE_2025: {
     title: "2025 Schedule E (Form 1040) and instructions",
     url: "https://www.irs.gov/instructions/i1040se",

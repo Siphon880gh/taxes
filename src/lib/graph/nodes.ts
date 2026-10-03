@@ -915,6 +915,8 @@ export const nodes: GraphNode[] = [
     title: "Estimated tax",
     chart: "Estimated tax payments?",
     prompt: "Does the return include estimated tax payments?",
+    help: "Estimated tax payments are amounts already paid during the year, usually quarterly, when withholding did not cover the tax. On a prepared return they are a credit against the tax, not a new form to start. Yes means those payments are on the return and should be verified.",
+    tipId: "estimates",
     answers: [
       choice("yes", "Yes", ["check_est", ...FLOW], "Yes"),
       choice("no", "No", ["note_est_no"], "No"),

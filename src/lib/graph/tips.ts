@@ -96,6 +96,19 @@ export const tips: Record<string, Tip> = {
       citations: [citations.pub527_2025, citations.scheduleE_2025],
     }),
   },
+  estimates: {
+    id: "estimates",
+    toast: "Estimated tax is tax paid during the year when withholding does not cover it, including self-employment tax. Read more",
+    readMore: () => ({
+      title: "Estimated tax payments on the return",
+      paragraphs: [
+        "This question asks whether the prepared return already includes estimated tax payments. It does not tell you to start paying estimates or to file Form 1040-ES.",
+        "The IRS says tax is paid as you earn income, either by withholding or by estimated payments. Payments are common when tax was not withheld, including on self-employment income, interest, dividends, or capital gains. Estimated tax can cover income tax and self-employment tax. On the return, payments already made are a credit against the tax, separate from withholding. Confirm that line on the form in front of you. Quarterly vouchers are Form 1040-ES.",
+        "The IRS page says individuals, including sole proprietors, generally have to make estimated payments if they expect to owe $1,000 or more when they file. That is about whether payments were required. It is not a finding that this return includes them. Yes only means the prepared return has payments to verify. This chart does not compute an underpayment penalty.",
+      ],
+      citations: [citations.estimated_taxes],
+    }),
+  },
   form_1040: {
     id: "form_1040",
     toast: "Schedules on this path are checked where they land on Form 1040. Read more",
