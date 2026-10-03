@@ -1,6 +1,6 @@
 # Decision graph
 
-Tax codes, thresholds, form layouts, and line numbers change. This is a final cross-check of a return already prepared in FreeTaxUSA. It is not tax advice and it is not an instruction to begin a form. Figures are shown with a tax year and a source. Unverified items stay flagged. A case study is a saved set of answers so you can see which schedules and lines to verify. It is not a finding about anyone's return.
+Tax codes, thresholds, form layouts, and line numbers change. This is a final cross-check of a return already prepared by a professional or tax platform. It is not tax advice and it is not an instruction to begin a form. Figures are shown with a tax year and a source. Unverified items stay flagged. A case study is a saved set of answers so you can see which schedules and lines to verify. It is not a finding about anyone's return.
 
 This document and the interactive chart are generated from the same node list. A blank session answers only the tax year (2025, the return someone would still be final-checking in early October 2026). Case studies are optional saved paths.
 
@@ -29,7 +29,7 @@ flowchart TD
   se_entity["Is the work a sole proprietorship or an entity?"]
   se_count["How many sole-proprietor activities?"]
   se_names["Name the sole-proprietor activities"]
-  schedule_c["Schedule C is for self-employment income and expenses, including 1099-NEC freelance jobs.<br/>Verify in FreeTaxUSA. Not an instruction to start a form."]
+  schedule_c["Schedule C is for self-employment income and expenses, including 1099-NEC freelance jobs.<br/>Verify on the prepared return. Not an instruction to start a form."]
   schedule_se["Schedule SE — self-employment tax on sole-proprietor net profit. Verify it. The i button outlines the calculation. Not a tax computation."]
   check_no_entity["Verify the work is not reported on Form 1065 or Form 1120-S"]
   check_entity_k1["Entity path — verify Schedule E Part II or the K-1. Do not treat Schedule C as the entity return."]
@@ -53,7 +53,7 @@ flowchart TD
   check_paid_off["Paid-off rental — verify Schedule E line 12 mortgage interest"]
   rental_history["When did the rental start, and was it on an earlier return?"]
   check_history["Rental was on earlier returns — verify those returns agree. Do not set a depreciation start year from this alone."]
-  schedule_e["Schedule E is where rental property income and expenses go: rent collected and things like repairs, insurance, and depreciation. Verify it in FreeTaxUSA. Not an instruction to start a form."]
+  schedule_e["Schedule E is where rental property income and expenses go: rent collected and things like repairs, insurance, and depreciation. Verify it on the prepared return. Not an instruction to start a form."]
   rental_tenant["Did a tenant pay water or other expenses?"]
   note_tenant_no["No tenant-paid expenses on this path"]
   flag_tenant["Tenant-paid water or other expenses unknown — verify line 3 and line 17"]
@@ -118,7 +118,7 @@ flowchart TD
   ca_itemized["California itemized total on the prepared Form 540, if any"]
   deduction_result["Standard vs itemized — sourced amounts for the selected year, status, and jurisdiction. Verify Form 1040 line 12e. Not a recommendation to change the return."]
   flag_deduction["A deduction fact is unknown — do not treat a comparison as finished"]
-  form_1040["Form 1040 — Schedule C, Schedule E, and any other schedules this path turns up flow onto the main Form 1040. Verify the prepared return in FreeTaxUSA. Not an instruction to start a form."]
+  form_1040["Form 1040 — Schedule C, Schedule E, and any other schedules this path turns up flow onto the main Form 1040. Verify the prepared return. Not an instruction to start a form."]
   year -->|"2024"| filing_status
   filing_status -->|"Single"| w2
   filing_status -->|"Single"| se
@@ -277,7 +277,7 @@ The walk starts with the tax year on the prepared return, then the filing status
 
 #### Tax year (`year`)
 
-Which tax year is on the FreeTaxUSA return you are final-checking?
+Which tax year is on the return you are final-checking?
 
 In early October 2026, a 2025 return can still be in the extension window (file-by date with an extension is October 15, 2026). 2026 figures are included only where a published source was found. This is the year on the return, not a suggestion to file a new one.
 
@@ -419,10 +419,9 @@ Venmo, PayPal, and similar apps are split into personal transfers and goods-and-
 
 Is there Venmo, PayPal, or similar payment-app activity to cross-check?
 
-“Probably too low to file” is a belief, not a conclusion. It still opens the questions about personal transfers versus goods and services.
+Goods-and-services or other commercial payments are still filed even when Venmo, PayPal, or a similar app does not issue Form 1099-K. Being under the form threshold is not a reason to leave them off.
 
 - **Yes** → `pay_class`
-- **I think it is probably too low to file** → `pay_class`
 - **No** → `note_pay_no`
 - **I don't know** → `flag_pay`
 
@@ -467,7 +466,7 @@ Was Form 1099-K issued for the goods-and-services payments?
 
 Form 1099-K was issued — verify that form on the prepared return
 
-Match the form to the income lines already in FreeTaxUSA. Receiving the form is not an instruction to start a new schedule.
+Match the form to the income lines already on the prepared return. Receiving the form is not an instruction to start a new schedule.
 
 Flows onto `form_1040`.
 
@@ -792,7 +791,7 @@ The Form 1040 digital-asset question is still worth a glance if you are unsure.
 
 Verify the Form 1040 digital-asset question and the 8949 / Schedule D entries. Not an instruction to start those forms.
 
-The exact checkbox position on the 2025 Form 1040 should be read off the form in FreeTaxUSA. It is flagged rather than given a guessed line.
+The exact checkbox position on the 2025 Form 1040 should be read off the prepared return. It is flagged rather than given a guessed line.
 
 Flows onto `form_1040`.
 
@@ -1070,7 +1069,7 @@ Schedule C, Schedule E, and any other schedule the path turns up are drawn into 
 
 #### Schedule C (`schedule_c`)
 
-Schedule C is for self-employment income and expenses, including 1099-NEC freelance jobs. Verify it in FreeTaxUSA. Not an instruction to start a form.
+Schedule C is for self-employment income and expenses, including 1099-NEC freelance jobs. Verify it on the prepared return. Not an instruction to start a form.
 
 2025 Schedule C line 1 includes Forms 1099-NEC. Line 31 goes to Schedule 1 line 3 and to Schedule SE line 2. One Schedule C per business.
 
@@ -1078,7 +1077,7 @@ Flows onto `form_1040`.
 
 #### Schedule E (`schedule_e`)
 
-Schedule E is where rental property income and expenses go: rent collected and things like repairs, insurance, and depreciation. Verify it in FreeTaxUSA. Not an instruction to start a form.
+Schedule E is where rental property income and expenses go: rent collected and things like repairs, insurance, and depreciation. Verify it on the prepared return. Not an instruction to start a form.
 
 2025 lines to verify: line 2 days, line 3 rents, line 12 mortgage interest, line 17 utilities, line 18 depreciation, line 26 total.
 
@@ -1086,7 +1085,7 @@ Flows onto `form_1040`.
 
 #### Form 1040 (`form_1040`)
 
-Form 1040 — Schedule C, Schedule E, and any other schedules this path turns up flow onto the main Form 1040. Verify the prepared return in FreeTaxUSA. Not an instruction to start a form.
+Form 1040 — Schedule C, Schedule E, and any other schedules this path turns up flow onto the main Form 1040. Verify the prepared return. Not an instruction to start a form.
 
 Line 11b is adjusted gross income and line 12e is the deduction on the 2025 form. Other lines are cited only when a stored source names them.
 
@@ -1160,7 +1159,7 @@ H&R Block's online dollar price was not in the HTML retrieved October 3, 2026, s
 
 These are saved answers. They are not tax advice.
 
-### Weng — 2025 example
+### Coder/Nurse 1099 Example
 
 Single, no mortgage, 1099-NECs for nursing and coding with no LLC, Venmo/PayPal goods and services with the amount unknown, one paid-off rental with the same tenants since 2019, and a $975 independent-firm quote. Louisiana versus Los Angeles, the Venmo amount, and whether the depreciation records are clean stay on the unknown path.
 
@@ -1200,10 +1199,10 @@ flowchart TD
   se_entity["Entity<br/>Sole proprietor — no LLC and no corporation"]
   se_count["How many activities<br/>Two or more"]
   se_names["Activity names<br/>nursing and coding"]
-  schedule_c["Schedule C is for self-employment income and expenses, including the 1099-NEC freelance jobs (nursing and coding).<br/>Verify in FreeTaxUSA. Not an instruction to start a form."]
+  schedule_c["Schedule C is for self-employment income and expenses, including the 1099-NEC freelance jobs (nursing and coding).<br/>Verify on the prepared return. Not an instruction to start a form."]
   schedule_se["Schedule SE — self-employment tax on sole-proprietor net profit. Verify it. The i button outlines the calculation. Not a tax computation."]
   check_no_entity["Verify the work is not reported on Form 1065 or Form 1120-S"]
-  form_1040["Form 1040 — Schedule C, Schedule E, and any other schedules this path turns up flow onto the main Form 1040. Verify the prepared return in FreeTaxUSA. Not an instruction to start a form."]
+  form_1040["Form 1040 — Schedule C, Schedule E, and any other schedules this path turns up flow onto the main Form 1040. Verify the prepared return. Not an instruction to start a form."]
   payapps["Payment apps<br/>Yes"]
   pay_class["What the payments were<br/>Goods and services (transactional)"]
   pay_1099k["Was a 1099-K issued?<br/>No form was generated"]
@@ -1218,7 +1217,7 @@ flowchart TD
   check_paid_off["Paid-off rental — verify Schedule E line 12 mortgage interest"]
   rental_history["Rental history<br/>Began in 2019, same tenants, and it was on earlier returns"]
   check_history["Rental was on earlier returns — verify those returns agree. Do not set a depreciation start year from this alone."]
-  schedule_e["Schedule E is where rental property income and expenses go: rent collected and things like repairs, insurance, and depreciation. Verify it in FreeTaxUSA. Not an instruction to start a form."]
+  schedule_e["Schedule E is where rental property income and expenses go: rent collected and things like repairs, insurance, and depreciation. Verify it on the prepared return. Not an instruction to start a form."]
   rental_tenant["Did a tenant pay water or other expenses?"]
   rental_alloc["Any owner use, or square-footage split?"]
   rental_depr["Does this return claim depreciation?"]
@@ -1295,7 +1294,7 @@ flowchart TD
   class pay_amount,rental_records,flag_records,jurisdiction unknown
 ```
 
-### Illustration — joint W-2 and crypto
+### Joint W-2 & Crypto Example
 
 A short second path: married filing jointly, W-2 wages, no self-employment, no rental, and a crypto sale. It is an illustration so the tool is not only the 2025 single-filer rental example. It is not tax advice and it is not a real person's return.
 
@@ -1321,7 +1320,7 @@ flowchart TD
   filing_status["Filing status<br/>Married filing jointly"]
   w2["W-2 wages<br/>Yes"]
   check_w2["Form 1040 line 1a — W-2 box 1 wages. Verify the prepared return. Not an instruction to start a form."]
-  form_1040["Form 1040 — Schedule C, Schedule E, and any other schedules this path turns up flow onto the main Form 1040. Verify the prepared return in FreeTaxUSA. Not an instruction to start a form."]
+  form_1040["Form 1040 — Schedule C, Schedule E, and any other schedules this path turns up flow onto the main Form 1040. Verify the prepared return. Not an instruction to start a form."]
   se["Self-employment<br/>No"]
   note_se_no["No self-employment branch on this path"]
   payapps["Venmo, PayPal, or similar payment apps?"]
@@ -1388,6 +1387,7 @@ The modal starts from net profit, then 92.35% of that profit, the 15.3% split, t
 
 | Tip | Where it sits | Toast |
 | --- | --- | --- |
+| capital_gain | node `capgain` | Capital gain means a profit from selling a capital asset. Read more |
 | se_tax | node `schedule_se`; edge `se_names` → `schedule_se`; edge `se_count` → `schedule_se`; edge `schedule_se` → `form_1040` | There are calculations to figure out how much you owe in self employment (SE) tax. Read more |
 | schedule_c | node `schedule_c` | Schedule C is where self-employment income and expenses are checked, including 1099-NEC work. Read more |
 | schedule_e | node `schedule_e` | Schedule E is where rental income and expenses are checked: rent, repairs, insurance, and depreciation. Read more |

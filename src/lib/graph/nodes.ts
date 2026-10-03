@@ -42,7 +42,7 @@ export const nodes: GraphNode[] = [
     kind: "question",
     title: "Tax year",
     chart: "Tax year being final-checked",
-    prompt: "Which tax year is on the FreeTaxUSA return you are final-checking?",
+    prompt: "Which tax year is on the return you are final-checking?",
     help: "In early October 2026, a 2025 return can still be in the extension window (file-by date with an extension is October 15, 2026). 2026 figures are included only where a published source was found. This is the year on the return, not a suggestion to file a new one.",
     answers: [
       choice("y2024", "2024", ["filing_status"], "2024"),
@@ -188,7 +188,7 @@ export const nodes: GraphNode[] = [
     kind: "check",
     title: "Schedule C",
     chart:
-      "Schedule C is for self-employment income and expenses, including 1099-NEC freelance jobs. Verify it in FreeTaxUSA. Not an instruction to start a form.",
+      "Schedule C is for self-employment income and expenses, including 1099-NEC freelance jobs. Verify it on the prepared return. Not an instruction to start a form.",
     help: "2025 Schedule C line 1 includes Forms 1099-NEC. Line 31 goes to Schedule 1 line 3 and to Schedule SE line 2. One Schedule C per business.",
     tipId: "schedule_c",
     flowsTo: FLOW,
@@ -228,15 +228,9 @@ export const nodes: GraphNode[] = [
     title: "Payment apps",
     chart: "Venmo, PayPal, or similar payment apps?",
     prompt: "Is there Venmo, PayPal, or similar payment-app activity to cross-check?",
-    help: "“Probably too low to file” is a belief, not a conclusion. It still opens the questions about personal transfers versus goods and services.",
+    help: "Goods-and-services or other commercial payments are still filed even when Venmo, PayPal, or a similar app does not issue Form 1099-K. Being under the form threshold is not a reason to leave them off.",
     answers: [
       choice("yes", "Yes", ["pay_class"], "Yes"),
-      choice(
-        "believe_low",
-        "I think it is probably too low to file",
-        ["pay_class"],
-        "Believes too low",
-      ),
       choice("no", "No", ["note_pay_no"], "No"),
       unk(["flag_pay"]),
     ],
@@ -300,7 +294,7 @@ export const nodes: GraphNode[] = [
     kind: "check",
     title: "Verify Form 1099-K",
     chart: "Form 1099-K was issued — verify that form on the prepared return",
-    help: "Match the form to the income lines already in FreeTaxUSA. Receiving the form is not an instruction to start a new schedule.",
+    help: "Match the form to the income lines already on the prepared return. Receiving the form is not an instruction to start a new schedule.",
     tipId: "ten99k",
     flowsTo: FLOW,
   },
@@ -471,7 +465,7 @@ export const nodes: GraphNode[] = [
     kind: "check",
     title: "Schedule E",
     chart:
-      "Schedule E is where rental property income and expenses go: rent collected and things like repairs, insurance, and depreciation. Verify it in FreeTaxUSA. Not an instruction to start a form.",
+      "Schedule E is where rental property income and expenses go: rent collected and things like repairs, insurance, and depreciation. Verify it on the prepared return. Not an instruction to start a form.",
     help: "2025 lines to verify: line 2 days, line 3 rents, line 12 mortgage interest, line 17 utilities, line 18 depreciation, line 26 total.",
     tipId: "schedule_e",
     flowsTo: FLOW,
@@ -719,6 +713,7 @@ export const nodes: GraphNode[] = [
     title: "Capital gains",
     chart: "Sales of stocks, funds, or other capital assets?",
     prompt: "Does the return report sales of capital assets (Form 1099-B or similar)?",
+    tipId: "capital_gain",
     answers: [
       choice("yes", "Yes", ["check_capgain", ...FLOW], "Yes"),
       choice("no", "No", ["note_capgain_no"], "No"),
@@ -778,7 +773,7 @@ export const nodes: GraphNode[] = [
     kind: "check",
     title: "Digital asset disposals",
     chart: "Verify the Form 1040 digital-asset question and the 8949 / Schedule D entries. Not an instruction to start those forms.",
-    help: "The exact checkbox position on the 2025 Form 1040 should be read off the form in FreeTaxUSA. It is flagged rather than given a guessed line.",
+    help: "The exact checkbox position on the 2025 Form 1040 should be read off the prepared return. It is flagged rather than given a guessed line.",
     flowsTo: FLOW,
   },
   {
@@ -1152,7 +1147,7 @@ export const nodes: GraphNode[] = [
     kind: "check",
     title: "Form 1040",
     chart:
-      "Form 1040 — Schedule C, Schedule E, and any other schedules this path turns up flow onto the main Form 1040. Verify the prepared return in FreeTaxUSA. Not an instruction to start a form.",
+      "Form 1040 — Schedule C, Schedule E, and any other schedules this path turns up flow onto the main Form 1040. Verify the prepared return. Not an instruction to start a form.",
     help: "Line 11b is adjusted gross income and line 12e is the deduction on the 2025 form. Other lines are cited only when a stored source names them.",
     tipId: "form_1040",
   },
