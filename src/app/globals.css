@@ -354,6 +354,13 @@ body {
   font-size: 4rem;
 }
 
+@media (max-width: 1099px) {
+  .chart-magnifier,
+  .chart-level-navigator {
+    display: none;
+  }
+}
+
 .mermaid-host g.node {
   cursor: pointer;
 }
