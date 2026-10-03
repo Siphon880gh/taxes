@@ -1,8 +1,8 @@
-# FreeTaxUSA final check
+# Tax Final Confirmation
 
-A final cross-check for a return you already prepared in FreeTaxUSA. The chart asks what is on that return and names the forms, schedules, and lines to verify. It does not prepare a return and it does not tell you to start a form.
+A final cross-check for a return already prepared by a professional or tax platform. The chart asks what is on that return and names the forms, schedules, and lines to verify. It does not prepare a return and it does not tell you to start a form.
 
-Tax codes, thresholds, form layouts, and line numbers change. This is a final cross-check of a return already prepared in FreeTaxUSA. It is not tax advice and it is not an instruction to begin a form. Figures are shown with a tax year and a source. Unverified items stay flagged. A case study is a saved set of answers so you can see which schedules and lines to verify. It is not a finding about anyone's return.
+Tax codes, thresholds, form layouts, and line numbers change. This is a final cross-check of a return already prepared by a professional or tax platform. It is not tax advice and it is not an instruction to begin a form. Figures are shown with a tax year and a source. Unverified items stay flagged. A case study is a saved set of answers so you can see which schedules and lines to verify. It is not a finding about anyone's return.
 
 The decision graph, the on-screen chart, and the checklist all come from `src/lib/graph`. Read [docs/DECISION_GRAPH.md](docs/DECISION_GRAPH.md) for the full branching design, the sourced deduction amounts, the 2025 Form 1099-K threshold, and the preparation-price comparison.
 

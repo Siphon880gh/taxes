@@ -13,9 +13,9 @@ const body = Source_Sans_3({
 });
 
 export const metadata: Metadata = {
-  title: "FreeTaxUSA final check",
+  title: "Tax Final Confirmation",
   description:
-    "A final cross-check of forms, schedules, and lines on a return already prepared in FreeTaxUSA. Not tax advice.",
+    "A final cross-check of forms, schedules, and lines on a return already prepared by a professional or tax platform. Not tax advice.",
 };
 
 export default function RootLayout({
