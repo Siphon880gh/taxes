@@ -43,6 +43,35 @@ function tipBody(tipId: string, session: Session): TipBody | null {
   });
 }
 
+function DockInfo({ tipId, session }: { tipId: string; session: Session }) {
+  const body = tipBody(tipId, session);
+  const tip = tips[tipId];
+  if (!body) {
+    return <p className="mt-3 text-stone-800">{tip?.toast ?? "No note is stored for this box."}</p>;
+  }
+  return (
+    <div className="mt-3 flex flex-col gap-2">
+      <h3 className="text-sm font-semibold text-stone-800">{body.title}</h3>
+      {body.paragraphs.map((paragraph) => (
+        <p key={paragraph} className="text-stone-800">{paragraph}</p>
+      ))}
+      {body.bullets?.length ? (
+        <ul className="flex list-disc flex-col gap-1 pl-5 text-sm text-stone-800">
+          {body.bullets.map((bullet) => (
+            <li key={bullet}>{bullet}</li>
+          ))}
+        </ul>
+      ) : null}
+      {body.citations.map((citation) => (
+        <a key={citation.url} className="text-sm text-rust underline-offset-2 hover:underline" href={citation.url} target="_blank" rel="noreferrer">
+          {citation.title}
+          <span className="text-stone-500"> · {citation.yearLabel}</span>
+        </a>
+      ))}
+    </div>
+  );
+}
+
 export function CheckerApp() {
   const [session, setSession] = useState<Session>(() => blankSession());
   const [selectedId, setSelectedId] = useState<string>("filing_status");
@@ -55,6 +84,7 @@ export function CheckerApp() {
   const [libraryStuck, setLibraryStuck] = useState(false);
   const librarySentinel = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState("");
+  const [dockTab, setDockTab] = useState<"answer" | "info">("answer");
   const dockRef = useRef<HTMLElement>(null);
   const dockBaseHeight = useRef<number | null>(null);
   const [dockHeight, setDockHeight] = useState<number | null>(null);
@@ -210,13 +240,23 @@ export function CheckerApp() {
     }
   }
 
-  function showTip(tipId: string) {
+  function showTip(tipId: string, nodeId?: string) {
+    const node = nodeId ? getNode(nodeId) : null;
+    const hasChoices = Boolean(node && node.kind === "question" && (node.answers?.length || node.textInput));
+    if (node && hasChoices && node.tipId) {
+      setSelectedId(node.id);
+      setDockTab("info");
+      setTopCollapsed(true);
+      setToastId(null);
+      return;
+    }
     setToastId(tipId);
   }
 
   function selectNode(id: string) {
     if ((nodeLevels.get(id) ?? 0) !== selectedLevel) setLevelExpanded(false);
     setSelectedId(id);
+    setDockTab("answer");
     setTopCollapsed(true);
   }
 
@@ -369,12 +409,23 @@ export function CheckerApp() {
                   </button>
                 ) : null}
               </div>
-              {selected?.tipId ? (
+              {selected && selected.kind === "question" && selected.tipId && (selected.answers?.length || selected.textInput) ? (
+                <div className="dock-tabs" role="tablist" aria-label="Answer or information">
+                  <button type="button" role="tab" aria-selected={dockTab === "answer"} className={dockTab === "answer" ? "dock-tab dock-tab-on" : "dock-tab"} onClick={() => setDockTab("answer")}>
+                    Answer
+                  </button>
+                  <button type="button" role="tab" aria-selected={dockTab === "info"} className={dockTab === "info" ? "dock-tab dock-tab-on" : "dock-tab"} onClick={() => setDockTab("info")}>
+                    Information
+                  </button>
+                </div>
+              ) : selected?.tipId ? (
                 <button type="button" className="btn-secondary mt-3" onClick={() => showTip(selected.tipId!)}>
                   i · Note on this box
                 </button>
               ) : null}
-              {selected?.kind === "question" ? (
+              {selected && selected.kind === "question" && selected.tipId && dockTab === "info" && (selected.answers?.length || selected.textInput) ? (
+                <DockInfo tipId={selected.tipId} session={session} />
+              ) : selected?.kind === "question" ? (
                 <>
                   <p className="mt-2 text-stone-800">{selected.prompt}</p>
                   {selected.help ? <p className="mt-2 text-sm text-stone-600">{selected.help}</p> : null}

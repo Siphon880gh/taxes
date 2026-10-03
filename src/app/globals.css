@@ -350,6 +350,28 @@ body {
   font-size: 1.3em;
 }
 
+.dock-tabs {
+  display: flex;
+  gap: 0.35rem;
+  margin-top: 0.85rem;
+  border-bottom: 1px solid #d6d3d1;
+}
+
+.dock-tab {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  padding: 0.35rem 0.7rem;
+  color: #57534e;
+  font-size: 0.95em;
+}
+
+.dock-tab-on {
+  border-bottom-color: #9a3412;
+  color: #7c2d12;
+  font-weight: 650;
+}
+
 .question-dock-resize {
   position: absolute;
   top: 0;

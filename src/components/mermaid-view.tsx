@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, type PointerEvent } from "react";
 type Marker = {
   key: string;
   tipId: string;
+  nodeId?: string;
   label: string;
   x: number;
   y: number;
@@ -17,7 +18,7 @@ type Props = {
   edgeTips: { from: string; to: string; tipId: string; label: string }[];
   selectedId: string | null;
   onSelect: (id: string) => void;
-  onTip: (tipId: string) => void;
+  onTip: (tipId: string, nodeId?: string) => void;
   levelNodes: { id: string; title: string }[];
   levelExpanded: boolean;
   onToggleLevel: () => void;
@@ -100,6 +101,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
         next.push({
           key: `node-${id}`,
           tipId: tip.tipId,
+          nodeId: id,
           label: tip.label,
           x: (rect.right - stageRect.left - 16 * scale) / scale,
           y: (rect.top - stageRect.top - 8 * scale) / scale,
@@ -378,7 +380,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
                     aria-label={marker.label}
                     onClick={(event) => {
                       event.stopPropagation();
-                      onTipRef.current(marker.tipId);
+                      onTipRef.current(marker.tipId, marker.nodeId);
                     }}
                   >
                     i
