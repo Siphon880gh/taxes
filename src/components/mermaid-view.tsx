@@ -33,6 +33,8 @@ function matchNodeId(elementId: string, known: Set<string>): string | null {
   return null;
 }
 
+const lensZooms = [2, 3, 4, 6];
+
 function zoomThatFitsWidth(naturalWidth: number, available: number): number | null {
   if (!available || !naturalWidth) return null;
   // A short chart already fits. Leave it at 100% instead of stretching a few nodes.
@@ -64,6 +66,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
   const [zoom, setZoom] = useState(1);
   const [lensMarkup, setLensMarkup] = useState("");
   const [lensPoint, setLensPoint] = useState<{ x: number; y: number } | null>(null);
+  const [lensZoom, setLensZoom] = useState(2);
   const pendingFit = useRef(true);
   zoomRef.current = zoom;
 
@@ -367,10 +370,18 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
         </div>
         <div className="chart-magnifier" aria-live="polite" aria-label="Magnified chart area under the pointer">
           {lensPoint && lensMarkup ? (
-            <div className="chart-magnifier-content" style={{ transform: `scale(2) translate(${352 / 4 - lensPoint.x}px, ${136 / 4 - lensPoint.y}px)` }} dangerouslySetInnerHTML={{ __html: lensMarkup }} />
+            <div className="chart-magnifier-content" style={{ transform: `scale(${lensZoom}) translate(${352 / (2 * lensZoom) - lensPoint.x}px, ${136 / (2 * lensZoom) - lensPoint.y}px)` }} dangerouslySetInnerHTML={{ __html: lensMarkup }} />
           ) : (
             <span className="chart-magnifier-empty" aria-hidden="true">⌕</span>
           )}
+          <button
+            type="button"
+            className="chart-magnifier-zoom"
+            aria-label={`Magnifier is ${lensZoom} times. Click to change the zoom.`}
+            onClick={() => setLensZoom((current) => lensZooms[(lensZooms.indexOf(current) + 1) % lensZooms.length])}
+          >
+            {lensZoom}×
+          </button>
         </div>
       </div>
       {error ? (
