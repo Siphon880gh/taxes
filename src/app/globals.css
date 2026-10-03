@@ -275,6 +275,7 @@ body {
 }
 
 .question-dock {
+  --dock-scale: 1;
   position: fixed;
   right: 0;
   bottom: 0;
@@ -285,7 +286,65 @@ body {
   border-top: 1px solid #d6d3d1;
   background: rgb(244 239 230 / 0.97);
   box-shadow: 0 -8px 24px rgb(28 25 23 / 0.12);
-  padding: 0.85rem 1rem;
+  padding: 1.15rem 1rem 0.85rem;
+  font-size: calc(1rem * var(--dock-scale));
+}
+
+.question-dock h2 {
+  font-size: 1.5em;
+  line-height: 1.2;
+}
+
+.question-dock h3,
+.question-dock .text-sm {
+  font-size: 0.875em;
+}
+
+.question-dock .text-xs {
+  font-size: 0.75em;
+}
+
+.question-dock .btn-primary,
+.question-dock .btn-secondary,
+.question-dock .btn-unknown,
+.question-dock input,
+.question-dock label {
+  font-size: 0.95em;
+}
+
+.question-dock .add-instance {
+  width: 2em;
+  height: 2em;
+  font-size: 1.3em;
+}
+
+.question-dock-resize {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 0.7rem;
+  border: 0;
+  background: transparent;
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+.question-dock-resize::after {
+  content: "";
+  position: absolute;
+  top: 0.22rem;
+  left: 50%;
+  width: 2.75rem;
+  height: 0.22rem;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: #a8a29e;
+}
+
+.question-dock-resize:focus-visible {
+  outline: 2px solid #9a3412;
+  outline-offset: -2px;
 }
 
 @media (min-width: 640px) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { MermaidView } from "@/components/mermaid-view";
 import { DISCLAIMER } from "@/lib/disclaimer";
 import {
@@ -53,6 +53,46 @@ export function CheckerApp() {
   const [levelExpanded, setLevelExpanded] = useState(false);
   const [topCollapsed, setTopCollapsed] = useState(false);
   const [draft, setDraft] = useState("");
+  const dockRef = useRef<HTMLElement>(null);
+  const dockBaseHeight = useRef<number | null>(null);
+  const [dockHeight, setDockHeight] = useState<number | null>(null);
+  const dockScale =
+    dockHeight == null || !dockBaseHeight.current
+      ? 1
+      : Math.min(1.65, Math.max(0.85, dockHeight / dockBaseHeight.current));
+
+  function clampDockHeight(next: number) {
+    const max = Math.min(window.innerHeight * 0.72, 42 * 16);
+    return Math.min(max, Math.max(9 * 16, next));
+  }
+
+  function resizeDock(event: ReactPointerEvent<HTMLButtonElement>) {
+    const dock = dockRef.current;
+    if (!dock) return;
+    const startY = event.clientY;
+    const startHeight = dock.getBoundingClientRect().height;
+    if (dockBaseHeight.current == null) dockBaseHeight.current = startHeight;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const move = (ev: PointerEvent) => {
+      setDockHeight(clampDockHeight(startHeight + (startY - ev.clientY)));
+    };
+    const stop = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", stop);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", stop);
+  }
+
+  function nudgeDock(event: React.KeyboardEvent<HTMLButtonElement>) {
+    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+    event.preventDefault();
+    const dock = dockRef.current;
+    if (!dock) return;
+    const current = dockHeight ?? dock.getBoundingClientRect().height;
+    if (dockBaseHeight.current == null) dockBaseHeight.current = current;
+    setDockHeight(clampDockHeight(current + (event.key === "ArrowUp" ? 28 : -28)));
+  }
 
   const source = useMemo(() => mermaidSource(session), [session]);
   const checklist = useMemo(() => buildChecklist(session), [session]);
@@ -292,7 +332,19 @@ export function CheckerApp() {
           </p>
         </section>
 
-        <aside className="question-dock" aria-label="Selected chart node">
+        <aside
+          ref={dockRef}
+          className="question-dock"
+          aria-label="Selected chart node"
+          style={{ height: dockHeight ?? undefined, maxHeight: dockHeight ?? undefined, ["--dock-scale" as string]: dockScale }}
+        >
+          <button
+            type="button"
+            className="question-dock-resize"
+            aria-label="Resize the bottom panel"
+            onPointerDown={resizeDock}
+            onKeyDown={nudgeDock}
+          />
           <div className="question-dock-inner flex flex-col gap-4">
             <section className="panel" aria-labelledby="question-heading">
               <div className="flex items-start justify-between gap-3">
