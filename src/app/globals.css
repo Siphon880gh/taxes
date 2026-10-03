@@ -274,6 +274,38 @@ body {
   color: #7c2d12;
 }
 
+.path-library {
+  position: sticky;
+  top: 0;
+  z-index: 25;
+  margin-inline: -1rem;
+  background: #f4efe6;
+  padding: 0.35rem 1rem;
+}
+
+@media (min-width: 640px) {
+  .path-library {
+    margin-inline: -1.5rem;
+    padding-inline: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .path-library {
+    margin-inline: -2rem;
+    padding-inline: 2rem;
+  }
+}
+
+.path-library-identity {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  border-right: 1px solid #a8a29e;
+  padding-right: 0.9rem;
+}
+
 .question-dock {
   --dock-scale: 1;
   position: fixed;

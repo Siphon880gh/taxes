@@ -52,6 +52,8 @@ export function CheckerApp() {
   const [purposeOpen, setPurposeOpen] = useState(false);
   const [levelExpanded, setLevelExpanded] = useState(false);
   const [topCollapsed, setTopCollapsed] = useState(false);
+  const [libraryStuck, setLibraryStuck] = useState(false);
+  const librarySentinel = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState("");
   const dockRef = useRef<HTMLElement>(null);
   const dockBaseHeight = useRef<number | null>(null);
@@ -132,6 +134,14 @@ export function CheckerApp() {
   useEffect(() => {
     setDraft(session.answers[selectedId]?.text ?? "");
   }, [selectedId, session]);
+
+  useEffect(() => {
+    const sentinel = librarySentinel.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(([entry]) => setLibraryStuck(!entry.isIntersecting));
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     if (!modalId && !costOpen && !purposeOpen) return;
@@ -217,16 +227,8 @@ export function CheckerApp() {
 
   return (
     <div className="min-h-screen">
-      <header className={topCollapsed ? "sticky top-0 z-30 border-b border-stone-300 bg-[#fffdf8] shadow-sm" : "border-b border-stone-300 bg-[#fffdf8]"}>
-        {topCollapsed ? (
-          <div className="flex w-full items-center justify-between gap-3 px-4 py-2 sm:px-6 lg:px-8">
-            <p className="font-display text-lg text-stone-900">Taxes Final Check</p>
-            <div className="flex items-center gap-3 text-sm text-stone-700">
-              <span>Return year: {returnYear}</span>
-              <button type="button" className="btn-secondary" onClick={() => setTopCollapsed(false)}>Expand</button>
-            </div>
-          </div>
-        ) : (
+      <header className={topCollapsed ? "hidden" : "border-b border-stone-300 bg-[#fffdf8]"}>
+        {topCollapsed ? null : (
           <div className="flex w-full flex-col gap-4 px-4 py-5 sm:px-6 lg:px-8">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -271,12 +273,22 @@ export function CheckerApp() {
       </header>
 
       <main className="flex w-full flex-col gap-6 px-4 py-6 pb-[25rem] sm:px-6 lg:px-8">
-        {!topCollapsed ? <section aria-labelledby="cases-heading">
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-stone-300 bg-[#fffdf8] px-4 py-3">
+        <div ref={librarySentinel} className="h-px" aria-hidden="true" />
+        <section aria-labelledby="cases-heading" className="path-library">
+          <div className="flex flex-wrap items-center gap-3 rounded-md border border-stone-300 bg-[#fffdf8] px-4 py-3">
+            {libraryStuck || topCollapsed ? (
+              <div className="path-library-identity">
+                <p className="font-display text-lg text-stone-900">Tax Final Confirmation</p>
+                <span className="text-sm text-stone-700">Return year: {returnYear}</span>
+                {topCollapsed ? (
+                  <button type="button" className="btn-secondary" onClick={() => setTopCollapsed(false)}>Expand</button>
+                ) : null}
+              </div>
+            ) : null}
             <h2 id="cases-heading" className="font-display text-2xl text-stone-900">
               Path library
             </h2>
-            <label className="flex items-center gap-2 text-sm font-medium text-stone-700" htmlFor="case-library">
+            <label className="ml-auto flex items-center gap-2 text-sm font-medium text-stone-700" htmlFor="case-library">
               Open an example
               <select
                 id="case-library"
@@ -296,12 +308,12 @@ export function CheckerApp() {
               </select>
             </label>
           </div>
-          {study ? (
-            <p className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950" role="status">
-              {study.title} is a saved set of answers, not tax advice. Unanswered items stay on the unknown path or stay open. The info buttons on the chart still open the same notes.
-            </p>
-          ) : null}
-        </section> : null}
+        </section>
+        {study ? (
+          <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950" role="status">
+            {study.title} is a saved set of answers, not tax advice. Unanswered items stay on the unknown path or stay open. The info buttons on the chart still open the same notes.
+          </p>
+        ) : null}
 
         <section aria-label="What this path turns up" className="min-w-0">
           {!topCollapsed ? <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
