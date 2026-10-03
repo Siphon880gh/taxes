@@ -213,6 +213,20 @@ body {
 .chart-viewport {
   overflow: auto;
   max-height: 78vh;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  overscroll-behavior: contain;
+}
+
+.chart-viewport:focus-visible {
+  outline: 2px solid #9a3412;
+  outline-offset: -2px;
+}
+
+.chart-viewport.is-panning,
+.chart-viewport.is-panning .mermaid-host g.node {
+  cursor: grabbing;
 }
 
 .chart-viewport-shell {

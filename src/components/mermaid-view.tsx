@@ -69,7 +69,17 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
   const [lensPoint, setLensPoint] = useState<{ x: number; y: number } | null>(null);
   const [lensZoom, setLensZoom] = useState(2);
   const [viewportMaxHeight, setViewportMaxHeight] = useState<number | null>(null);
+  const [panning, setPanning] = useState(false);
   const pendingFit = useRef(true);
+  const fitSvgRef = useRef<SVGSVGElement | null>(null);
+  const panRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    scrollLeft: number;
+    scrollTop: number;
+    moved: boolean;
+  } | null>(null);
   zoomRef.current = zoom;
 
   useEffect(() => {
@@ -77,6 +87,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
     if (!host) return;
     let cancelled = false;
     pendingFit.current = true;
+    fitSvgRef.current = null;
 
     const measure = () => {
       try {
@@ -182,17 +193,20 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
         height: Math.max(naturalHeight, 280),
       });
       const available = viewportRef.current?.clientWidth ?? 0;
-      const fittedZoom = zoomThatFitsWidth(naturalWidth, available) ?? scale;
-      if (pendingFit.current && naturalWidth > 0 && fittedZoom != null) {
+      const fittedZoom = zoomThatFitsWidth(naturalWidth, available);
+      // A new answer resizes the question dock before Mermaid replaces the SVG.
+      // Fitting that earlier chart clears the one-shot fit, so only the SVG from this render counts.
+      if (pendingFit.current && svg === fitSvgRef.current && fittedZoom != null) {
         pendingFit.current = false;
         zoomRef.current = fittedZoom;
-        if (fittedZoom !== scale) setZoom(fittedZoom);
+        setZoom(fittedZoom);
       }
+      const zoomForFrame = fittedZoom ?? scale;
       const dock = document.querySelector(".question-dock");
       const dockHeight = dock?.getBoundingClientRect().height ?? 0;
       const room = Math.max(280, window.innerHeight - dockHeight - 88);
       const wide = available > 0 && naturalWidth > available - 24;
-      const fittedHeight = Math.max(naturalHeight, 280) * (wide ? fittedZoom : 1);
+      const fittedHeight = Math.max(naturalHeight, 280) * (wide ? zoomForFrame : 1);
       setViewportMaxHeight(wide ? Math.min(Math.max(fittedHeight, 360), room) : Math.min(room, window.innerHeight * 0.78));
       setMarkers(next);
       } catch (err) {
@@ -228,6 +242,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
         if (cancelled || !hostRef.current) return;
         hostRef.current.innerHTML = svg;
         const drawn = hostRef.current.querySelector("svg");
+        fitSvgRef.current = drawn instanceof SVGSVGElement ? drawn : null;
         if (drawn) {
           const viewBox = drawn.viewBox.baseVal;
           if (viewBox.width > 0 && viewBox.height > 0) {
@@ -262,10 +277,13 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
     const dock = document.querySelector(".question-dock");
     const dockObserver = dock ? new ResizeObserver(() => measure()) : null;
     dockObserver?.observe(dock!);
+    const hostObserver = new ResizeObserver(() => measure());
+    hostObserver.observe(host);
     return () => {
       cancelled = true;
       window.removeEventListener("resize", onResize);
       dockObserver?.disconnect();
+      hostObserver.disconnect();
     };
   }, [source]);
 
@@ -333,6 +351,65 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
     });
   }
 
+  function onViewportPointerDown(event: PointerEvent<HTMLDivElement>) {
+    if (event.button !== 0) return;
+    const target = event.target;
+    if (target instanceof Element && target.closest("button, a")) return;
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    panRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      scrollLeft: viewport.scrollLeft,
+      scrollTop: viewport.scrollTop,
+      moved: false,
+    };
+  }
+
+  function onViewportPointerMove(event: PointerEvent<HTMLDivElement>) {
+    updateLens(event);
+    const pan = panRef.current;
+    const viewport = viewportRef.current;
+    if (!pan || !viewport || event.pointerId !== pan.pointerId) return;
+    const dx = event.clientX - pan.startX;
+    const dy = event.clientY - pan.startY;
+    if (!pan.moved) {
+      if (Math.hypot(dx, dy) < 6) return;
+      pan.moved = true;
+      setPanning(true);
+      try {
+        viewport.setPointerCapture(event.pointerId);
+      } catch {
+        // Capture is optional. The drag still pans while the pointer is over the chart.
+      }
+    }
+    viewport.scrollLeft = pan.scrollLeft - dx;
+    viewport.scrollTop = pan.scrollTop - dy;
+  }
+
+  function endPan(event: PointerEvent<HTMLDivElement>) {
+    const pan = panRef.current;
+    const viewport = viewportRef.current;
+    if (!pan || !viewport || event.pointerId !== pan.pointerId) return;
+    if (pan.moved) {
+      const swallow = (clickEvent: MouseEvent) => {
+        clickEvent.preventDefault();
+        clickEvent.stopPropagation();
+        viewport.removeEventListener("click", swallow, true);
+      };
+      viewport.addEventListener("click", swallow, true);
+      requestAnimationFrame(() => viewport.removeEventListener("click", swallow, true));
+    }
+    panRef.current = null;
+    setPanning(false);
+    try {
+      if (viewport.hasPointerCapture(event.pointerId)) viewport.releasePointerCapture(event.pointerId);
+    } catch {
+      // The pointer is already gone.
+    }
+  }
+
   return (
     <div className="rounded-md border border-stone-300 bg-[#fffdf8]">
       <div className="flex flex-wrap items-center justify-end gap-2 border-b border-stone-200 px-3 py-2" role="group" aria-label="Chart zoom controls">
@@ -354,10 +431,21 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
       <div className="chart-viewport-shell">
         <div
           ref={viewportRef}
-          className="chart-viewport"
+          className={panning ? "chart-viewport is-panning" : "chart-viewport"}
           style={viewportMaxHeight ? { maxHeight: viewportMaxHeight } : undefined}
-          onPointerMove={updateLens}
-          onPointerLeave={() => setLensPoint(null)}
+          tabIndex={0}
+          role="region"
+          aria-label="Decision chart. Drag to pan. Arrow keys scroll."
+          onPointerDown={onViewportPointerDown}
+          onPointerMove={onViewportPointerMove}
+          onPointerUp={endPan}
+          onPointerCancel={endPan}
+          onPointerLeave={(event) => {
+            setLensPoint(null);
+            const pan = panRef.current;
+            if (pan && !pan.moved && event.pointerId === pan.pointerId) panRef.current = null;
+          }}
+          onDragStart={(event) => event.preventDefault()}
         >
           <div className="relative" style={{ width: "max-content", minWidth: "100%", height: box.height * zoom }}>
             <div
