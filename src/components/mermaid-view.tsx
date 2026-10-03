@@ -33,6 +33,12 @@ function matchNodeId(elementId: string, known: Set<string>): string | null {
   return null;
 }
 
+function zoomThatFitsWidth(naturalWidth: number, available: number): number | null {
+  if (!available || !naturalWidth) return null;
+  // Floor so rounding never leaves the chart wider than the viewport.
+  return Math.max(0.05, Math.floor(((available - 24) / naturalWidth) * 1000) / 1000);
+}
+
 function distToRect(x: number, y: number, rect: DOMRect): number {
   const dx = Math.max(rect.left - x, 0, x - rect.right);
   const dy = Math.max(rect.top - y, 0, y - rect.bottom);
@@ -160,17 +166,19 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
       });
 
       const bounds = svg.getBoundingClientRect();
-      const naturalWidth = Math.max(bounds.width / scale, stage.clientWidth);
+      const viewBox = svg.viewBox?.baseVal;
+      const naturalWidth = viewBox && viewBox.width > 0 ? viewBox.width : bounds.width / scale;
+      const naturalHeight = viewBox && viewBox.height > 0 ? viewBox.height : bounds.height / scale;
       setBox({
         width: naturalWidth,
-        height: Math.max(bounds.height / scale, 280),
+        height: Math.max(naturalHeight, 280),
       });
       if (pendingFit.current && naturalWidth > 0) {
-        const available = viewportRef.current?.clientWidth ?? 0;
-        if (available) {
+        const nextZoom = zoomThatFitsWidth(naturalWidth, viewportRef.current?.clientWidth ?? 0);
+        if (nextZoom != null) {
           pendingFit.current = false;
-          const nextZoom = Math.min(1, Math.max(0.35, Math.round(((available - 32) / naturalWidth) * 20) / 20));
-          if (nextZoom !== zoomRef.current) setZoom(nextZoom);
+          zoomRef.current = nextZoom;
+          if (nextZoom !== scale) setZoom(nextZoom);
         }
       }
       setMarkers(next);
@@ -255,9 +263,13 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
   }, [selectedId, nodeIds, source]);
 
   function fitZoom() {
-    const available = viewportRef.current?.clientWidth ?? 0;
-    if (!available || !box.width) return;
-    setZoom(Math.min(1, Math.max(0.35, Math.round(((available - 32) / box.width) * 20) / 20)));
+    const svg = hostRef.current?.querySelector("svg");
+    const viewBox = svg?.viewBox?.baseVal;
+    const naturalWidth = viewBox && viewBox.width > 0 ? viewBox.width : box.width;
+    const nextZoom = zoomThatFitsWidth(naturalWidth, viewportRef.current?.clientWidth ?? 0);
+    if (nextZoom == null) return;
+    zoomRef.current = nextZoom;
+    setZoom(nextZoom);
   }
 
   function updateLens(event: PointerEvent<HTMLDivElement>) {
