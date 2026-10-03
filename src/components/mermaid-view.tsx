@@ -35,7 +35,8 @@ function matchNodeId(elementId: string, known: Set<string>): string | null {
 
 function zoomThatFitsWidth(naturalWidth: number, available: number): number | null {
   if (!available || !naturalWidth) return null;
-  // Floor so rounding never leaves the chart wider than the viewport.
+  // A short chart already fits. Leave it at 100% instead of stretching a few nodes.
+  if (naturalWidth <= available - 24) return 1;
   return Math.max(0.05, Math.floor(((available - 24) / naturalWidth) * 1000) / 1000);
 }
 
@@ -359,7 +360,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
         </div>
         <div className="chart-magnifier" aria-live="polite" aria-label="Magnified chart area under the pointer">
           {lensPoint && lensMarkup ? (
-            <div className="chart-magnifier-content" style={{ transform: `scale(2) translate(${90 / 2 - lensPoint.x}px, ${90 / 2 - lensPoint.y}px)` }} dangerouslySetInnerHTML={{ __html: lensMarkup }} />
+            <div className="chart-magnifier-content" style={{ transform: `scale(2) translate(${352 / 4 - lensPoint.x}px, ${136 / 4 - lensPoint.y}px)` }} dangerouslySetInnerHTML={{ __html: lensMarkup }} />
           ) : (
             <span className="chart-magnifier-empty" aria-hidden="true">⌕</span>
           )}
