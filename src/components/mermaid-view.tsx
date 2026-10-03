@@ -49,6 +49,7 @@ function distToRect(x: number, y: number, rect: DOMRect): number {
 export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, onSelect, onTip, levelNodes, levelExpanded, onToggleLevel }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
   const zoomRef = useRef(1);
   const onSelectRef = useRef(onSelect);
   const onTipRef = useRef(onTip);
@@ -274,12 +275,12 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
   }
 
   function updateLens(event: PointerEvent<HTMLDivElement>) {
-    const viewport = viewportRef.current;
-    if (!viewport) return;
-    const rect = viewport.getBoundingClientRect();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const canvasRect = canvas.getBoundingClientRect();
     setLensPoint({
-      x: (viewport.scrollLeft + event.clientX - rect.left) / zoom,
-      y: (viewport.scrollTop + event.clientY - rect.top) / zoom,
+      x: (event.clientX - canvasRect.left) / zoom,
+      y: (event.clientY - canvasRect.top) / zoom,
     });
   }
 
@@ -308,7 +309,12 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
           onPointerMove={updateLens}
           onPointerLeave={() => setLensPoint(null)}
         >
-          <div className="relative" style={{ width: box.width ? box.width * zoom : "100%", height: box.height * zoom }}>
+          <div className="relative" style={{ width: "max-content", minWidth: "100%", height: box.height * zoom }}>
+            <div
+              ref={canvasRef}
+              className="relative"
+              style={{ width: box.width ? box.width * zoom : "100%", height: box.height * zoom, marginInline: "auto" }}
+            >
             <div
               className="relative origin-top-left"
               style={{ width: box.width || "100%", height: box.height, transform: `scale(${zoom})` }}
@@ -331,6 +337,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
                   </button>
                 ))}
               </div>
+            </div>
             </div>
           </div>
         </div>
