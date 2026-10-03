@@ -4,7 +4,7 @@ import type { CaseStudy, Session } from "./types";
 export const caseStudies: CaseStudy[] = [
   {
     id: "weng-2025",
-    title: "Weng — 2025 example",
+    title: "Coder/Nurse 1099 Example",
     summary:
       "Single, no mortgage, 1099-NECs for nursing and coding with no LLC, Venmo/PayPal goods and services with the amount unknown, one paid-off rental with the same tenants since 2019, and a $975 independent-firm quote. Louisiana versus Los Angeles, the Venmo amount, and whether the depreciation records are clean stay on the unknown path.",
     quote: 975,
@@ -28,10 +28,15 @@ export const caseStudies: CaseStudy[] = [
       rental_records: { answerId: "unknown" },
       jurisdiction: { answerId: "unknown" },
     },
+    instances: {
+      se: ["Nursing 1099", "Coding 1099"],
+      payapps: ["Venmo / PayPal"],
+      rental: ["Rental property 1"],
+    },
   },
   {
     id: "joint-w2-crypto",
-    title: "Illustration — joint W-2 and crypto",
+    title: "Joint W-2 & Crypto Example",
     summary:
       "A short second path: married filing jointly, W-2 wages, no self-employment, no rental, and a crypto sale. It is an illustration so the tool is not only the 2025 single-filer rental example. It is not tax advice and it is not a real person's return.",
     quote: null,
@@ -44,11 +49,15 @@ export const caseStudies: CaseStudy[] = [
       crypto: { answerId: "sold" },
       jurisdiction: { answerId: "unknown" },
     },
+    instances: {
+      w2: ["W-2 1"],
+      capgain: ["Brokerage statement 1"],
+    },
   },
 ];
 
 export function applyCase(id: string): Session {
   const study = caseStudies.find((item) => item.id === id);
   if (!study) throw new Error(`Unknown case study: ${id}`);
-  return rebuild(study.answers, study.quote, study.id);
+  return rebuild(study.answers, study.quote, study.id, study.instances);
 }
