@@ -1,0 +1,259 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+
+type Marker = {
+  key: string;
+  tipId: string;
+  label: string;
+  x: number;
+  y: number;
+};
+
+type Props = {
+  source: string;
+  nodeIds: string[];
+  nodeTips: { id: string; tipId: string; label: string }[];
+  edgeTips: { from: string; to: string; tipId: string; label: string }[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  onTip: (tipId: string) => void;
+};
+
+let renderSeq = 0;
+let mermaidReady = false;
+
+function matchNodeId(elementId: string, known: Set<string>): string | null {
+  if (known.has(elementId)) return elementId;
+  const prefixed = elementId.match(/^(?:flowchart|agentflow)-(.+)-\d+$/);
+  if (prefixed && known.has(prefixed[1])) return prefixed[1];
+  return null;
+}
+
+function distToRect(x: number, y: number, rect: DOMRect): number {
+  const dx = Math.max(rect.left - x, 0, x - rect.right);
+  const dy = Math.max(rect.top - y, 0, y - rect.bottom);
+  return Math.hypot(dx, dy);
+}
+
+export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, onSelect, onTip }: Props) {
+  const hostRef = useRef<HTMLDivElement>(null);
+  const onSelectRef = useRef(onSelect);
+  const onTipRef = useRef(onTip);
+  const propsRef = useRef({ nodeIds, nodeTips, edgeTips, selectedId });
+  onSelectRef.current = onSelect;
+  onTipRef.current = onTip;
+  propsRef.current = { nodeIds, nodeTips, edgeTips, selectedId };
+
+  const [markers, setMarkers] = useState<Marker[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [box, setBox] = useState({ width: 0, height: 320 });
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+    let cancelled = false;
+
+    const measure = () => {
+      const svg = host.querySelector("svg");
+      const stage = host.parentElement;
+      if (!svg || !stage || cancelled) return;
+      const { nodeIds: ids, nodeTips: tipsForNodes, edgeTips: tipsForEdges, selectedId: current } = propsRef.current;
+      const known = new Set(ids);
+      const stageRect = stage.getBoundingClientRect();
+      const next: Marker[] = [];
+      const nodeRects = new Map<string, DOMRect>();
+
+      svg.querySelectorAll("g.node").forEach((node) => {
+        const id = matchNodeId(node.id, known);
+        if (!id) return;
+        node.classList.toggle("is-selected", id === current);
+        const rect = node.getBoundingClientRect();
+        nodeRects.set(id, rect);
+        const tip = tipsForNodes.find((item) => item.id === id);
+        if (!tip) return;
+        next.push({
+          key: `node-${id}`,
+          tipId: tip.tipId,
+          label: tip.label,
+          x: rect.right - stageRect.left - 16,
+          y: rect.top - stageRect.top - 8,
+        });
+      });
+
+      const claimed = new Set<string>();
+      svg.querySelectorAll("path.flowchart-link, .edge path, g.edge path").forEach((path) => {
+        const line = path as SVGPathElement;
+        const owner = line.closest("g");
+        const ownerId = owner?.id ?? line.id;
+        const idMatch = ownerId.match(/L_(.+)_(\d+)$/);
+        let from: string | null = null;
+        let to: string | null = null;
+        if (idMatch) {
+          const body = idMatch[1];
+          const hit = tipsForEdges.find((tip) => body === `${tip.from}_${tip.to}` || ownerId.endsWith(`L_${tip.from}_${tip.to}_${idMatch[2]}`));
+          if (hit) {
+            from = hit.from;
+            to = hit.to;
+          }
+        }
+        if (!from || !to) {
+          const length = line.getTotalLength?.() ?? 0;
+          if (!length) return;
+          const ctm = line.getScreenCTM();
+          if (!ctm) return;
+          const screenAt = (at: number) => {
+            const local = line.getPointAtLength(at);
+            const point = svg.createSVGPoint();
+            point.x = local.x;
+            point.y = local.y;
+            return point.matrixTransform(ctm);
+          };
+          const start = screenAt(1);
+          const end = screenAt(Math.max(length - 1, 1));
+          const nearest = (point: DOMPoint) => {
+            let best: string | null = null;
+            let bestDist = 48;
+            for (const [id, rect] of nodeRects) {
+              const dist = distToRect(point.x, point.y, rect);
+              if (dist < bestDist) {
+                best = id;
+                bestDist = dist;
+              }
+            }
+            return best;
+          };
+          from = nearest(start);
+          to = nearest(end);
+        }
+        if (!from || !to) return;
+        const tip = tipsForEdges.find((item) => item.from === from && item.to === to);
+        if (!tip || claimed.has(`${from}->${to}`)) return;
+        claimed.add(`${from}->${to}`);
+        const length = line.getTotalLength?.() ?? 0;
+        const ctm = line.getScreenCTM();
+        if (!length || !ctm) return;
+        const local = line.getPointAtLength(length / 2);
+        const point = svg.createSVGPoint();
+        point.x = local.x;
+        point.y = local.y;
+        const mid = point.matrixTransform(ctm);
+        next.push({
+          key: `edge-${from}-${to}`,
+          tipId: tip.tipId,
+          label: tip.label,
+          x: mid.x - stageRect.left - 10,
+          y: mid.y - stageRect.top - 22,
+        });
+      });
+
+      const bounds = svg.getBoundingClientRect();
+      setBox({
+        width: Math.max(bounds.width, stage.clientWidth),
+        height: Math.max(bounds.height, 280),
+      });
+      setMarkers(next);
+    };
+
+    (async () => {
+      try {
+        const mermaid = (await import("mermaid")).default;
+        if (!mermaidReady) {
+          mermaid.initialize({
+            startOnLoad: false,
+            securityLevel: "loose",
+            flowchart: { htmlLabels: true, wrappingWidth: 260, nodeSpacing: 28, rankSpacing: 48 },
+            theme: "base",
+            themeVariables: {
+              background: "#fffdf8",
+              primaryColor: "#fffdf8",
+              primaryTextColor: "#1c1917",
+              primaryBorderColor: "#44403c",
+              lineColor: "#78716c",
+              fontFamily: "var(--font-body), Source Sans 3, sans-serif",
+              fontSize: "15px",
+            },
+          });
+          mermaidReady = true;
+        }
+        renderSeq += 1;
+        const { svg } = await mermaid.render(`ftucheck${renderSeq}`, source);
+        if (cancelled || !hostRef.current) return;
+        hostRef.current.innerHTML = svg;
+        const drawn = hostRef.current.querySelector("svg");
+        if (drawn) {
+          const viewBox = drawn.viewBox.baseVal;
+          if (viewBox.width > 0 && viewBox.height > 0) {
+            drawn.setAttribute("width", String(viewBox.width));
+            drawn.setAttribute("height", String(viewBox.height));
+            drawn.style.width = `${viewBox.width}px`;
+            drawn.style.height = `${viewBox.height}px`;
+          }
+          drawn.style.maxWidth = "none";
+        }
+        hostRef.current.querySelectorAll("g.node").forEach((node) => {
+          const id = matchNodeId(node.id, new Set(propsRef.current.nodeIds));
+          if (!id) return;
+          (node as SVGElement).onclick = (event) => {
+            event.stopPropagation();
+            onSelectRef.current(id);
+          };
+        });
+        setError(null);
+        requestAnimationFrame(() => measure());
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "The chart could not be drawn.");
+          setMarkers([]);
+        }
+      }
+    })();
+
+    const onResize = () => measure();
+    window.addEventListener("resize", onResize);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("resize", onResize);
+    };
+  }, [source]);
+
+  useEffect(() => {
+    const svg = hostRef.current?.querySelector("svg");
+    if (!svg) return;
+    const known = new Set(nodeIds);
+    svg.querySelectorAll("g.node").forEach((node) => {
+      const id = matchNodeId(node.id, known);
+      node.classList.toggle("is-selected", id === selectedId);
+    });
+  }, [selectedId, nodeIds, source]);
+
+  return (
+    <div className="overflow-auto rounded-md border border-stone-300 bg-[#fffdf8] max-h-[78vh]">
+      <div className="relative" style={{ width: box.width || "100%", height: box.height }}>
+        <div ref={hostRef} className="mermaid-host" />
+        <div className="pointer-events-none absolute inset-0">
+          {markers.map((marker) => (
+            <button
+              key={marker.key}
+              type="button"
+              className="info-dot pointer-events-auto"
+              style={{ left: marker.x, top: marker.y }}
+              aria-label={marker.label}
+              onClick={(event) => {
+                event.stopPropagation();
+                onTipRef.current(marker.tipId);
+              }}
+            >
+              i
+            </button>
+          ))}
+        </div>
+      </div>
+      {error ? (
+        <p className="border-t border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900" role="alert">
+          The chart could not be drawn. {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
