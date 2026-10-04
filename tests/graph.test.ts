@@ -7,9 +7,11 @@ import {
   blankSession,
   openQuestions,
   readAnswer,
+  readComment,
   renameInstance,
   selectInstance,
   setNodeComment,
+  visibleCommentNodeIds,
   importSession,
   sessionToJson,
 } from "../src/lib/graph/session";
@@ -273,6 +275,42 @@ test("a node comment stays on the session and clears when the text is empty", ()
   const cleared = setNodeComment(other, "filing_status", "   ");
   assert.equal(cleared.comments.filing_status, undefined);
   assert.equal(cleared.comments.year, "Extension year");
+});
+
+test("a comment on a downstream instance node stays with that instance", () => {
+  let session = applyAnswer(blankSession(), "filing_status", "single");
+  session = applyAnswer(session, "se", "yes");
+  session = addInstance(session, "se");
+  session = selectInstance(session, "se", 0);
+  session = setNodeComment(session, "se_entity", "Mileage on the nursing job");
+  session = setNodeComment(session, "filing_status", "Bring the W-2");
+  assert.equal(readComment(session, "se_entity"), "Mileage on the nursing job");
+  assert.equal(visibleCommentNodeIds(session).includes("se_entity"), true);
+  const other = selectInstance(session, "se", 1);
+  assert.equal(readComment(other, "se_entity"), undefined);
+  assert.equal(visibleCommentNodeIds(other).includes("se_entity"), false);
+  assert.equal(other.comments.filing_status, "Bring the W-2");
+  assert.equal(visibleCommentNodeIds(other).includes("filing_status"), true);
+  const back = selectInstance(other, "se", 0);
+  assert.equal(readComment(back, "se_entity"), "Mileage on the nursing job");
+  assert.equal(visibleCommentNodeIds(back).includes("se_entity"), true);
+  const file = JSON.parse(sessionToJson(back));
+  assert.equal(file.instanceComments.se["0:se_entity"], "Mileage on the nursing job");
+  assert.equal(file.comments.se_entity, undefined);
+  assert.equal(file.comments.filing_status, "Bring the W-2");
+  const restored = importSession(sessionToJson(back));
+  assert.equal(readComment(restored, "se_entity"), "Mileage on the nursing job");
+  assert.equal(readComment(selectInstance(restored, "se", 1), "se_entity"), undefined);
+  const legacy = importSession(JSON.stringify({
+    answers: { year: { answerId: "y2025" }, filing_status: { answerId: "single" }, se: { answerId: "yes" } },
+    instances: { se: ["Nursing", "Coding"] },
+    activeInstance: { se: 1 },
+    comments: { se_entity: "Only this business", filing_status: "W-2" },
+  }));
+  assert.equal(legacy.comments.se_entity, undefined);
+  assert.equal(readComment(legacy, "se_entity"), "Only this business");
+  assert.equal(readComment(selectInstance(legacy, "se", 0), "se_entity"), undefined);
+  assert.equal(selectInstance(legacy, "se", 0).comments.filing_status, "W-2");
 });
 
 test("a chart session json keeps instances and comments and rejects a bad file", () => {

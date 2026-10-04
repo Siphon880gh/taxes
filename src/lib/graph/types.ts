@@ -68,8 +68,10 @@ export type Session = {
   revealed: string[];
   quote: number | null;
   caseStudyId: string | null;
-  /** Free-text notes keyed by node id. Empty comments are omitted. */
+  /** Notes on boxes that are not inside a business or rental. Empty comments are omitted. */
   comments: Record<string, string>;
+  /** Notes inside one named business or rental, keyed by scope then `${index}:${nodeId}`. */
+  instanceComments: Record<string, Record<string, string>>;
 };
 
 export type ChecklistItem = {

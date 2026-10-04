@@ -57,6 +57,7 @@ export function rebuild(
   instanceAnswers: Record<string, Record<string, StoredAnswer>> = {},
   activeInstance: Record<string, number> = {},
   comments: Record<string, string> = {},
+  instanceComments: Record<string, Record<string, string>> = {},
 ): Session {
   const revealed: string[] = [];
   const used: Record<string, StoredAnswer> = {};
@@ -83,7 +84,34 @@ export function rebuild(
   };
 
   visit("year");
-  return { answers: used, instances, instanceAnswers: scoped, activeInstance, revealed, quote, caseStudyId, comments };
+  const notes = adoptScopedComments(comments, instanceComments, activeInstance);
+  return { answers: used, instances, instanceAnswers: scoped, activeInstance, revealed, quote, caseStudyId, comments: notes.comments, instanceComments: notes.instanceComments };
+}
+
+function adoptScopedComments(
+  comments: Record<string, string>,
+  instanceComments: Record<string, Record<string, string>>,
+  activeInstance: Record<string, number>,
+): { comments: Record<string, string>; instanceComments: Record<string, Record<string, string>> } {
+  const nodeComments = { ...comments };
+  const scoped: Record<string, Record<string, string>> = {};
+  for (const [scope, bucket] of Object.entries(instanceComments)) scoped[scope] = { ...bucket };
+  for (const [nodeId, text] of Object.entries(nodeComments)) {
+    const scope = instanceScope(nodeId);
+    if (!scope) continue;
+    delete nodeComments[nodeId];
+    if (!text.trim()) continue;
+    const bucket = { ...(scoped[scope] ?? {}) };
+    const key = answerKey(activeInstance[scope] ?? 0, nodeId);
+    if (!bucket[key]?.trim()) bucket[key] = text;
+    scoped[scope] = bucket;
+  }
+  for (const bucket of Object.values(scoped)) {
+    for (const [key, text] of Object.entries(bucket)) {
+      if (!text.trim()) delete bucket[key];
+    }
+  }
+  return { comments: nodeComments, instanceComments: scoped };
 }
 
 export function blankSession(): Session {
@@ -103,17 +131,17 @@ export function applyAnswer(
       ? { ...session.instances, [nodeId]: [defaultInstanceName(nodeId, 1)] }
       : session.instances;
   if (!scope) {
-    return rebuild({ ...session.answers, [nodeId]: stored }, session.quote, session.caseStudyId, instances, session.instanceAnswers, session.activeInstance, session.comments);
+    return rebuild({ ...session.answers, [nodeId]: stored }, session.quote, session.caseStudyId, instances, session.instanceAnswers, session.activeInstance, session.comments, session.instanceComments);
   }
   const index = session.activeInstance[scope] ?? 0;
   const bucket = { ...(session.instanceAnswers[scope] ?? {}), [answerKey(index, nodeId)]: stored };
-  return rebuild(session.answers, session.quote, session.caseStudyId, instances, { ...session.instanceAnswers, [scope]: bucket }, session.activeInstance, session.comments);
+  return rebuild(session.answers, session.quote, session.caseStudyId, instances, { ...session.instanceAnswers, [scope]: bucket }, session.activeInstance, session.comments, session.instanceComments);
 }
 
 export function selectInstance(session: Session, scope: string, index: number): Session {
   const names = session.instances[scope] ?? [];
   if (!Number.isInteger(index) || index < 0 || index >= names.length) return session;
-  return rebuild(session.answers, session.quote, session.caseStudyId, session.instances, session.instanceAnswers, { ...session.activeInstance, [scope]: index }, session.comments);
+  return rebuild(session.answers, session.quote, session.caseStudyId, session.instances, session.instanceAnswers, { ...session.activeInstance, [scope]: index }, session.comments, session.instanceComments);
 }
 
 export function readAnswer(session: Session, nodeId: string): StoredAnswer | undefined {
@@ -142,6 +170,7 @@ export function addInstance(session: Session, nodeId: string): Session {
     { ...session.instanceAnswers, [nodeId]: bucket },
     { ...session.activeInstance, [nodeId]: nextIndex },
     session.comments,
+    session.instanceComments,
   );
 }
 
@@ -171,6 +200,17 @@ export function removeInstance(session: Session, nodeId: string, index: number):
   }
   const active = session.activeInstance[nodeId] ?? 0;
   const nextActive = active > index ? active - 1 : Math.min(active, current.length - 2);
+  const commentBucket: Record<string, string> = {};
+  for (const [key, value] of Object.entries(session.instanceComments[nodeId] ?? {})) {
+    const splitAt = key.indexOf(":");
+    const itemIndex = Number(key.slice(0, splitAt));
+    if (itemIndex === index) continue;
+    const shifted = itemIndex > index ? itemIndex - 1 : itemIndex;
+    commentBucket[answerKey(shifted, key.slice(splitAt + 1))] = value;
+  }
+  const instanceComments = nodeId === "se" || nodeId === "rental"
+    ? { ...session.instanceComments, [nodeId]: commentBucket }
+    : session.instanceComments;
   return rebuild(
     session.answers,
     session.quote,
@@ -179,14 +219,49 @@ export function removeInstance(session: Session, nodeId: string, index: number):
     { ...session.instanceAnswers, [nodeId]: bucket },
     { ...session.activeInstance, [nodeId]: nextActive },
     session.comments,
+    instanceComments,
   );
 }
 
+export function readComment(session: Session, nodeId: string): string | undefined {
+  const scope = instanceScope(nodeId);
+  if (!scope) return session.comments[nodeId];
+  const index = session.activeInstance[scope] ?? 0;
+  return session.instanceComments[scope]?.[answerKey(index, nodeId)];
+}
+
+/** Node ids whose comment cue belongs on the chart for the active business or rental. */
+export function visibleCommentNodeIds(session: Session): string[] {
+  const ids = new Set<string>();
+  for (const [id, text] of Object.entries(session.comments)) {
+    if (text.trim() && !instanceScope(id)) ids.add(id);
+  }
+  for (const scope of ["se", "rental"] as const) {
+    const prefix = `${session.activeInstance[scope] ?? 0}:`;
+    for (const [key, text] of Object.entries(session.instanceComments[scope] ?? {})) {
+      if (!text.trim() || !key.startsWith(prefix)) continue;
+      const nodeId = key.slice(prefix.length);
+      if (instanceScope(nodeId) === scope) ids.add(nodeId);
+    }
+  }
+  return [...ids];
+}
+
 export function setNodeComment(session: Session, nodeId: string, text: string): Session {
+  const scope = instanceScope(nodeId);
+  if (!scope) {
+    const comments = { ...session.comments };
+    if (text.trim()) comments[nodeId] = text;
+    else delete comments[nodeId];
+    return { ...session, comments };
+  }
+  const index = session.activeInstance[scope] ?? 0;
+  const bucket = { ...(session.instanceComments[scope] ?? {}) };
+  if (text.trim()) bucket[answerKey(index, nodeId)] = text;
+  else delete bucket[answerKey(index, nodeId)];
   const comments = { ...session.comments };
-  if (text.trim()) comments[nodeId] = text;
-  else delete comments[nodeId];
-  return { ...session, comments };
+  delete comments[nodeId];
+  return { ...session, comments, instanceComments: { ...session.instanceComments, [scope]: bucket } };
 }
 
 export function answerOf(session: Session, nodeId: string): string | undefined {
@@ -257,6 +332,7 @@ export function sessionFile(session: Session) {
     instanceAnswers: session.instanceAnswers,
     activeInstance: session.activeInstance,
     comments: session.comments,
+    instanceComments: session.instanceComments,
     quote: session.quote,
     caseStudyId: session.caseStudyId,
   };
@@ -312,6 +388,18 @@ export function importSession(json: string): Session {
       if (text.trim()) comments[id] = text;
     }
   }
+  const instanceComments: Record<string, Record<string, string>> = {};
+  if (parsed.instanceComments !== undefined) {
+    if (!isRecord(parsed.instanceComments)) throw new Error("That file is not a chart session.");
+    for (const [scope, bucket] of Object.entries(parsed.instanceComments)) {
+      if (!isRecord(bucket)) throw new Error("That file is not a chart session.");
+      instanceComments[scope] = {};
+      for (const [key, text] of Object.entries(bucket)) {
+        if (typeof text !== "string") throw new Error("That file is not a chart session.");
+        if (text.trim()) instanceComments[scope][key] = text;
+      }
+    }
+  }
   const quote = parsed.quote === undefined ? null : parsed.quote;
   if (quote !== null && (typeof quote !== "number" || !Number.isFinite(quote))) {
     throw new Error("That file is not a chart session.");
@@ -321,7 +409,7 @@ export function importSession(json: string): Session {
     throw new Error("That file is not a chart session.");
   }
   try {
-    return rebuild(answers, quote, caseStudyId, instances, instanceAnswers, activeInstance, comments);
+    return rebuild(answers, quote, caseStudyId, instances, instanceAnswers, activeInstance, comments, instanceComments);
   } catch {
     throw new Error("That file does not match this chart.");
   }

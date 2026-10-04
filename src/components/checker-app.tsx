@@ -24,6 +24,7 @@ import {
   importSession,
   instanceScope,
   readAnswer,
+  readComment,
   sessionToJson,
   removeInstance,
   renameInstance,
@@ -31,6 +32,7 @@ import {
   selectInstance,
   setNodeComment,
   tips,
+  visibleCommentNodeIds,
 } from "@/lib/graph";
 import { answerOf } from "@/lib/graph/session";
 import { parseYear } from "@/lib/graph/thresholds";
@@ -201,6 +203,7 @@ export function CheckerApp() {
   const deduction = useMemo(() => deductionNarrative(session), [session]);
   const open = openQuestions(session);
   const selected = session.revealed.includes(selectedId) ? getNode(selectedId) : null;
+  const selectedComment = selected ? readComment(session, selected.id) : undefined;
   const repeatable = selected ? repeatableNodes[selected.id] : null;
   const instances = selected ? session.instances[selected.id] ?? [] : [];
   const stored = selected ? readAnswer(session, selected.id) : undefined;
@@ -526,7 +529,7 @@ export function CheckerApp() {
             nodeTips={nodeTips}
             edgeTips={visibleEdgeTips}
             selectedId={selectedId}
-            commentedNodeIds={Object.entries(session.comments).flatMap(([id, text]) => (text.trim() ? [id] : []))}
+            commentedNodeIds={visibleCommentNodeIds(session)}
             onSelect={selectNode}
             onTip={showTip}
             instancePagers={instancePagers}
@@ -639,12 +642,12 @@ export function CheckerApp() {
                     type="button"
                     role="tab"
                     aria-selected={dockTab === "comments"}
-                    aria-label={session.comments[selected.id]?.trim() ? "Comments, this box has a comment" : "Comments"}
-                    className={`dock-tab${dockTab === "comments" ? " dock-tab-on" : ""}${session.comments[selected.id]?.trim() ? " dock-tab-noted" : ""}`}
+                    aria-label={selectedComment?.trim() ? "Comments, this box has a comment" : "Comments"}
+                    className={`dock-tab${dockTab === "comments" ? " dock-tab-on" : ""}${selectedComment?.trim() ? " dock-tab-noted" : ""}`}
                     onClick={() => setDockTab("comments")}
                   >
                     Comments
-                    {session.comments[selected.id]?.trim() ? <span className="dock-tab-mark" aria-hidden="true" /> : null}
+                    {selectedComment?.trim() ? <span className="dock-tab-mark" aria-hidden="true" /> : null}
                   </button>
                 </div>
               ) : null}
@@ -656,7 +659,7 @@ export function CheckerApp() {
                   <textarea
                     id="node-comment"
                     className="min-h-24 rounded-md border border-stone-300 bg-white px-3 py-2 text-stone-900"
-                    value={session.comments[selected.id] ?? ""}
+                    value={selectedComment ?? ""}
                     placeholder="Add a comment"
                     onChange={(event) => {
                       const text = event.target.value;
