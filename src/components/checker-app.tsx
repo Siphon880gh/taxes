@@ -197,11 +197,6 @@ export function CheckerApp() {
     setChecklistOpen(true);
   }
 
-  function openCosts() {
-    setFrameMode("costs");
-    openChecklist();
-  }
-
   function resizeDock(event: ReactPointerEvent<HTMLButtonElement>) {
     const dock = dockRef.current;
     if (!dock) return;
@@ -509,7 +504,6 @@ export function CheckerApp() {
   if (selected) choiceTaken.add("o");
   if (selected && !dockCollapsed) choiceTaken.add("s");
   if (!topCollapsed) {
-    choiceTaken.add("p");
     choiceTaken.add("b");
   }
   if (toast?.readMore) choiceTaken.add("r");
@@ -524,7 +518,6 @@ export function CheckerApp() {
   }
   useShortcut("export", "e", "Export", 0, exportChart, pageKeys);
   useShortcut("import", "i", "Import", 0, () => importInput.current?.click(), pageKeys);
-  useShortcut("cost", "p", "Preparation cost comparison", 0, openCosts, pageKeys && !topCollapsed);
   useShortcut("about", "b", "About", 1, () => setPurposeOpen(true), pageKeys && !topCollapsed);
   useShortcut("header-expand", "x", "Expand", 1, () => setTopCollapsed(false), pageKeys && headerShowsExpand);
   useShortcut("dock-toggle", dockCollapsed ? "x" : "h", dockCollapsed ? "Expand" : "Hide", dockCollapsed ? 1 : 0, () => (dockCollapsed ? expandDock() : collapseDock()), pageKeys);
@@ -669,9 +662,6 @@ export function CheckerApp() {
               <p className="text-sm text-stone-600">
                 Click a box to answer it. The <span className="info-dot info-dot-inline">i</span> opens a note and does not answer the question.
               </p>
-              <button type="button" className="btn-secondary" onClick={openCosts}>
-                <ShortcutText text="Preparation cost comparison" index={0} />
-              </button>
           </div> : null}
           <MermaidView
             source={source}
