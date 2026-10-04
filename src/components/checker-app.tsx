@@ -18,8 +18,10 @@ import {
   getNode,
   mermaidSource,
   openQuestions,
+  importSession,
   instanceScope,
   readAnswer,
+  sessionToJson,
   removeInstance,
   renameInstance,
   repeatableNodes,
@@ -86,6 +88,8 @@ export function CheckerApp() {
   const [session, setSession] = useState<Session>(() => blankSession());
   const [selectedId, setSelectedId] = useState<string>("filing_status");
   const [toastId, setToastId] = useState<string | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const importInput = useRef<HTMLInputElement>(null);
   const [modalId, setModalId] = useState<string | null>(null);
   const [costOpen, setCostOpen] = useState(false);
   const [purposeOpen, setPurposeOpen] = useState(false);
@@ -240,6 +244,7 @@ export function CheckerApp() {
     setSelectedId("filing_status");
     setDockTab(firstDockTab(getNode("filing_status")));
     setToastId(null);
+    setImportError(null);
     setModalId(null);
     setLevelExpanded(false);
     setExpandedGroups([]);
@@ -254,11 +259,44 @@ export function CheckerApp() {
     setSelectedId(firstOpen);
     setDockTab(firstDockTab(getNode(firstOpen)));
     setToastId(null);
+    setImportError(null);
     setModalId(null);
     setLevelExpanded(false);
     setExpandedGroups([]);
     setTopCollapsed(false);
     setDraft("");
+  }
+
+  function adoptSession(next: Session) {
+    setSession(next);
+    const nextId = openQuestions(next)[0] ?? (next.revealed.includes("filing_status") ? "filing_status" : next.revealed[0] ?? "year");
+    setSelectedId(nextId);
+    setDockTab(firstDockTab(getNode(nextId)));
+    setToastId(null);
+    setImportError(null);
+    setModalId(null);
+    setLevelExpanded(false);
+    setExpandedGroups([]);
+    setTopCollapsed(false);
+    setDraft("");
+  }
+
+  function exportChart() {
+    const blob = new Blob([sessionToJson(session)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "taxes-chart.json";
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function importChart(file: File) {
+    try {
+      adoptSession(importSession(await file.text()));
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : "That file is not a chart session.");
+    }
   }
 
   function answer(nodeId: string, answerId: string, text?: string) {
@@ -399,7 +437,30 @@ export function CheckerApp() {
                 ))}
               </select>
             </label>
+            <button type="button" className="btn-secondary" onClick={exportChart}>
+              Export
+            </button>
+            <button type="button" className="btn-secondary" onClick={() => importInput.current?.click()}>
+              Import
+            </button>
+            <input
+              ref={importInput}
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              aria-label="Import a chart JSON file"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                event.target.value = "";
+                if (file) void importChart(file);
+              }}
+            />
           </div>
+          {importError ? (
+            <p className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950" role="status">
+              {importError}
+            </p>
+          ) : null}
         </section>
         {study ? (
           <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950" role="status">

@@ -16,6 +16,8 @@ export {
   instanceScope,
   readAnswer,
   setNodeComment,
+  sessionToJson,
+  importSession,
   removeInstance,
   renameInstance,
   repeatableNodes,

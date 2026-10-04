@@ -10,6 +10,8 @@ import {
   renameInstance,
   selectInstance,
   setNodeComment,
+  importSession,
+  sessionToJson,
 } from "../src/lib/graph/session";
 import { applyCase, caseStudies } from "../src/lib/graph/cases";
 import { buildChecklist } from "../src/lib/graph/checklist";
@@ -270,6 +272,27 @@ test("a node comment stays on the session and clears when the text is empty", ()
   const cleared = setNodeComment(other, "filing_status", "   ");
   assert.equal(cleared.comments.filing_status, undefined);
   assert.equal(cleared.comments.year, "Extension year");
+});
+
+test("a chart session json keeps instances and comments and rejects a bad file", () => {
+  let session = applyAnswer(blankSession(), "filing_status", "single");
+  session = applyAnswer(session, "se", "yes");
+  session = addInstance(session, "se");
+  session = renameInstance(session, "se", 1, "Coding");
+  session = setNodeComment(session, "se", "Ask about mileage");
+  session = { ...session, quote: 400 };
+  const file = JSON.parse(sessionToJson(session));
+  assert.equal(file.revealed, undefined);
+  const restored = importSession(sessionToJson(session));
+  assert.deepEqual(restored.instances.se, session.instances.se);
+  assert.equal(restored.comments.se, "Ask about mileage");
+  assert.equal(restored.quote, 400);
+  assert.equal(restored.answers.filing_status?.answerId, "single");
+  assert.equal(restored.answers.se?.answerId, "yes");
+  assert.equal(restored.revealed.includes("se_entity"), true);
+  assert.throws(() => importSession("{"), /not JSON/);
+  assert.throws(() => importSession("[]"), /not a chart session/);
+  assert.throws(() => importSession("{}"), /no answers/);
 });
 
 test("case studies are labeled as examples and there is more than one", () => {

@@ -227,3 +227,102 @@ export function assertGraphIntact(): string[] {
   }
   return errors;
 }
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readStoredAnswer(value: unknown): StoredAnswer {
+  if (!isRecord(value) || typeof value.answerId !== "string" || !value.answerId) {
+    throw new Error("That file is not a chart session.");
+  }
+  if (value.text !== undefined && typeof value.text !== "string") {
+    throw new Error("That file is not a chart session.");
+  }
+  return value.text === undefined ? { answerId: value.answerId } : { answerId: value.answerId, text: value.text };
+}
+
+function readAnswerMap(value: unknown): Record<string, StoredAnswer> {
+  if (!isRecord(value)) throw new Error("That file has no answers.");
+  const answers: Record<string, StoredAnswer> = {};
+  for (const [id, stored] of Object.entries(value)) answers[id] = readStoredAnswer(stored);
+  return answers;
+}
+
+/** Fields needed to rebuild a chart. Revealed nodes are derived and omitted. */
+export function sessionFile(session: Session) {
+  return {
+    answers: session.answers,
+    instances: session.instances,
+    instanceAnswers: session.instanceAnswers,
+    activeInstance: session.activeInstance,
+    comments: session.comments,
+    quote: session.quote,
+    caseStudyId: session.caseStudyId,
+  };
+}
+
+export function sessionToJson(session: Session): string {
+  return JSON.stringify(sessionFile(session), null, 2);
+}
+
+export function importSession(json: string): Session {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    throw new Error("That file is not JSON.");
+  }
+  if (!isRecord(parsed)) throw new Error("That file is not a chart session.");
+  const answers = readAnswerMap(parsed.answers);
+  const instances: Record<string, string[]> = {};
+  if (parsed.instances !== undefined) {
+    if (!isRecord(parsed.instances)) throw new Error("That file is not a chart session.");
+    for (const [id, names] of Object.entries(parsed.instances)) {
+      if (!Array.isArray(names) || names.some((name) => typeof name !== "string")) {
+        throw new Error("That file is not a chart session.");
+      }
+      instances[id] = names;
+    }
+  }
+  const instanceAnswers: Record<string, Record<string, StoredAnswer>> = {};
+  if (parsed.instanceAnswers !== undefined) {
+    if (!isRecord(parsed.instanceAnswers)) throw new Error("That file is not a chart session.");
+    for (const [scope, bucket] of Object.entries(parsed.instanceAnswers)) {
+      if (!isRecord(bucket)) throw new Error("That file is not a chart session.");
+      instanceAnswers[scope] = {};
+      for (const [key, stored] of Object.entries(bucket)) instanceAnswers[scope][key] = readStoredAnswer(stored);
+    }
+  }
+  const activeInstance: Record<string, number> = {};
+  if (parsed.activeInstance !== undefined) {
+    if (!isRecord(parsed.activeInstance)) throw new Error("That file is not a chart session.");
+    for (const [id, index] of Object.entries(parsed.activeInstance)) {
+      if (typeof index !== "number" || !Number.isInteger(index) || index < 0) {
+        throw new Error("That file is not a chart session.");
+      }
+      activeInstance[id] = index;
+    }
+  }
+  const comments: Record<string, string> = {};
+  if (parsed.comments !== undefined) {
+    if (!isRecord(parsed.comments)) throw new Error("That file is not a chart session.");
+    for (const [id, text] of Object.entries(parsed.comments)) {
+      if (typeof text !== "string") throw new Error("That file is not a chart session.");
+      if (text.trim()) comments[id] = text;
+    }
+  }
+  const quote = parsed.quote === undefined ? null : parsed.quote;
+  if (quote !== null && (typeof quote !== "number" || !Number.isFinite(quote))) {
+    throw new Error("That file is not a chart session.");
+  }
+  const caseStudyId = parsed.caseStudyId === undefined ? null : parsed.caseStudyId;
+  if (caseStudyId !== null && typeof caseStudyId !== "string") {
+    throw new Error("That file is not a chart session.");
+  }
+  try {
+    return rebuild(answers, quote, caseStudyId, instances, instanceAnswers, activeInstance, comments);
+  } catch {
+    throw new Error("That file does not match this chart.");
+  }
+}
