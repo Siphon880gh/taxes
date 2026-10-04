@@ -147,7 +147,8 @@ export function CheckerApp() {
   const [importError, setImportError] = useState<string | null>(null);
   const importInput = useRef<HTMLInputElement>(null);
   const [modalId, setModalId] = useState<string | null>(null);
-  const [costOpen, setCostOpen] = useState(false);
+  const [frameMode, setFrameMode] = useState<"checklist" | "costs">("checklist");
+  const [chartToolsNode, setChartToolsNode] = useState<HTMLDivElement | null>(null);
   const [purposeOpen, setPurposeOpen] = useState(false);
   const [promptOpen, setPromptOpen] = useState(false);
   const [levelExpanded, setLevelExpanded] = useState(false);
@@ -194,6 +195,11 @@ export function CheckerApp() {
   function openChecklist() {
     collapseDock();
     setChecklistOpen(true);
+  }
+
+  function openCosts() {
+    setFrameMode("costs");
+    openChecklist();
   }
 
   function resizeDock(event: ReactPointerEvent<HTMLButtonElement>) {
@@ -314,16 +320,15 @@ export function CheckerApp() {
   }, []);
 
   useEffect(() => {
-    if (!modalId && !costOpen && !purposeOpen && !promptOpen) return;
+    if (!modalId && !purposeOpen && !promptOpen) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") setModalId(null);
-      if (event.key === "Escape") setCostOpen(false);
       if (event.key === "Escape") setPurposeOpen(false);
       if (event.key === "Escape") setPromptOpen(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [modalId, costOpen, purposeOpen, promptOpen]);
+  }, [modalId, purposeOpen, promptOpen]);
 
   const nodeTips = useMemo(
     () =>
@@ -478,7 +483,7 @@ export function CheckerApp() {
     setLevelExpanded(false);
   }
 
-  const dialogOpen = Boolean(promptOpen || costOpen || purposeOpen || modalId);
+  const dialogOpen = Boolean(promptOpen || purposeOpen || modalId);
   const pageKeys = !dialogOpen;
   const dockShowsExpand = dockCollapsed;
   const checklistShowsExpand = !checklistOpen && !dockShowsExpand;
@@ -519,7 +524,7 @@ export function CheckerApp() {
   }
   useShortcut("export", "e", "Export", 0, exportChart, pageKeys);
   useShortcut("import", "i", "Import", 0, () => importInput.current?.click(), pageKeys);
-  useShortcut("cost", "p", "Preparation cost comparison", 0, () => setCostOpen(true), pageKeys && !topCollapsed);
+  useShortcut("cost", "p", "Preparation cost comparison", 0, openCosts, pageKeys && !topCollapsed);
   useShortcut("about", "b", "About", 1, () => setPurposeOpen(true), pageKeys && !topCollapsed);
   useShortcut("header-expand", "x", "Expand", 1, () => setTopCollapsed(false), pageKeys && headerShowsExpand);
   useShortcut("dock-toggle", dockCollapsed ? "x" : "h", dockCollapsed ? "Expand" : "Hide", dockCollapsed ? 1 : 0, () => (dockCollapsed ? expandDock() : collapseDock()), pageKeys);
@@ -589,6 +594,7 @@ export function CheckerApp() {
 
       <main ref={mainRef} className="flex w-full flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
         <div ref={librarySentinel} className="h-px" aria-hidden="true" />
+        <div className="library-stack">
         <section aria-labelledby="cases-heading" className="path-library">
           <div className="flex flex-wrap items-center gap-3 rounded-md border border-stone-300 bg-[#fffdf8] px-4 py-3">
             {libraryStuck || topCollapsed ? (
@@ -647,6 +653,8 @@ export function CheckerApp() {
             </p>
           ) : null}
         </section>
+        <div ref={setChartToolsNode} className="chart-tools-bar" />
+        </div>
         {study ? (
           <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950" role="status">
             {study.title} is a saved set of answers, not tax advice. Unanswered items stay on the unknown path or stay open. The info buttons on the chart still open the same notes.
@@ -661,7 +669,7 @@ export function CheckerApp() {
               <p className="text-sm text-stone-600">
                 Click a box to answer it. The <span className="info-dot info-dot-inline">i</span> opens a note and does not answer the question.
               </p>
-              <button type="button" className="btn-secondary" onClick={() => setCostOpen(true)}>
+              <button type="button" className="btn-secondary" onClick={openCosts}>
                 <ShortcutText text="Preparation cost comparison" index={0} />
               </button>
           </div> : null}
@@ -685,6 +693,7 @@ export function CheckerApp() {
             shortcutsEnabled={pageKeys}
             edges={view.edges}
             fitFocus={fitFocus}
+            toolsNode={chartToolsNode}
           />
           <p className="mt-2 text-sm text-stone-600">
             A rust outline marks an answer left unknown. Those nodes are not treated as a yes.
@@ -696,48 +705,108 @@ export function CheckerApp() {
           className={checklistOpen ? "checklist-frame" : "checklist-frame is-collapsed"}
           aria-labelledby="check-heading"
         >
+          <div className="frame-switch" role="group" aria-label="Which panel this frame shows">
+            <button type="button" aria-pressed={frameMode === "checklist"} onClick={() => setFrameMode("checklist")}>
+              Checklist
+            </button>
+            <button type="button" aria-pressed={frameMode === "costs"} onClick={() => setFrameMode("costs")}>
+              Tax Pro Costs
+            </button>
+          </div>
           <button
             type="button"
             className="question-dock-collapse"
             aria-expanded={checklistOpen}
-            aria-label={checklistOpen ? "Collapse the confirmation checklist" : "Expand the confirmation checklist"}
+            aria-label={checklistOpen ? "Collapse this frame" : "Expand this frame"}
             onClick={checklistOpen ? () => setChecklistOpen(false) : openChecklist}
           >
             <ShortcutText text={checklistOpen ? "Hide" : "Expand"} index={checklistOpen || checklistShowsExpand ? (checklistOpen ? 0 : 1) : -1} />
           </button>
           {checklistOpen ? (
             <div className="checklist-frame-inner">
-              <h2 id="check-heading" className="font-display text-2xl text-stone-900">
-                {checklistTitle(session)}
-              </h2>
-              {checklist.length === 0 ? (
-                <p className="mt-2 text-stone-700">Answer a question to list forms and lines. Nothing is assumed yet.</p>
+              {frameMode === "checklist" ? (
+                <>
+                  <h2 id="check-heading" className="font-display text-2xl text-stone-900">
+                    {checklistTitle(session)}
+                  </h2>
+                  {checklist.length === 0 ? (
+                    <p className="mt-2 text-stone-700">Answer a question to list forms and lines. Nothing is assumed yet.</p>
+                  ) : (
+                    <ul className="mt-3 flex flex-col gap-3">
+                      {checklist.map((item) => (
+                        <li key={item.id} className="rounded-md border border-stone-200 bg-[#fffdf8] px-3 py-2">
+                          <p className="font-medium text-stone-900">
+                            {item.form}
+                            {item.line ? ` · ${item.line}` : ""}
+                          </p>
+                          <p className="text-sm text-stone-700">{item.summary}</p>
+                          <p className="mt-1 text-xs uppercase tracking-wide text-stone-500">
+                            {item.certainty === "sourced" ? "Line cited for the year shown" : "Verify on the form"}
+                            {item.source ? ` · ${item.source.yearLabel}` : ""}
+                          </p>
+                          {item.source ? (
+                            <a className="text-sm text-rust underline-offset-2 hover:underline" href={item.source.url} target="_blank" rel="noreferrer">
+                              {item.source.title}
+                            </a>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
               ) : (
-                <ul className="mt-3 flex flex-col gap-3">
-                  {checklist.map((item) => (
-                    <li key={item.id} className="rounded-md border border-stone-200 bg-[#fffdf8] px-3 py-2">
-                      <p className="font-medium text-stone-900">
-                        {item.form}
-                        {item.line ? ` · ${item.line}` : ""}
-                      </p>
-                      <p className="text-sm text-stone-700">{item.summary}</p>
-                      <p className="mt-1 text-xs uppercase tracking-wide text-stone-500">
-                        {item.certainty === "sourced" ? "Line cited for the year shown" : "Verify on the form"}
-                        {item.source ? ` · ${item.source.yearLabel}` : ""}
-                      </p>
-                      {item.source ? (
-                        <a className="text-sm text-rust underline-offset-2 hover:underline" href={item.source.url} target="_blank" rel="noreferrer">
-                          {item.source.title}
-                        </a>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
+                <>
+                  <h2 id="check-heading" className="font-display text-2xl text-stone-900">
+                    Tax Pro Costs
+                  </h2>
+                  <p className="mt-2 text-sm text-stone-600">
+                    Published prices for preparing a return of this shape. These are not tax figures and not a quote unless a case study loaded one.
+                  </p>
+                  <p className="mt-2 text-sm text-stone-800" role="note">
+                    This is only for the forms and schedules reached so far, not a price for a finished return.
+                  </p>
+                  {open.length > 0 ? (
+                    <p className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950" role="status">
+                      Your path is not complete yet: {open.length} {open.length === 1 ? "decision remains" : "decisions remain"}. Finish the open boxes for a more accurate comparison.
+                    </p>
+                  ) : (
+                    <p className="mt-3 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-950" role="status">
+                      This path is fully clicked through. The comparison reflects the answers shown, subject to the notes on each price.
+                    </p>
+                  )}
+                  {cost.framing ? <p className="mt-3 text-sm text-stone-800">{cost.framing}</p> : null}
+                  {cost.quoteNote ? <p className="mt-2 text-sm font-medium text-stone-900">{cost.quoteNote}</p> : null}
+                  {cost.rows.length === 0 ? (
+                    <p className="mt-3 text-stone-700">The comparison appears once a year is selected.</p>
+                  ) : (
+                    <ul className="mt-3 flex flex-col gap-3">
+                      {cost.rows.map((row) => (
+                        <li key={row.id} className="rounded-md border border-stone-200 bg-[#fffdf8] px-3 py-2">
+                          <div className="flex items-baseline justify-between gap-3">
+                            <p className="font-medium text-stone-900">{row.vendor}</p>
+                            <p className="font-display text-xl text-stone-900">{row.amountLabel}</p>
+                          </div>
+                          <p className="text-sm text-stone-800">{row.label}</p>
+                          <p className="mt-1 text-xs uppercase tracking-wide text-stone-500">
+                            {row.yearLabel}
+                            {row.unverified ? " · Price unverified" : ""}
+                          </p>
+                          <p className="mt-1 text-sm text-stone-700">{row.note}</p>
+                          {row.citation ? (
+                            <a className="text-sm text-rust underline-offset-2 hover:underline" href={row.citation.url} target="_blank" rel="noreferrer">
+                              {row.citation.title}
+                            </a>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
               )}
             </div>
           ) : (
             <button type="button" className="question-dock-tile" onClick={openChecklist}>
-              <p id="check-heading" className="truncate font-medium text-stone-900">{checklistTitle(session)}</p>
+              <p id="check-heading" className="truncate font-medium text-stone-900">{frameMode === "costs" ? "Tax Pro Costs" : checklistTitle(session)}</p>
             </button>
           )}
         </section>
@@ -981,66 +1050,6 @@ export function CheckerApp() {
         </aside>
         </div>
       </main>
-
-      {costOpen ? (
-        <div className="sidebar-backdrop" role="presentation" onClick={() => setCostOpen(false)}>
-          <aside
-            className="cost-sidebar"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="cost-heading"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-4">
-              <h2 id="cost-heading" className="font-display text-2xl text-stone-900">
-                Preparation cost comparison
-              </h2>
-              <button type="button" className="btn-secondary" onClick={() => setCostOpen(false)}>
-                Close
-              </button>
-            </div>
-            <p className="mt-2 text-sm text-stone-600">
-              Published prices for preparing a return of this shape. These are not tax figures and not a quote unless a case study loaded one.
-            </p>
-            {open.length > 0 ? (
-              <p className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950" role="status">
-                Your path is not complete yet: {open.length} {open.length === 1 ? "decision remains" : "decisions remain"}. Finish the open boxes for a more accurate comparison.
-              </p>
-            ) : (
-              <p className="mt-3 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-950" role="status">
-                This path is fully clicked through. The comparison reflects the answers shown, subject to the notes on each price.
-              </p>
-            )}
-            {cost.framing ? <p className="mt-3 text-sm text-stone-800">{cost.framing}</p> : null}
-            {cost.quoteNote ? <p className="mt-2 text-sm font-medium text-stone-900">{cost.quoteNote}</p> : null}
-            {cost.rows.length === 0 ? (
-              <p className="mt-3 text-stone-700">The comparison appears once a year is selected.</p>
-            ) : (
-              <ul className="mt-3 flex flex-col gap-3">
-                {cost.rows.map((row) => (
-                  <li key={row.id} className="rounded-md border border-stone-200 bg-[#fffdf8] px-3 py-2">
-                    <div className="flex items-baseline justify-between gap-3">
-                      <p className="font-medium text-stone-900">{row.vendor}</p>
-                      <p className="font-display text-xl text-stone-900">{row.amountLabel}</p>
-                    </div>
-                    <p className="text-sm text-stone-800">{row.label}</p>
-                    <p className="mt-1 text-xs uppercase tracking-wide text-stone-500">
-                      {row.yearLabel}
-                      {row.unverified ? " · Price unverified" : ""}
-                    </p>
-                    <p className="mt-1 text-sm text-stone-700">{row.note}</p>
-                    {row.citation ? (
-                      <a className="text-sm text-rust underline-offset-2 hover:underline" href={row.citation.url} target="_blank" rel="noreferrer">
-                        {row.citation.title}
-                      </a>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </aside>
-        </div>
-      ) : null}
 
       {promptOpen && selected ? (
         <PromptBuilder

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent } from "react";
+import { createPortal } from "react-dom";
 import { ShortcutText, ShortcutTip, useShortcut } from "@/components/shortcut-layer";
 
 type Marker = {
@@ -43,6 +44,8 @@ type Props = {
   edges: { from: string; to: string }[];
   /** When set, the next chart draw fits these nodes instead of the whole chart. */
   fitFocus: { key: number; ids: readonly string[]; answeredId: string } | null;
+  /** Sticky slot under the path library. The chart controls render here, not in the chart card. */
+  toolsNode: HTMLElement | null;
 };
 
 let renderSeq = 0;
@@ -91,7 +94,7 @@ function distToRect(x: number, y: number, rect: DOMRect): number {
   return Math.hypot(dx, dy);
 }
 
-export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, commentedNodeIds, onSelect, onTip, instancePagers, onSelectInstance, levelNodes, levelExpanded, onToggleLevel, shortcutsEnabled = true, edges, fitFocus }: Props) {
+export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, commentedNodeIds, onSelect, onTip, instancePagers, onSelectInstance, levelNodes, levelExpanded, onToggleLevel, shortcutsEnabled = true, edges, fitFocus, toolsNode }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -720,33 +723,32 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
   useShortcut("fit-current", "t", "Fit current", 2, fitCurrent, shortcutsEnabled && Boolean(selectedId));
   useShortcut("level-nodes", "l", "Level's nodes", 0, onToggleLevel, shortcutsEnabled);
 
-  return (
-    <div className="rounded-md border border-stone-300 bg-[#fffdf8]">
-      <div className="flex flex-wrap items-center justify-end gap-2 border-b border-stone-200 px-3 py-2">
-        <button
-          type="button"
-          className="btn-secondary chart-cue-toggle"
-          aria-pressed={showCommentCues}
-          aria-label={showCommentCues ? "Hide comment markers on the chart" : "Show comment markers on the chart"}
-          onClick={() => setShowCommentCues((current) => !current)}
-        >
-          <span className="comment-cue-dot" aria-hidden="true" />
-          <ShortcutText text="Comments" index={0} />
-        </button>
-        <span className="chart-toolbar-divider" aria-hidden="true" />
-        <div className="flex flex-wrap items-center justify-end gap-2" role="group" aria-label="Chart zoom controls">
+  const chartTools = (
+    <>
+      <button
+        type="button"
+        className="btn-secondary chart-cue-toggle"
+        aria-pressed={showCommentCues}
+        aria-label={showCommentCues ? "Hide comment markers on the chart" : "Show comment markers on the chart"}
+        onClick={() => setShowCommentCues((current) => !current)}
+      >
+        <span className="comment-cue-dot" aria-hidden="true" />
+        <ShortcutText text="Comments" index={0} />
+      </button>
+      <span className="chart-toolbar-divider" aria-hidden="true" />
+      <div className="flex flex-wrap items-center justify-end gap-2" role="group" aria-label="Chart zoom controls">
         <ShortcutTip label="Zoom out" index={0}>
-        <button type="button" className="btn-secondary" onClick={() => setZoom((current) => Math.max(0.35, current - 0.15))} aria-label="Zoom out">
-          −
-        </button>
+          <button type="button" className="btn-secondary" onClick={() => setZoom((current) => Math.max(0.35, current - 0.15))} aria-label="Zoom out">
+            −
+          </button>
         </ShortcutTip>
         <output className="min-w-12 text-center text-sm text-stone-700" aria-label={`Zoom level ${Math.round(zoom * 100)} percent`}>
           {Math.round(zoom * 100)}%
         </output>
         <ShortcutTip label="Zoom in" index={2}>
-        <button type="button" className="btn-secondary" onClick={() => setZoom((current) => Math.min(2, current + 0.15))} aria-label="Zoom in">
-          +
-        </button>
+          <button type="button" className="btn-secondary" onClick={() => setZoom((current) => Math.min(2, current + 0.15))} aria-label="Zoom in">
+            +
+          </button>
         </ShortcutTip>
         <button type="button" className="btn-secondary" onClick={fitZoom}>
           <ShortcutText text="Fit zoom" index={0} />
@@ -762,8 +764,14 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
         >
           i
         </span>
-        </div>
       </div>
+    </>
+  );
+
+  return (
+    <>
+    {toolsNode ? createPortal(chartTools, toolsNode) : null}
+    <div className="rounded-md border border-stone-300 bg-[#fffdf8]">
       <div className="chart-viewport-shell">
         <div
           ref={viewportRef}
@@ -903,5 +911,6 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
         </p>
       ) : null}
     </div>
+    </>
   );
 }
