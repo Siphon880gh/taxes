@@ -2,7 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
 
-const ENDPOINT = "/sorter/api.php";
+const ENDPOINT = process.env.NEXT_PUBLIC_SERVER_URL_UPLOAD_API_PHP ?? "";
+
+function requireEndpoint() {
+  if (!ENDPOINT) {
+    throw new Error("Set SERVER_URL_UPLOAD_API.PHP in .env. Restart the dev server after changing it.");
+  }
+  return ENDPOINT;
+}
 
 type StagedFile = { path: string; bytes: number };
 
@@ -31,7 +38,7 @@ export function DocumentSorter({ onUploaded }: { onUploaded: () => void }) {
   const refresh = useCallback(async () => {
     setError(null);
     try {
-      const response = await fetch(ENDPOINT);
+      const response = await fetch(requireEndpoint());
       const body = (await response.json()) as Status;
       if (!response.ok || !body.ok) {
         setError(body.error || "Could not list the staging directory.");
@@ -39,8 +46,8 @@ export function DocumentSorter({ onUploaded }: { onUploaded: () => void }) {
       }
       setFiles(body.files ?? []);
       setCategories(body.categories ?? []);
-    } catch {
-      setError("Could not reach /sorter/api.php. The host must run that PHP file.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : `Could not reach ${ENDPOINT}. The PHP server must be running.`);
     }
   }, []);
 
@@ -52,7 +59,7 @@ export function DocumentSorter({ onUploaded }: { onUploaded: () => void }) {
     const payload = new FormData();
     payload.append("action", "upload");
     payload.append("file", file, file.name);
-    const response = await fetch(ENDPOINT, { method: "POST", body: payload });
+    const response = await fetch(requireEndpoint(), { method: "POST", body: payload });
     const body = (await response.json()) as { ok?: boolean; error?: string; archive?: boolean };
     if (!response.ok || !body.ok) throw new Error(body.error || `Could not upload ${file.name}`);
     return body;
@@ -103,7 +110,7 @@ export function DocumentSorter({ onUploaded }: { onUploaded: () => void }) {
       payload.append("action", "place");
       payload.append("path", filePath);
       payload.append("category", category);
-      const response = await fetch(ENDPOINT, { method: "POST", body: payload });
+      const response = await fetch(requireEndpoint(), { method: "POST", body: payload });
       const body = (await response.json()) as { ok?: boolean; error?: string };
       if (!response.ok || !body.ok) throw new Error(body.error || "Could not place that file.");
       await refresh();
