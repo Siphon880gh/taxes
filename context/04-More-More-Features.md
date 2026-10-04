@@ -1,0 +1,6 @@
+In the taxes app at `/Users/wengffung/dev/web/weng/app/taxes`, make these changes locally. Do not push or open a pull request. Commit each change, then show the files changed, the line counts, and the diff.
+
+1. Remove the "Preparation cost comparison" button at the top of the "What this path turns up" header, including its `p` shortcut. Leave the costs panel and every other way to open it.
+2. Remove the sentence under the chart: "A rust outline marks an answer left unknown. Those nodes are not treated as a yes." Leave the rust-outline behavior and the other help text.
+3. Always highlight the node the user is currently on. Keep the rust stroke on that node through answering, redraws, header collapse, and focus changes. Leave the unknown outline and the short answered flash.
+4. Make Fit current's "i" obviously part of Fit current, inside that control rather than a separate toolbar item. Clicking it opens a note that says it fits the current node, the nodes directly before it, and the nodes after it. Do not change what Fit current does.
