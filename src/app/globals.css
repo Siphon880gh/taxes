@@ -724,6 +724,24 @@ button.question-dock-tile {
   animation: node-flash 1.4s ease;
 }
 
+.mermaid-host g.node.is-answered rect,
+.mermaid-host g.node.is-answered polygon,
+.mermaid-host g.node.is-answered path {
+  stroke: #c2410c !important;
+  stroke-width: 4px;
+  animation: node-answered 1s ease;
+}
+
+@keyframes node-answered {
+  0%,
+  100% {
+    filter: none;
+  }
+  40% {
+    filter: drop-shadow(0 0 8px #ea580c);
+  }
+}
+
 @keyframes node-flash {
   0%,
   100% {

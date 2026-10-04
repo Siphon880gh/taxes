@@ -40,7 +40,7 @@ type Props = {
   onToggleLevel: () => void;
   edges: { from: string; to: string }[];
   /** When set, the next chart draw fits these nodes instead of the whole chart. */
-  fitFocus: { key: number; ids: readonly string[] } | null;
+  fitFocus: { key: number; ids: readonly string[]; answeredId: string } | null;
 };
 
 let renderSeq = 0;
@@ -119,6 +119,8 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
   const pendingFit = useRef(true);
   const fitSvgRef = useRef<SVGSVGElement | null>(null);
   const fitFocusRef = useRef<readonly string[] | null>(null);
+  const fitAnsweredRef = useRef<string | null>(null);
+  const pulseTimer = useRef<number | null>(null);
   const pendingScroll = useRef<{ left: number; top: number } | null>(null);
   const panRef = useRef<{
     pointerId: number;
@@ -262,11 +264,14 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
       if (pendingFit.current && svg === fitSvgRef.current && fittedZoom != null) {
         pendingFit.current = false;
         const focus = fitFocusRef.current;
+        const answered = fitAnsweredRef.current;
         fitFocusRef.current = null;
+        fitAnsweredRef.current = null;
         if (!focus?.length || !fitNodes(focus)) {
           zoomRef.current = fittedZoom;
           setZoom(fittedZoom);
         }
+        pulseAnswered(answered);
       }
       const zoomForFrame = fittedZoom ?? scale;
       const dock = document.querySelector(".bottom-frames");
@@ -524,10 +529,32 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
     viewport.scrollTop = scroll.top;
   }, [zoom]);
 
+  function pulseAnswered(id: string | null) {
+    if (pulseTimer.current != null) window.clearTimeout(pulseTimer.current);
+    const svg = hostRef.current?.querySelector("svg");
+    if (!svg) return;
+    svg.querySelectorAll("g.node.is-answered").forEach((node) => node.classList.remove("is-answered"));
+    if (!id) return;
+    const known = new Set(nodeIds);
+    const matches = [...svg.querySelectorAll("g.node")].filter((node) => matchNodeId(node.id, known) === id);
+    for (const node of matches) node.classList.add("is-answered");
+    const target = matches[0];
+    if (!target) return;
+    pulseTimer.current = window.setTimeout(() => {
+      target.classList.remove("is-answered");
+      pulseTimer.current = null;
+    }, 1000);
+  }
+
   useEffect(() => {
     if (!fitFocus?.ids.length) return;
     fitFocusRef.current = fitFocus.ids;
-    if (!pendingFit.current) fitNodes(fitFocus.ids);
+    fitAnsweredRef.current = fitFocus.answeredId;
+    if (!pendingFit.current) {
+      fitNodes(fitFocus.ids);
+      pulseAnswered(fitFocus.answeredId);
+      fitAnsweredRef.current = null;
+    }
   }, [fitFocus]);
 
   function fitZoom() {

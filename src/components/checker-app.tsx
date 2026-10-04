@@ -141,7 +141,7 @@ export function CheckerApp() {
   const [dockHeight, setDockHeight] = useState<number | null>(null);
   const [dockCollapsed, setDockCollapsed] = useState(false);
   const [checklistOpen, setChecklistOpen] = useState(false);
-  const [fitFocus, setFitFocus] = useState<{ key: number; ids: string[] } | null>(null);
+  const [fitFocus, setFitFocus] = useState<{ key: number; ids: string[]; answeredId: string } | null>(null);
   const fitFocusKey = useRef(0);
   const dockScale =
     dockHeight == null || !dockBaseHeight.current
@@ -392,9 +392,11 @@ export function CheckerApp() {
     const appeared = next.revealed.filter((id) => !before.has(id));
     const nextView = chartView(next, expandedGroups);
     fitFocusKey.current += 1;
+    const answeredId = visibleChartId(nextView.ids, nextView.groups, nodeId);
     setFitFocus({
       key: fitFocusKey.current,
       ids: fitCurrentIds(nextView.ids, nextView.groups, nextView.edges, nodeId, appeared),
+      answeredId: answeredId ?? nodeId,
     });
     setSession(next);
     setDraft("");
