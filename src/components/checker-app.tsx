@@ -29,7 +29,13 @@ import {
 } from "@/lib/graph";
 import { answerOf } from "@/lib/graph/session";
 import { parseYear } from "@/lib/graph/thresholds";
-import type { Session, TipBody } from "@/lib/graph/types";
+import type { GraphNode, Session, TipBody } from "@/lib/graph/types";
+
+function firstDockTab(node: GraphNode): "answer" | "info" | "comments" {
+  if (node.kind === "question" && (node.answers?.length || node.textInput)) return "answer";
+  if (node.tipId) return "info";
+  return "comments";
+}
 
 const YEARS = [
   { id: "y2024", label: "2024" },
@@ -232,6 +238,7 @@ export function CheckerApp() {
     const next = blankSession();
     setSession(next);
     setSelectedId("filing_status");
+    setDockTab(firstDockTab(getNode("filing_status")));
     setToastId(null);
     setModalId(null);
     setLevelExpanded(false);
@@ -245,6 +252,7 @@ export function CheckerApp() {
     setSession(next);
     const firstOpen = openQuestions(next)[0] ?? "form_1040";
     setSelectedId(firstOpen);
+    setDockTab(firstDockTab(getNode(firstOpen)));
     setToastId(null);
     setModalId(null);
     setLevelExpanded(false);
@@ -258,15 +266,16 @@ export function CheckerApp() {
     setSession(next);
     setDraft("");
     if (!next.revealed.includes(selectedId)) {
-      setSelectedId(openQuestions(next)[0] ?? nodeId);
+      const nextId = openQuestions(next)[0] ?? nodeId;
+      setSelectedId(nextId);
+      setDockTab(firstDockTab(getNode(nextId)));
       setLevelExpanded(false);
     }
   }
 
   function showTip(tipId: string, nodeId?: string) {
     const node = nodeId ? getNode(nodeId) : null;
-    const hasChoices = Boolean(node && node.kind === "question" && (node.answers?.length || node.textInput));
-    if (node && hasChoices && node.tipId) {
+    if (node?.tipId) {
       setSelectedId(node.id);
       setDockTab("info");
       setTopCollapsed(true);
@@ -287,9 +296,7 @@ export function CheckerApp() {
     }
     if ((nodeLevels.get(id) ?? 0) !== selectedLevel) setLevelExpanded(false);
     setSelectedId(id);
-    const node = getNode(id);
-    const hasAnswerTab = node.kind === "question" && Boolean(node.tipId) && Boolean(node.answers?.length || node.textInput);
-    setDockTab(hasAnswerTab ? "answer" : "comments");
+    setDockTab(firstDockTab(getNode(id)));
     setTopCollapsed(true);
   }
 
@@ -303,8 +310,9 @@ export function CheckerApp() {
     if (next === session) return;
     setSession(next);
     if (!next.revealed.includes(selectedId)) {
-      setSelectedId(next.revealed.includes(scope) ? scope : openQuestions(next)[0] ?? "filing_status");
-      setDockTab("answer");
+      const nextId = next.revealed.includes(scope) ? scope : openQuestions(next)[0] ?? "filing_status";
+      setSelectedId(nextId);
+      setDockTab(firstDockTab(getNode(nextId)));
     }
     setLevelExpanded(false);
   }
@@ -480,17 +488,25 @@ export function CheckerApp() {
                   </div>
                 );
               })()}
+              {selected?.kind === "check" ? (
+                <>
+                  <p className="mt-2 text-stone-800">{selected.help ?? selected.chart}</p>
+                  <p className="mt-2 text-sm text-stone-600">
+                    This is a line to verify on the prepared return. It is not an instruction to start the form.
+                  </p>
+                </>
+              ) : null}
               {selected ? (
                 <div className="dock-tabs" role="tablist" aria-label="Answer, information, or comments">
-                  {selected.kind === "question" && selected.tipId && (selected.answers?.length || selected.textInput) ? (
-                    <>
-                      <button type="button" role="tab" aria-selected={dockTab === "answer"} className={dockTab === "answer" ? "dock-tab dock-tab-on" : "dock-tab"} onClick={() => setDockTab("answer")}>
-                        Answer
-                      </button>
-                      <button type="button" role="tab" aria-selected={dockTab === "info"} className={dockTab === "info" ? "dock-tab dock-tab-on" : "dock-tab"} onClick={() => setDockTab("info")}>
-                        Information
-                      </button>
-                    </>
+                  {selected.kind === "question" && (selected.answers?.length || selected.textInput) ? (
+                    <button type="button" role="tab" aria-selected={dockTab === "answer"} className={dockTab === "answer" ? "dock-tab dock-tab-on" : "dock-tab"} onClick={() => setDockTab("answer")}>
+                      Answer
+                    </button>
+                  ) : null}
+                  {selected.tipId ? (
+                    <button type="button" role="tab" aria-selected={dockTab === "info"} className={dockTab === "info" ? "dock-tab dock-tab-on" : "dock-tab"} onClick={() => setDockTab("info")}>
+                      Information
+                    </button>
                   ) : null}
                   <button
                     type="button"
@@ -504,11 +520,6 @@ export function CheckerApp() {
                     {session.comments[selected.id]?.trim() ? <span className="dock-tab-mark" aria-hidden="true" /> : null}
                   </button>
                 </div>
-              ) : null}
-              {selected?.tipId && !(selected.kind === "question" && (selected.answers?.length || selected.textInput)) ? (
-                <button type="button" className="btn-secondary mt-3" onClick={() => showTip(selected.tipId!)}>
-                  i · Note on this box
-                </button>
               ) : null}
               {selected && dockTab === "comments" ? (
                 <form className="mt-3 flex flex-col gap-2" onSubmit={(event) => event.preventDefault()}>
@@ -526,9 +537,9 @@ export function CheckerApp() {
                     }}
                   />
                 </form>
-              ) : selected && selected.kind === "question" && selected.tipId && dockTab === "info" && (selected.answers?.length || selected.textInput) ? (
+              ) : selected?.tipId && dockTab === "info" ? (
                 <DockInfo tipId={selected.tipId} session={session} />
-              ) : selected?.kind === "question" ? (
+              ) : selected?.kind === "question" && (selected.answers?.length || selected.textInput) ? (
                 <>
                   <p className="mt-2 text-stone-800">{selected.prompt}</p>
                   {selected.help ? <p className="mt-2 text-sm text-stone-600">{selected.help}</p> : null}
@@ -604,16 +615,11 @@ export function CheckerApp() {
                     </div>
                   ) : null}
                 </>
-              ) : selected ? (
-                <>
-                  <p className="mt-2 text-stone-800">{selected.help ?? selected.chart}</p>
-                  <p className="mt-2 text-sm text-stone-600">
-                    This is a line to verify on the prepared return. It is not an instruction to start the form.
-                  </p>
-                </>
-              ) : (
+              ) : selected?.tipId ? (
+                <DockInfo tipId={selected.tipId} session={session} />
+              ) : !selected ? (
                 <p className="mt-2 text-stone-700">Choose a box on the chart.</p>
-              )}
+              ) : null}
               {open.length > 0 ? (
                 <div className="mt-4 border-t border-stone-200 pt-3">
                   <h3 className="text-sm font-semibold text-stone-800">Still open</h3>
