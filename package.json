@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack -p 43123 -H 0.0.0.0",
+    "dev": "node scripts/dev-with-sorter.mjs",
+    "sorter": "node sorter/server.mjs",
     "build": "next build --turbopack",
     "start": "next start -p 43123 -H 0.0.0.0",
     "lint": "eslint",
