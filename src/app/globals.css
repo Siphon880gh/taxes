@@ -148,6 +148,31 @@ body {
   vertical-align: middle;
 }
 
+.fit-current-with-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.12rem 0.2rem 0.12rem 0.12rem;
+  border: 1px solid #d6d3d1;
+  border-radius: 0.375rem;
+  background: white;
+}
+
+.fit-current-with-note .btn-secondary {
+  border-color: transparent;
+  background: transparent;
+}
+
+.fit-current-with-note .btn-secondary:disabled {
+  opacity: 0.45;
+}
+
+.fit-current-with-note .info-dot {
+  width: 1.15rem;
+  height: 1.15rem;
+  font-size: 0.75rem;
+}
+
 .instance-pager {
   position: absolute;
   z-index: 3;

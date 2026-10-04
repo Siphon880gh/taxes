@@ -120,6 +120,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
   const [viewportMaxHeight, setViewportMaxHeight] = useState<number | null>(null);
   const [panning, setPanning] = useState(false);
   const [showCommentCues, setShowCommentCues] = useState(true);
+  const [fitNoteOpen, setFitNoteOpen] = useState(false);
   showCommentCuesRef.current = showCommentCues;
   const pendingFit = useRef(true);
   const fitSvgRef = useRef<SVGSVGElement | null>(null);
@@ -718,6 +719,15 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
     endDrag(event.pointerId);
   }
 
+  useEffect(() => {
+    if (!fitNoteOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setFitNoteOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [fitNoteOpen]);
+
   useShortcut("comments-cues", "c", "Comments", 0, () => setShowCommentCues((current) => !current), shortcutsEnabled);
   useShortcut("zoom-out", "z", "Zoom out", 0, () => setZoom((current) => Math.max(0.35, current - 0.15)), shortcutsEnabled);
   useShortcut("zoom-in", "m", "Zoom in", 2, () => setZoom((current) => Math.min(2, current + 0.15)), shortcutsEnabled);
@@ -755,16 +765,19 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
         <button type="button" className="btn-secondary" onClick={fitZoom}>
           <ShortcutText text="Fit zoom" index={0} />
         </button>
-        <button type="button" className="btn-secondary" onClick={fitCurrent} disabled={!selectedId}>
-          <ShortcutText text="Fit current" index={selectedId ? 2 : -1} />
-        </button>
-        <span
-          className="info-dot info-dot-inline"
-          role="img"
-          title="Fit current zooms to the selected node, the previous node, and any forward descending node of that branch."
-          aria-label="Fit current zooms to the selected node, the previous node, and any forward descending node of that branch."
-        >
-          i
+        <span className="fit-current-with-note">
+          <button type="button" className="btn-secondary" onClick={fitCurrent} disabled={!selectedId}>
+            <ShortcutText text="Fit current" index={selectedId ? 2 : -1} />
+          </button>
+          <button
+            type="button"
+            className="info-dot info-dot-inline"
+            aria-label="About Fit current"
+            aria-expanded={fitNoteOpen}
+            onClick={() => setFitNoteOpen(true)}
+          >
+            i
+          </button>
         </span>
       </div>
     </>
@@ -773,6 +786,17 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
   return (
     <>
     {toolsNode ? createPortal(chartTools, toolsNode) : null}
+    {fitNoteOpen ? (
+      <div className="modal-backdrop" role="presentation" onClick={() => setFitNoteOpen(false)}>
+        <div className="modal-card" role="dialog" aria-modal="true" aria-labelledby="fit-current-note-title" onClick={(event) => event.stopPropagation()}>
+          <h2 id="fit-current-note-title" className="font-display text-2xl text-stone-900">Fit current</h2>
+          <p className="mt-3 text-stone-800">
+            It fits the current node, the nodes directly before it, and the nodes after it.
+          </p>
+          <button type="button" className="btn-primary mt-4" onClick={() => setFitNoteOpen(false)}>Close</button>
+        </div>
+      </div>
+    ) : null}
     <div className="rounded-md border border-stone-300 bg-[#fffdf8]">
       <div className="chart-viewport-shell">
         <div
