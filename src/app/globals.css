@@ -384,7 +384,7 @@ body {
   z-index: 20;
   display: flex;
   flex-direction: column;
-  max-height: min(30vh, 16rem);
+  max-height: min(48vh, 34rem);
   overflow: hidden;
   border-top: 1px solid #d6d3d1;
   background: rgb(244 239 230 / 0.97);
