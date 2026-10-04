@@ -23,8 +23,24 @@ function fail(string $message, int $status = 400): never
     throw new RuntimeException($message, $status);
 }
 
+function send_cors(): void
+{
+    $origin = $_SERVER["HTTP_ORIGIN"] ?? "";
+    $allowed = [
+        "http://localhost:43123",
+        "http://127.0.0.1:43123",
+    ];
+    if (in_array($origin, $allowed, true)) {
+        header("Access-Control-Allow-Origin: " . $origin);
+        header("Vary: Origin");
+    }
+    header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
+    header("Access-Control-Allow-Headers: Content-Type");
+}
+
 function respond(int $status, array $body): never
 {
+    send_cors();
     http_response_code($status);
     header("Content-Type: application/json; charset=utf-8");
     header("Cache-Control: no-store");
@@ -436,6 +452,12 @@ function uploads_of(array $files): array
         ];
     }
     return $out;
+}
+
+send_cors();
+if (($_SERVER["REQUEST_METHOD"] ?? "GET") === "OPTIONS") {
+    http_response_code(204);
+    exit;
 }
 
 try {
