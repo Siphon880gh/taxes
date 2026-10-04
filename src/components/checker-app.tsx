@@ -14,7 +14,7 @@ import {
   costReport,
   deductionNarrative,
   edgeTips,
-  edgesFor,
+  chartView,
   getNode,
   mermaidSource,
   openQuestions,
@@ -83,6 +83,7 @@ export function CheckerApp() {
   const [costOpen, setCostOpen] = useState(false);
   const [purposeOpen, setPurposeOpen] = useState(false);
   const [levelExpanded, setLevelExpanded] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
   const [topCollapsed, setTopCollapsed] = useState(false);
   const [libraryStuck, setLibraryStuck] = useState(false);
   const librarySentinel = useRef<HTMLDivElement>(null);
@@ -129,7 +130,8 @@ export function CheckerApp() {
     setDockHeight(clampDockHeight(current + (event.key === "ArrowUp" ? 28 : -28)));
   }
 
-  const source = useMemo(() => mermaidSource(session), [session]);
+  const view = useMemo(() => chartView(session, expandedGroups), [session, expandedGroups]);
+  const source = useMemo(() => mermaidSource(session, expandedGroups), [session, expandedGroups]);
   const checklist = useMemo(() => buildChecklist(session), [session]);
   const cost = useMemo(() => costReport(session), [session]);
   const deduction = useMemo(() => deductionNarrative(session), [session]);
@@ -145,7 +147,7 @@ export function CheckerApp() {
   const nodeLevels = useMemo(() => {
     const levels = new Map<string, number>([["year", 0]]);
     const queue = ["year"];
-    const outgoing = edgesFor(session);
+    const outgoing = view.edges;
     while (queue.length) {
       const from = queue.shift()!;
       const level = levels.get(from)!;
@@ -155,13 +157,13 @@ export function CheckerApp() {
         queue.push(edge.to);
       }
     }
-    for (const id of session.revealed) {
+    for (const id of view.ids) {
       if (!levels.has(id)) levels.set(id, 0);
     }
     return levels;
-  }, [session]);
+  }, [view]);
   const selectedLevel = selectedId ? nodeLevels.get(selectedId) ?? 0 : 0;
-  const levelNodes = session.revealed.filter((id) => (nodeLevels.get(id) ?? 0) === selectedLevel);
+  const levelNodes = view.ids.filter((id) => (nodeLevels.get(id) ?? 0) === selectedLevel);
   const returnYear = YEARS.find((year) => year.id === answerOf(session, "year"))?.label ?? "Not selected";
 
   useEffect(() => {
@@ -189,7 +191,8 @@ export function CheckerApp() {
 
   const nodeTips = useMemo(
     () =>
-      session.revealed
+      view.ids
+        .filter((id) => !id.startsWith("group_"))
         .map((id) => getNode(id))
         .filter((node) => node.tipId)
         .map((node) => ({
@@ -197,18 +200,18 @@ export function CheckerApp() {
           tipId: node.tipId as string,
           label: `Information about ${node.title}`,
         })),
-    [session],
+    [view],
   );
 
   const visibleEdgeTips = useMemo(() => {
-    const visibleEdges = new Set(edgesFor(session).map((edge) => `${edge.from}->${edge.to}`));
+    const visibleEdges = new Set(view.edges.map((edge) => `${edge.from}->${edge.to}`));
     return edgeTips
       .filter((edge) => visibleEdges.has(`${edge.from}->${edge.to}`))
       .map((edge) => ({
         ...edge,
         label: `Information on the line from ${getNode(edge.from).title} to ${getNode(edge.to).title}`,
       }));
-  }, [session]);
+  }, [view]);
 
   function loadBlank() {
     const next = blankSession();
@@ -217,6 +220,7 @@ export function CheckerApp() {
     setToastId(null);
     setModalId(null);
     setLevelExpanded(false);
+    setExpandedGroups([]);
     setTopCollapsed(false);
     setDraft("");
   }
@@ -229,6 +233,7 @@ export function CheckerApp() {
     setToastId(null);
     setModalId(null);
     setLevelExpanded(false);
+    setExpandedGroups([]);
     setTopCollapsed(false);
     setDraft("");
   }
@@ -257,6 +262,14 @@ export function CheckerApp() {
   }
 
   function selectNode(id: string) {
+    const group = view.groups.find((item) => item.id === id);
+    if (group) {
+      if (!group.lockedOpen) {
+        setExpandedGroups((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
+        setLevelExpanded(false);
+      }
+      return;
+    }
     if ((nodeLevels.get(id) ?? 0) !== selectedLevel) setLevelExpanded(false);
     setSelectedId(id);
     setDockTab("answer");
@@ -372,13 +385,16 @@ export function CheckerApp() {
           </div> : null}
           <MermaidView
             source={source}
-            nodeIds={session.revealed}
+            nodeIds={view.ids}
             nodeTips={nodeTips}
             edgeTips={visibleEdgeTips}
             selectedId={selectedId}
             onSelect={selectNode}
             onTip={showTip}
-            levelNodes={levelNodes.map((id) => ({ id, title: getNode(id).title }))}
+            levelNodes={levelNodes.map((id) => {
+              const group = view.groups.find((item) => item.id === id);
+              return { id, title: group ? `${group.title} (${group.count})` : getNode(id).title };
+            })}
             levelExpanded={levelExpanded}
             onToggleLevel={() => setLevelExpanded((expanded) => !expanded)}
           />

@@ -130,6 +130,30 @@ test("the self-employment tip uses the required toast", () => {
   assert.doesNotMatch(otherYear?.bullets?.join("\n") ?? "", /176,100/);
 });
 
+test("selecting Single groups a fan-out of more than 7 topics by section", () => {
+  const session = applyAnswer(blankSession(), "filing_status", "single");
+  assert.equal(session.revealed.includes("crypto"), true);
+  const chart = mermaidSource(session);
+  assert.match(chart, /group_filing_status_invest\[/);
+  assert.match(chart, /Interest, capital gains, and digital assets<br\/>3 topics/);
+  assert.match(chart, /Retirement, HSA, education, estimates, and dependents<br\/>5 topics/);
+  assert.match(chart, /Standard deduction and itemizing<br\/>5 topics/);
+  assert.doesNotMatch(chart, /\n  interest\[/);
+  assert.doesNotMatch(chart, /\n  dependents\[/);
+  assert.doesNotMatch(chart, /\n  deduction_choice\[/);
+  assert.match(chart, /\n  w2\[/);
+  assert.match(chart, /\n  se\[/);
+  assert.match(chart, /\n  payapps\[/);
+  assert.match(chart, /\n  rental\[/);
+
+  const opened = mermaidSource(session, ["group_filing_status_invest"]);
+  assert.match(opened, /\n  interest\[/);
+  assert.match(opened, /\n  capgain\[/);
+  assert.match(opened, /\n  crypto\[/);
+  assert.match(opened, /group_filing_status_invest --> interest/);
+  assert.doesNotMatch(opened, /\n  dependents\[/);
+});
+
 test("case studies are labeled as examples and there is more than one", () => {
   assert.ok(caseStudies.length >= 2);
   assert.match(caseStudies.map((item) => item.summary).join(" "), /not tax advice|illustration/i);

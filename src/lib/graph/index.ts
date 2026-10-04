@@ -2,7 +2,8 @@ export { caseStudies, applyCase } from "./cases";
 export { buildChecklist, checklistTitle } from "./checklist";
 export { costReport } from "./cost";
 export { deductionNarrative } from "./deduction";
-export { edgesFor, mermaidSource, nodeLabel } from "./mermaid";
+export { chartView, edgesFor, mermaidSource, nodeLabel, NODE_GROUP_THRESHOLD } from "./mermaid";
+export type { ChartGroup, ChartView } from "./mermaid";
 export { getNode, listNodes } from "./nodes";
 export {
   addInstance,
