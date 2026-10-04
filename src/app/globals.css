@@ -376,13 +376,45 @@ body {
   padding-right: 0.9rem;
 }
 
-.question-dock {
-  --dock-scale: 1;
+.bottom-frames {
   position: fixed;
   right: 0;
   bottom: 0;
   left: 0;
   z-index: 20;
+  display: flex;
+  flex-direction: column;
+}
+
+.checklist-frame {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  max-height: min(48vh, 34rem);
+  overflow: hidden;
+  border-top: 1px solid #d6d3d1;
+  background: rgb(244 239 230 / 0.97);
+  box-shadow: 0 -8px 24px rgb(28 25 23 / 0.12);
+}
+
+.checklist-frame.is-collapsed {
+  height: 3rem;
+  min-height: 3rem;
+  max-height: 3rem;
+}
+
+.checklist-frame-inner {
+  width: min(40rem, 100%);
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-inline: auto;
+  overflow-y: auto;
+  padding: 2rem 1rem 0.85rem;
+}
+
+.question-dock {
+  --dock-scale: 1;
+  position: relative;
   display: flex;
   flex-direction: column;
   max-height: min(48vh, 34rem);
@@ -526,6 +558,14 @@ body {
   text-align: center;
 }
 
+button.question-dock-tile {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+}
+
 .question-dock-inner {
   width: min(40rem, 100%);
   flex: 1 1 auto;
@@ -536,13 +576,15 @@ body {
 }
 
 @media (min-width: 640px) {
-  .question-dock-inner {
+  .question-dock-inner,
+  .checklist-frame-inner {
     padding: 2rem 1.5rem 0.85rem;
   }
 }
 
 @media (min-width: 1100px) {
-  .question-dock-inner {
+  .question-dock-inner,
+  .checklist-frame-inner {
     width: min(40rem, calc(100% - 48rem));
     margin-inline: auto;
   }

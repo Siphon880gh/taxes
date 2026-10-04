@@ -107,11 +107,11 @@ export function CheckerApp() {
   const [draft, setDraft] = useState("");
   const [dockTab, setDockTab] = useState<"answer" | "info" | "comments">("answer");
   const dockRef = useRef<HTMLElement>(null);
-  const checklistRef = useRef<HTMLButtonElement>(null);
   const dockBaseHeight = useRef<number | null>(null);
   const dockHeightBeforeCollapse = useRef<number | null>(null);
   const [dockHeight, setDockHeight] = useState<number | null>(null);
   const [dockCollapsed, setDockCollapsed] = useState(false);
+  const [checklistOpen, setChecklistOpen] = useState(false);
   const dockScale =
     dockHeight == null || !dockBaseHeight.current
       ? 1
@@ -122,29 +122,23 @@ export function CheckerApp() {
     return Math.min(max, Math.max(9 * 16, next));
   }
 
-  function revealChecklist() {
-    const heading = checklistRef.current;
-    const dock = dockRef.current;
-    if (!heading || !dock || dockCollapsed) return;
-    const headingRect = heading.getBoundingClientRect();
-    const dockRect = dock.getBoundingClientRect();
-    const covered = headingRect.bottom > dockRect.top + 1 && headingRect.top < dockRect.bottom;
-    if (!covered) return;
-    const next = window.innerHeight - headingRect.bottom - 12;
-    if (next >= dockRect.height) return;
-    if (dockBaseHeight.current == null) dockBaseHeight.current = dockRect.height;
-    setDockHeight(clampDockHeight(next));
-  }
-
   function collapseDock() {
-    const dock = dockRef.current;
-    dockHeightBeforeCollapse.current = dockHeight ?? dock?.getBoundingClientRect().height ?? null;
+    if (!dockCollapsed) {
+      const dock = dockRef.current;
+      dockHeightBeforeCollapse.current = dockHeight ?? dock?.getBoundingClientRect().height ?? null;
+    }
     setDockCollapsed(true);
   }
 
   function expandDock() {
+    setChecklistOpen(false);
     setDockCollapsed(false);
     if (dockHeightBeforeCollapse.current != null) setDockHeight(dockHeightBeforeCollapse.current);
+  }
+
+  function openChecklist() {
+    collapseDock();
+    setChecklistOpen(true);
   }
 
   function resizeDock(event: ReactPointerEvent<HTMLButtonElement>) {
@@ -158,7 +152,10 @@ export function CheckerApp() {
     if (dockBaseHeight.current == null) dockBaseHeight.current = startHeight;
     event.currentTarget.setPointerCapture(event.pointerId);
     const move = (ev: PointerEvent) => {
-      if (collapsedAtStart) setDockCollapsed(false);
+      if (collapsedAtStart) {
+        setChecklistOpen(false);
+        setDockCollapsed(false);
+      }
       setDockHeight(clampDockHeight(startHeight + (startY - ev.clientY)));
     };
     const stop = () => {
@@ -174,7 +171,10 @@ export function CheckerApp() {
     event.preventDefault();
     const dock = dockRef.current;
     if (!dock) return;
-    if (dockCollapsed) setDockCollapsed(false);
+    if (dockCollapsed) {
+      setChecklistOpen(false);
+      setDockCollapsed(false);
+    }
     const current = dockCollapsed
       ? dockHeightBeforeCollapse.current ?? dockHeight ?? dock.getBoundingClientRect().height
       : dockHeight ?? dock.getBoundingClientRect().height;
@@ -361,6 +361,7 @@ export function CheckerApp() {
       setDockTab("info");
       setTopCollapsed(true);
       setToastId(null);
+      expandDock();
       return;
     }
     setToastId(tipId);
@@ -379,6 +380,7 @@ export function CheckerApp() {
     setSelectedId(id);
     setDockTab(firstDockTab(getNode(id)));
     setTopCollapsed(true);
+    expandDock();
   }
 
   function addAnotherInstance() {
@@ -445,7 +447,7 @@ export function CheckerApp() {
         )}
       </header>
 
-      <main className="flex w-full flex-col gap-6 px-4 py-6 pb-[25rem] sm:px-6 lg:px-8">
+      <main className="flex w-full flex-col gap-6 px-4 py-6 pb-[28rem] sm:px-6 lg:px-8">
         <div ref={librarySentinel} className="h-px" aria-hidden="true" />
         <section aria-labelledby="cases-heading" className="path-library">
           <div className="flex flex-wrap items-center gap-3 rounded-md border border-stone-300 bg-[#fffdf8] px-4 py-3">
@@ -546,6 +548,56 @@ export function CheckerApp() {
           </p>
         </section>
 
+        <div className="bottom-frames">
+        <section
+          className={checklistOpen ? "checklist-frame" : "checklist-frame is-collapsed"}
+          aria-labelledby="check-heading"
+        >
+          <button
+            type="button"
+            className="question-dock-collapse"
+            aria-expanded={checklistOpen}
+            aria-label={checklistOpen ? "Collapse the confirmation checklist" : "Expand the confirmation checklist"}
+            onClick={checklistOpen ? () => setChecklistOpen(false) : openChecklist}
+          >
+            {checklistOpen ? "Hide" : "Expand"}
+          </button>
+          {checklistOpen ? (
+            <div className="checklist-frame-inner">
+              <h2 id="check-heading" className="font-display text-2xl text-stone-900">
+                {checklistTitle(session)}
+              </h2>
+              {checklist.length === 0 ? (
+                <p className="mt-2 text-stone-700">Answer a question to list forms and lines. Nothing is assumed yet.</p>
+              ) : (
+                <ul className="mt-3 flex flex-col gap-3">
+                  {checklist.map((item) => (
+                    <li key={item.id} className="rounded-md border border-stone-200 bg-[#fffdf8] px-3 py-2">
+                      <p className="font-medium text-stone-900">
+                        {item.form}
+                        {item.line ? ` · ${item.line}` : ""}
+                      </p>
+                      <p className="text-sm text-stone-700">{item.summary}</p>
+                      <p className="mt-1 text-xs uppercase tracking-wide text-stone-500">
+                        {item.certainty === "sourced" ? "Line cited for the year shown" : "Verify on the form"}
+                        {item.source ? ` · ${item.source.yearLabel}` : ""}
+                      </p>
+                      {item.source ? (
+                        <a className="text-sm text-rust underline-offset-2 hover:underline" href={item.source.url} target="_blank" rel="noreferrer">
+                          {item.source.title}
+                        </a>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ) : (
+            <button type="button" className="question-dock-tile" onClick={openChecklist}>
+              <p id="check-heading" className="truncate font-medium text-stone-900">{checklistTitle(session)}</p>
+            </button>
+          )}
+        </section>
         <aside
           ref={dockRef}
           className={dockCollapsed ? "question-dock is-collapsed" : "question-dock"}
@@ -571,9 +623,9 @@ export function CheckerApp() {
             {dockCollapsed ? "Expand" : "Hide"}
           </button>
           {dockCollapsed ? (
-            <div className="question-dock-tile">
+            <button type="button" className="question-dock-tile" onClick={expandDock}>
               <p className="truncate font-medium text-stone-900">{selected ? selected.title : "Pick a box"}</p>
-            </div>
+            </button>
           ) : null}
           <div className={dockCollapsed ? "hidden" : "question-dock-inner flex flex-col gap-4"}>
             <section className="panel" aria-labelledby="question-heading">
@@ -780,38 +832,6 @@ export function CheckerApp() {
             ) : null}
           </div>
         </aside>
-
-        <div className="grid items-start gap-6">
-          <section className="panel" aria-labelledby="check-heading">
-            <button type="button" id="check-heading" ref={checklistRef} className="font-display cursor-pointer border-0 bg-transparent p-0 text-left text-2xl text-stone-900" onClick={revealChecklist}>
-              {checklistTitle(session)}
-            </button>
-            {checklist.length === 0 ? (
-              <p className="mt-2 text-stone-700">Answer a question to list forms and lines. Nothing is assumed yet.</p>
-            ) : (
-              <ul className="mt-3 flex flex-col gap-3">
-                {checklist.map((item) => (
-                  <li key={item.id} className="rounded-md border border-stone-200 bg-[#fffdf8] px-3 py-2">
-                    <p className="font-medium text-stone-900">
-                      {item.form}
-                      {item.line ? ` · ${item.line}` : ""}
-                    </p>
-                    <p className="text-sm text-stone-700">{item.summary}</p>
-                    <p className="mt-1 text-xs uppercase tracking-wide text-stone-500">
-                      {item.certainty === "sourced" ? "Line cited for the year shown" : "Verify on the form"}
-                      {item.source ? ` · ${item.source.yearLabel}` : ""}
-                    </p>
-                    {item.source ? (
-                      <a className="text-sm text-rust underline-offset-2 hover:underline" href={item.source.url} target="_blank" rel="noreferrer">
-                        {item.source.title}
-                      </a>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
         </div>
       </main>
 

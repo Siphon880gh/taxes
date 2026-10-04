@@ -260,7 +260,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
         setZoom(fittedZoom);
       }
       const zoomForFrame = fittedZoom ?? scale;
-      const dock = document.querySelector(".question-dock");
+      const dock = document.querySelector(".bottom-frames");
       const dockHeight = dock?.getBoundingClientRect().height ?? 0;
       const room = Math.max(280, window.innerHeight - dockHeight - 88);
       const wide = available > 0 && naturalWidth > available - 24;
@@ -334,7 +334,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
 
     const onResize = () => measure();
     window.addEventListener("resize", onResize);
-    const dock = document.querySelector(".question-dock");
+    const dock = document.querySelector(".bottom-frames");
     const dockObserver = dock ? new ResizeObserver(() => measure()) : null;
     dockObserver?.observe(dock!);
     const hostObserver = new ResizeObserver(() => measure());
