@@ -115,9 +115,11 @@ export function costReport(session: Session): CostReport {
       amountLabel: "Price unverified",
       yearLabel: citations.hrblock_online.yearLabel,
       unverified: true,
-      note: needsPremium
-        ? "H&R Block's pages describe Self-Employed as including Premium features, and Premium as covering rental income and investments. That is the tier description that matches Schedule C plus Schedule E or investments. The dollar price was not in the HTML retrieved October 3, 2026, so none is shown."
-        : "H&R Block's pages describe Free Online, Deluxe for itemized deductions, Premium for rental and investments, and Self-Employed for business income. Dollar prices were not in the HTML retrieved October 3, 2026, so none is shown.",
+      note: tags.includes("Schedule C")
+        ? "H&R Block's pages describe Self-Employed as including Premium features plus business income. That is the tier description that matches Schedule C. The dollar price was not in the HTML retrieved October 3, 2026, so none is shown."
+        : tags.includes("Schedule E") || tags.includes("investments")
+          ? "H&R Block's pages describe Premium as covering rental income and investments. That is the tier description that matches this path. The dollar price was not in the HTML retrieved October 3, 2026, so none is shown."
+          : "H&R Block's pages describe Free Online, Deluxe for itemized deductions, Premium for rental and investments, and Self-Employed for business income. Dollar prices were not in the HTML retrieved October 3, 2026, so none is shown.",
       citation: citations.hrblock_online,
     });
 
