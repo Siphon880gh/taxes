@@ -317,6 +317,30 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
   }, []);
 
   useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const onWheel = (event: WheelEvent) => {
+      const meta = event.metaKey || event.getModifierState("Meta") || heldKeys.current.meta;
+      const shift = event.shiftKey || event.getModifierState("Shift") || heldKeys.current.shift;
+      if (!meta && !shift) return;
+      // React's onWheel listener is passive, so it cannot cancel the scroll.
+      event.preventDefault();
+      event.stopPropagation();
+      // Shift+scroll is delivered as a horizontal wheel on macOS.
+      let delta = Math.abs(event.deltaY) >= Math.abs(event.deltaX) ? event.deltaY : event.deltaX;
+      if (event.deltaMode === WheelEvent.DOM_DELTA_LINE) delta *= 16;
+      else if (event.deltaMode === WheelEvent.DOM_DELTA_PAGE) delta *= 400;
+      const next = Math.min(2, Math.max(0.05, zoomRef.current * Math.exp(-delta / 160)));
+      if (next !== zoomRef.current) {
+        zoomRef.current = next;
+        setZoom(next);
+      }
+    };
+    viewport.addEventListener("wheel", onWheel, { passive: false });
+    return () => viewport.removeEventListener("wheel", onWheel);
+  }, []);
+
+  useEffect(() => {
     const svg = hostRef.current?.querySelector("svg");
     if (!svg) return;
     const known = new Set(nodeIds);
@@ -528,7 +552,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
           style={viewportMaxHeight ? { maxHeight: viewportMaxHeight } : undefined}
           tabIndex={0}
           role="region"
-          aria-label="Decision chart. Drag to pan. With Command and Shift held, drag up to zoom in and down to zoom out. Arrow keys scroll."
+          aria-label="Decision chart. Drag to pan. With Command and Shift held, drag up to zoom in and down to zoom out. Hold Command or Shift and scroll to zoom. Arrow keys scroll."
           onPointerDown={onViewportPointerDown}
           onMouseDown={onViewportMouseDown}
           onPointerMove={onViewportPointerMove}
