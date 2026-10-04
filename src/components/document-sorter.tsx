@@ -129,6 +129,20 @@ export function DocumentSorter({ onUploaded }: { onUploaded: () => void }) {
       <div className="sorter-note" role="note">
         <p>Open this codebase in Cursor and invoke the skill tax-document-classification.</p>
         <p>You can upload a zip or tar. Its folder structure and category structure are kept.</p>
+        <details className="sorter-why">
+          <summary>Why do I need my own AI harness?</summary>
+          <p>
+            Weng provides this service for free, so he can’t cover the cost of AI tokens. That’s why this feature
+            guides you to use your own harness and tokens. Other options would be a prompt builder you could copy into
+            ChatGPT or Claude, or an AI integration using your own API key. The API key option would require you to
+            trust that the app doesn’t store or copy your key—something that’s easier to verify in a local app or
+            Chrome extension.
+          </p>
+          <p>
+            For now, the harness is the most practical choice. If the service becomes commercial and token costs are
+            covered, AI can be integrated directly into the app.
+          </p>
+        </details>
       </div>
       <div
         className={over ? "sorter-drop is-over" : "sorter-drop"}
