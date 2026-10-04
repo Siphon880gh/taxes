@@ -330,16 +330,18 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
             drawn.style.height = `${viewBox.height}px`;
           }
           drawn.style.maxWidth = "none";
-          setLensMarkup(drawn.outerHTML);
         }
+        const markedId = propsRef.current.selectedId;
         hostRef.current.querySelectorAll("g.node").forEach((node) => {
           const id = matchNodeId(node.id, new Set(propsRef.current.nodeIds));
           if (!id) return;
+          node.classList.toggle("is-selected", id === markedId);
           (node as SVGElement).onclick = (event) => {
             event.stopPropagation();
             onSelectRef.current(id);
           };
         });
+        if (drawn) setLensMarkup(drawn.outerHTML);
         setError(null);
         requestAnimationFrame(() => measure());
       } catch (err) {

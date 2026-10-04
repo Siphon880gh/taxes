@@ -767,7 +767,11 @@ button.question-dock-tile {
 
 .mermaid-host g.node.is-selected rect,
 .mermaid-host g.node.is-selected polygon,
-.mermaid-host g.node.is-selected path,
+.mermaid-host g.node.is-selected path {
+  stroke: #9a3412 !important;
+  stroke-width: 3px;
+}
+
 .mermaid-host g.node.is-selected .nodeLabel {
   stroke: #9a3412;
 }
