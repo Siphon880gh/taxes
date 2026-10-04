@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent } from "react";
 
 type Marker = {
   key: string;
@@ -38,6 +38,9 @@ type Props = {
   levelNodes: { id: string; title: string }[];
   levelExpanded: boolean;
   onToggleLevel: () => void;
+  edges: { from: string; to: string }[];
+  /** When set, the next chart draw fits these nodes instead of the whole chart. */
+  fitFocus: { key: number; ids: readonly string[] } | null;
 };
 
 let renderSeq = 0;
@@ -86,7 +89,7 @@ function distToRect(x: number, y: number, rect: DOMRect): number {
   return Math.hypot(dx, dy);
 }
 
-export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, commentedNodeIds, onSelect, onTip, instancePagers, onSelectInstance, levelNodes, levelExpanded, onToggleLevel }: Props) {
+export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, commentedNodeIds, onSelect, onTip, instancePagers, onSelectInstance, levelNodes, levelExpanded, onToggleLevel, edges, fitFocus }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -115,6 +118,8 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
   showCommentCuesRef.current = showCommentCues;
   const pendingFit = useRef(true);
   const fitSvgRef = useRef<SVGSVGElement | null>(null);
+  const fitFocusRef = useRef<readonly string[] | null>(null);
+  const pendingScroll = useRef<{ left: number; top: number } | null>(null);
   const panRef = useRef<{
     pointerId: number;
     startX: number;
@@ -256,8 +261,12 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
       // Fitting that earlier chart clears the one-shot fit, so only the SVG from this render counts.
       if (pendingFit.current && svg === fitSvgRef.current && fittedZoom != null) {
         pendingFit.current = false;
-        zoomRef.current = fittedZoom;
-        setZoom(fittedZoom);
+        const focus = fitFocusRef.current;
+        fitFocusRef.current = null;
+        if (!focus?.length || !fitNodes(focus)) {
+          zoomRef.current = fittedZoom;
+          setZoom(fittedZoom);
+        }
       }
       const zoomForFrame = fittedZoom ?? scale;
       const dock = document.querySelector(".bottom-frames");
@@ -457,6 +466,70 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
     });
   }
 
+  function fitNodes(ids: readonly string[]): boolean {
+    const svg = hostRef.current?.querySelector("svg");
+    const viewport = viewportRef.current;
+    const canvas = canvasRef.current;
+    if (!svg || !viewport || !canvas) return false;
+    const scale = zoomRef.current || 1;
+    const canvasRect = canvas.getBoundingClientRect();
+    const wanted = new Set(ids);
+    const known = new Set(nodeIds);
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    let found = 0;
+    svg.querySelectorAll("g.node").forEach((node) => {
+      const id = matchNodeId(node.id, known);
+      if (!id || !wanted.has(id)) return;
+      const rect = node.getBoundingClientRect();
+      if (rect.width === 0 && rect.height === 0) return;
+      const x = (rect.left - canvasRect.left) / scale;
+      const y = (rect.top - canvasRect.top) / scale;
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x + rect.width / scale);
+      maxY = Math.max(maxY, y + rect.height / scale);
+      found += 1;
+    });
+    if (!found || !Number.isFinite(minX) || maxX <= minX || maxY <= minY) return false;
+    const availableW = viewport.clientWidth;
+    const availableH = viewport.clientHeight;
+    if (!availableW) return false;
+    const inset = 28;
+    const zoomW = (availableW - inset) / (maxX - minX);
+    const zoomH = availableH > inset ? (availableH - inset) / (maxY - minY) : zoomW;
+    const next = Math.min(2, Math.max(0.05, Math.min(zoomW, zoomH)));
+    const left = minX * next - Math.max(0, (availableW - (maxX - minX) * next) / 2);
+    const top = minY * next - Math.max(0, (availableH - (maxY - minY) * next) / 2);
+    pendingScroll.current = { left: Math.max(0, left), top: Math.max(0, top) };
+    if (next === zoomRef.current) {
+      viewport.scrollLeft = pendingScroll.current.left;
+      viewport.scrollTop = pendingScroll.current.top;
+      pendingScroll.current = null;
+      return true;
+    }
+    zoomRef.current = next;
+    setZoom(next);
+    return true;
+  }
+
+  useLayoutEffect(() => {
+    const viewport = viewportRef.current;
+    const scroll = pendingScroll.current;
+    if (!viewport || !scroll) return;
+    pendingScroll.current = null;
+    viewport.scrollLeft = scroll.left;
+    viewport.scrollTop = scroll.top;
+  }, [zoom]);
+
+  useEffect(() => {
+    if (!fitFocus?.ids.length) return;
+    fitFocusRef.current = fitFocus.ids;
+    if (!pendingFit.current) fitNodes(fitFocus.ids);
+  }, [fitFocus]);
+
   function fitZoom() {
     const svg = hostRef.current?.querySelector("svg");
     const viewBox = svg?.viewBox?.baseVal;
@@ -465,6 +538,16 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
     if (nextZoom == null) return;
     zoomRef.current = nextZoom;
     setZoom(nextZoom);
+  }
+
+  function fitCurrent() {
+    if (!selectedId) return;
+    const ids = new Set<string>([selectedId]);
+    for (const edge of edges) {
+      if (edge.to === selectedId) ids.add(edge.from);
+      if (edge.from === selectedId) ids.add(edge.to);
+    }
+    fitNodes([...ids]);
   }
 
   function updateLens(event: PointerEvent<HTMLDivElement>) {
@@ -628,6 +711,17 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
         <button type="button" className="btn-secondary" onClick={fitZoom}>
           Fit zoom
         </button>
+        <button type="button" className="btn-secondary" onClick={fitCurrent} disabled={!selectedId}>
+          Fit current
+        </button>
+        <span
+          className="info-dot info-dot-inline"
+          role="img"
+          title="Fit current zooms to the selected node, the previous node, and any forward descending node of that branch."
+          aria-label="Fit current zooms to the selected node, the previous node, and any forward descending node of that branch."
+        >
+          i
+        </span>
         </div>
       </div>
       <div className="chart-viewport-shell">

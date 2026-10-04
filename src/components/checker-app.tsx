@@ -38,6 +38,33 @@ import { answerOf } from "@/lib/graph/session";
 import { parseYear } from "@/lib/graph/thresholds";
 import type { GraphNode, Session, TipBody } from "@/lib/graph/types";
 
+
+function visibleChartId(ids: readonly string[], groups: { id: string; memberIds: string[] }[], id: string): string | null {
+  if (ids.includes(id)) return id;
+  const group = groups.find((item) => item.memberIds.includes(id));
+  return group && ids.includes(group.id) ? group.id : null;
+}
+
+function fitCurrentIds(
+  ids: readonly string[],
+  groups: { id: string; memberIds: string[] }[],
+  chartEdges: { from: string; to: string }[],
+  id: string,
+  extra: readonly string[] = [],
+): string[] {
+  const raw = new Set<string>([id, ...extra]);
+  for (const edge of chartEdges) {
+    if (edge.to === id) raw.add(edge.from);
+    if (edge.from === id) raw.add(edge.to);
+  }
+  const shown = new Set<string>();
+  for (const item of raw) {
+    const visible = visibleChartId(ids, groups, item);
+    if (visible) shown.add(visible);
+  }
+  return [...shown];
+}
+
 function firstDockTab(node: GraphNode): "answer" | "info" | "comments" {
   if (node.kind === "question" && (node.answers?.length || node.textInput)) return "answer";
   if (node.tipId) return "info";
@@ -114,6 +141,8 @@ export function CheckerApp() {
   const [dockHeight, setDockHeight] = useState<number | null>(null);
   const [dockCollapsed, setDockCollapsed] = useState(false);
   const [checklistOpen, setChecklistOpen] = useState(false);
+  const [fitFocus, setFitFocus] = useState<{ key: number; ids: string[] } | null>(null);
+  const fitFocusKey = useRef(0);
   const dockScale =
     dockHeight == null || !dockBaseHeight.current
       ? 1
@@ -358,7 +387,15 @@ export function CheckerApp() {
   }
 
   function answer(nodeId: string, answerId: string, text?: string) {
+    const before = new Set(session.revealed);
     const next = applyAnswer(session, nodeId, answerId, text);
+    const appeared = next.revealed.filter((id) => !before.has(id));
+    const nextView = chartView(next, expandedGroups);
+    fitFocusKey.current += 1;
+    setFitFocus({
+      key: fitFocusKey.current,
+      ids: fitCurrentIds(nextView.ids, nextView.groups, nextView.edges, nodeId, appeared),
+    });
     setSession(next);
     setDraft("");
     if (!next.revealed.includes(selectedId)) {
@@ -557,6 +594,8 @@ export function CheckerApp() {
             })}
             levelExpanded={levelExpanded}
             onToggleLevel={() => setLevelExpanded((expanded) => !expanded)}
+            edges={view.edges}
+            fitFocus={fitFocus}
           />
           <p className="mt-2 text-sm text-stone-600">
             A rust outline marks an answer left unknown. Those nodes are not treated as a yes.
