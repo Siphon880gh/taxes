@@ -105,8 +105,11 @@ export function CheckerApp() {
   const [draft, setDraft] = useState("");
   const [dockTab, setDockTab] = useState<"answer" | "info" | "comments">("answer");
   const dockRef = useRef<HTMLElement>(null);
+  const checklistRef = useRef<HTMLButtonElement>(null);
   const dockBaseHeight = useRef<number | null>(null);
+  const dockHeightBeforeCollapse = useRef<number | null>(null);
   const [dockHeight, setDockHeight] = useState<number | null>(null);
+  const [dockCollapsed, setDockCollapsed] = useState(false);
   const dockScale =
     dockHeight == null || !dockBaseHeight.current
       ? 1
@@ -117,14 +120,43 @@ export function CheckerApp() {
     return Math.min(max, Math.max(9 * 16, next));
   }
 
+  function revealChecklist() {
+    const heading = checklistRef.current;
+    const dock = dockRef.current;
+    if (!heading || !dock || dockCollapsed) return;
+    const headingRect = heading.getBoundingClientRect();
+    const dockRect = dock.getBoundingClientRect();
+    const covered = headingRect.bottom > dockRect.top + 1 && headingRect.top < dockRect.bottom;
+    if (!covered) return;
+    const next = window.innerHeight - headingRect.bottom - 12;
+    if (next >= dockRect.height) return;
+    if (dockBaseHeight.current == null) dockBaseHeight.current = dockRect.height;
+    setDockHeight(clampDockHeight(next));
+  }
+
+  function collapseDock() {
+    const dock = dockRef.current;
+    dockHeightBeforeCollapse.current = dockHeight ?? dock?.getBoundingClientRect().height ?? null;
+    setDockCollapsed(true);
+  }
+
+  function expandDock() {
+    setDockCollapsed(false);
+    if (dockHeightBeforeCollapse.current != null) setDockHeight(dockHeightBeforeCollapse.current);
+  }
+
   function resizeDock(event: ReactPointerEvent<HTMLButtonElement>) {
     const dock = dockRef.current;
     if (!dock) return;
+    const collapsedAtStart = dockCollapsed;
     const startY = event.clientY;
-    const startHeight = dock.getBoundingClientRect().height;
+    const startHeight = collapsedAtStart
+      ? dockHeightBeforeCollapse.current ?? dock.getBoundingClientRect().height
+      : dock.getBoundingClientRect().height;
     if (dockBaseHeight.current == null) dockBaseHeight.current = startHeight;
     event.currentTarget.setPointerCapture(event.pointerId);
     const move = (ev: PointerEvent) => {
+      if (collapsedAtStart) setDockCollapsed(false);
       setDockHeight(clampDockHeight(startHeight + (startY - ev.clientY)));
     };
     const stop = () => {
@@ -140,7 +172,10 @@ export function CheckerApp() {
     event.preventDefault();
     const dock = dockRef.current;
     if (!dock) return;
-    const current = dockHeight ?? dock.getBoundingClientRect().height;
+    if (dockCollapsed) setDockCollapsed(false);
+    const current = dockCollapsed
+      ? dockHeightBeforeCollapse.current ?? dockHeight ?? dock.getBoundingClientRect().height
+      : dockHeight ?? dock.getBoundingClientRect().height;
     if (dockBaseHeight.current == null) dockBaseHeight.current = current;
     setDockHeight(clampDockHeight(current + (event.key === "ArrowUp" ? 28 : -28)));
   }
@@ -510,9 +545,11 @@ export function CheckerApp() {
 
         <aside
           ref={dockRef}
-          className="question-dock"
+          className={dockCollapsed ? "question-dock is-collapsed" : "question-dock"}
           aria-label="Selected chart node"
-          style={{ height: dockHeight ?? undefined, maxHeight: dockHeight ?? undefined, ["--dock-scale" as string]: dockScale }}
+          style={dockCollapsed
+            ? { height: "3rem", maxHeight: "3rem", ["--dock-scale" as string]: 1 }
+            : { height: dockHeight ?? undefined, maxHeight: dockHeight ?? undefined, ["--dock-scale" as string]: dockScale }}
         >
           <button
             type="button"
@@ -521,7 +558,21 @@ export function CheckerApp() {
             onPointerDown={resizeDock}
             onKeyDown={nudgeDock}
           />
-          <div className="question-dock-inner flex flex-col gap-4">
+          <button
+            type="button"
+            className="question-dock-collapse"
+            aria-expanded={!dockCollapsed}
+            aria-label={dockCollapsed ? "Expand the bottom panel" : "Collapse the bottom panel"}
+            onClick={dockCollapsed ? expandDock : collapseDock}
+          >
+            {dockCollapsed ? "Expand" : "Hide"}
+          </button>
+          {dockCollapsed ? (
+            <div className="question-dock-tile">
+              <p className="truncate font-medium text-stone-900">{selected ? selected.title : "Pick a box"}</p>
+            </div>
+          ) : null}
+          <div className={dockCollapsed ? "hidden" : "question-dock-inner flex flex-col gap-4"}>
             <section className="panel" aria-labelledby="question-heading">
               <div className="flex items-start justify-between gap-3">
                 <h2 id="question-heading" className="font-display text-2xl text-stone-900">
@@ -729,9 +780,9 @@ export function CheckerApp() {
 
         <div className="grid items-start gap-6">
           <section className="panel" aria-labelledby="check-heading">
-            <h2 id="check-heading" className="font-display text-2xl text-stone-900">
+            <button type="button" id="check-heading" ref={checklistRef} className="font-display cursor-pointer border-0 bg-transparent p-0 text-left text-2xl text-stone-900" onClick={revealChecklist}>
               {checklistTitle(session)}
-            </h2>
+            </button>
             {checklist.length === 0 ? (
               <p className="mt-2 text-stone-700">Answer a question to list forms and lines. Nothing is assumed yet.</p>
             ) : (
