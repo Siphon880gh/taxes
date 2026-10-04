@@ -42,3 +42,14 @@ next-env.d.ts
 
 # fetched source dumps used while checking figures
 /agent-tools
+
+# tax documents staged or sorted locally
+/sorter/stage/*
+!/sorter/stage/.gitkeep
+/sorter/_Last year's return/
+/sorter/_Proof of identity/
+/sorter/Deductions/
+/sorter/Income - Investments/
+/sorter/Income - Rental/
+/sorter/Income - Self-employment/
+/sorter/Regulations - Health Insurance/

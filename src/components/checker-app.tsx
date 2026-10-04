@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { DocumentSorter } from "@/components/document-sorter";
 import { MermaidView } from "@/components/mermaid-view";
 import { PromptBuilder } from "@/components/prompt-builder";
 import { pickShortcutLetter, ShortcutLayer, ShortcutText, ShortcutTip, useShortcut } from "@/components/shortcut-layer";
@@ -147,7 +148,8 @@ export function CheckerApp() {
   const [importError, setImportError] = useState<string | null>(null);
   const importInput = useRef<HTMLInputElement>(null);
   const [modalId, setModalId] = useState<string | null>(null);
-  const [frameMode, setFrameMode] = useState<"checklist" | "costs">("checklist");
+  const [frameMode, setFrameMode] = useState<"checklist" | "costs" | "sorter">("checklist");
+  const [sorterReminder, setSorterReminder] = useState(false);
   const [chartToolsNode, setChartToolsNode] = useState<HTMLDivElement | null>(null);
   const [purposeOpen, setPurposeOpen] = useState(false);
   const [promptOpen, setPromptOpen] = useState(false);
@@ -688,6 +690,17 @@ export function CheckerApp() {
         </section>
 
         <div ref={framesRef} className="bottom-frames">
+        {sorterReminder ? (
+          <div className="sorter-reminder" role="status">
+            <p>
+              Open this codebase in Cursor and run{" "}
+              <code>npx skills tax-document-classification</code>
+            </p>
+            <button type="button" className="btn-secondary" onClick={() => setSorterReminder(false)}>
+              Dismiss
+            </button>
+          </div>
+        ) : null}
         <section
           className={checklistOpen ? "checklist-frame" : "checklist-frame is-collapsed"}
           aria-labelledby="check-heading"
@@ -698,6 +711,16 @@ export function CheckerApp() {
             </button>
             <button type="button" aria-pressed={frameMode === "costs"} onClick={() => setFrameMode("costs")}>
               Tax Pro Costs
+            </button>
+            <button
+              type="button"
+              aria-pressed={frameMode === "sorter"}
+              onClick={() => {
+                setFrameMode("sorter");
+                if (!checklistOpen) openChecklist();
+              }}
+            >
+              Document Sorter
             </button>
           </div>
           <button
@@ -741,7 +764,7 @@ export function CheckerApp() {
                     </ul>
                   )}
                 </>
-              ) : (
+              ) : frameMode === "costs" ? (
                 <>
                   <h2 id="check-heading" className="font-display text-2xl text-stone-900">
                     Tax Pro Costs
@@ -789,11 +812,15 @@ export function CheckerApp() {
                     </ul>
                   )}
                 </>
+              ) : (
+                <DocumentSorter onUploaded={() => setSorterReminder(true)} />
               )}
             </div>
           ) : (
             <button type="button" className="question-dock-tile" onClick={openChecklist}>
-              <p id="check-heading" className="truncate font-medium text-stone-900">{frameMode === "costs" ? "Tax Pro Costs" : checklistTitle(session)}</p>
+              <p id="check-heading" className="truncate font-medium text-stone-900">
+                {frameMode === "costs" ? "Tax Pro Costs" : frameMode === "sorter" ? "Document Sorter" : checklistTitle(session)}
+              </p>
             </button>
           )}
         </section>

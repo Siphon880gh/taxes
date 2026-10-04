@@ -429,7 +429,7 @@ body {
   right: 0;
   bottom: 0;
   left: 0;
-  z-index: 20;
+  z-index: 26;
   display: flex;
   flex-direction: column;
 }
@@ -446,9 +446,9 @@ body {
 }
 
 .checklist-frame.is-collapsed {
-  height: 3rem;
+  height: auto;
   min-height: 3rem;
-  max-height: 3rem;
+  max-height: none;
 }
 
 .checklist-frame-inner {
@@ -457,16 +457,16 @@ body {
   min-height: 0;
   margin-inline: auto;
   overflow-y: auto;
-  padding: 2.6rem 1rem 0.85rem;
+  padding: 0.85rem 1rem;
 }
 
 .frame-switch {
-  position: absolute;
-  top: 0.35rem;
-  left: 0.75rem;
+  position: relative;
   z-index: 3;
   display: flex;
+  flex-wrap: wrap;
   gap: 0.25rem;
+  margin: 0.35rem 5.25rem 0 0.75rem;
 }
 
 .frame-switch button {
@@ -485,8 +485,34 @@ body {
   background: #fff7ed;
 }
 
+.frame-switch button:focus-visible {
+  outline: 2px solid #9a3412;
+  outline-offset: 2px;
+}
+
 .checklist-frame .question-dock-tile {
-  padding-inline: 13.5rem;
+  padding: 0.35rem 1rem 0.45rem;
+}
+
+.sorter-reminder {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-top: 1px solid #fdba74;
+  background: #fff7ed;
+  padding: 0.7rem 1rem;
+  color: #7c2d12;
+}
+
+.sorter-reminder code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.92em;
+  border: 1px solid #fed7aa;
+  border-radius: 0.25rem;
+  background: #fffdf8;
+  padding: 0.05rem 0.35rem;
 }
 
 .question-dock {
@@ -659,7 +685,7 @@ button.question-dock-tile {
   }
 
   .checklist-frame-inner {
-    padding-top: 2.6rem;
+    padding-top: 0.85rem;
   }
 }
 
