@@ -43,11 +43,16 @@ next-env.d.ts
 # fetched source dumps used while checking figures
 /agent-tools
 
-# document sorter uploads and placed tax files (keep the program and empty stage marker)
+# document sorter uploads and placed tax files (keep the PHP endpoint and empty stage marker)
 /sorter/*
-!/sorter/server.mjs
-!/sorter/lib.mjs
-!/sorter/extract.py
+!/sorter/api.php
 !/sorter/stage/
 /sorter/stage/*
 !/sorter/stage/.gitkeep
+!/sorter/stage/.htaccess
+/public/sorter/*
+!/public/sorter/api.php
+!/public/sorter/stage/
+/public/sorter/stage/*
+!/public/sorter/stage/.gitkeep
+!/public/sorter/stage/.htaccess

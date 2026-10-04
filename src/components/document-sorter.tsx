@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
 
-const ENDPOINT = "http://127.0.0.1:43124";
+const ENDPOINT = "/sorter/api.php";
 
 type StagedFile = { path: string; bytes: number };
 
@@ -31,7 +31,7 @@ export function DocumentSorter({ onUploaded }: { onUploaded: () => void }) {
   const refresh = useCallback(async () => {
     setError(null);
     try {
-      const response = await fetch(`${ENDPOINT}/status`);
+      const response = await fetch(ENDPOINT);
       const body = (await response.json()) as Status;
       if (!response.ok || !body.ok) {
         setError(body.error || "Could not list the staging directory.");
@@ -40,7 +40,7 @@ export function DocumentSorter({ onUploaded }: { onUploaded: () => void }) {
       setFiles(body.files ?? []);
       setCategories(body.categories ?? []);
     } catch {
-      setError("Sorter is not running. Start it with npm run sorter (npm run dev starts it too).");
+      setError("Could not reach /sorter/api.php. The host must run that PHP file.");
     }
   }, []);
 
@@ -49,11 +49,10 @@ export function DocumentSorter({ onUploaded }: { onUploaded: () => void }) {
   }, [refresh]);
 
   async function uploadOne(file: File) {
-    const response = await fetch(`${ENDPOINT}/upload`, {
-      method: "POST",
-      headers: { "x-filename": encodeURIComponent(file.name) },
-      body: file,
-    });
+    const payload = new FormData();
+    payload.append("action", "upload");
+    payload.append("file", file, file.name);
+    const response = await fetch(ENDPOINT, { method: "POST", body: payload });
     const body = (await response.json()) as { ok?: boolean; error?: string; archive?: boolean };
     if (!response.ok || !body.ok) throw new Error(body.error || `Could not upload ${file.name}`);
     return body;
@@ -100,11 +99,11 @@ export function DocumentSorter({ onUploaded }: { onUploaded: () => void }) {
     setBusy(true);
     setError(null);
     try {
-      const response = await fetch(`${ENDPOINT}/place`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path: filePath, category }),
-      });
+      const payload = new FormData();
+      payload.append("action", "place");
+      payload.append("path", filePath);
+      payload.append("category", category);
+      const response = await fetch(ENDPOINT, { method: "POST", body: payload });
       const body = (await response.json()) as { ok?: boolean; error?: string };
       if (!response.ok || !body.ok) throw new Error(body.error || "Could not place that file.");
       await refresh();

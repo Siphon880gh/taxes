@@ -701,8 +701,9 @@ export function CheckerApp() {
             <button type="button" aria-pressed={frameMode === "costs"} onClick={() => setFrameMode("costs")}>
               Tax Pro Costs
             </button>
+            <span className="frame-switch-divider" aria-hidden="true" />
             <button type="button" aria-pressed={frameMode === "sorter"} onClick={() => setFrameMode("sorter")}>
-              Sorter
+              Document Sorter
             </button>
           </div>
           <button

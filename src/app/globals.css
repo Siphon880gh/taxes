@@ -487,8 +487,15 @@ body {
   background: #fff7ed;
 }
 
+.frame-switch-divider {
+  align-self: stretch;
+  width: 1px;
+  margin: 0.1rem 0.35rem;
+  background: #a8a29e;
+}
+
 .checklist-frame .question-dock-tile {
-  padding-inline: 16.5rem 5.5rem;
+  padding-inline: 22rem 5.5rem;
 }
 
 .question-dock {
