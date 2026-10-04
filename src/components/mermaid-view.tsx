@@ -117,6 +117,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
   const [lensMarkup, setLensMarkup] = useState("");
   const [lensPoint, setLensPoint] = useState<{ x: number; y: number } | null>(null);
   const [lensZoom, setLensZoom] = useState(2);
+  const [magnifierOpen, setMagnifierOpen] = useState(true);
   const [viewportMaxHeight, setViewportMaxHeight] = useState<number | null>(null);
   const [panning, setPanning] = useState(false);
   const [showCommentCues, setShowCommentCues] = useState(true);
@@ -916,7 +917,18 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
             <ShortcutText text="Level's nodes" index={0} /> ({levelNodes.length}) <span aria-hidden="true">{levelExpanded ? "−" : "+"}</span>
           </button>
         </div>
-        <div className="chart-magnifier" aria-live="polite" aria-label="Magnified chart area under the pointer">
+        <div className={magnifierOpen ? "chart-magnifier" : "chart-magnifier is-collapsed"} aria-live="polite" aria-label={magnifierOpen ? "Magnified chart area under the pointer" : "Magnifier"}>
+          <button
+            type="button"
+            className="chart-magnifier-collapse"
+            aria-expanded={magnifierOpen}
+            aria-label={magnifierOpen ? "Collapse the magnifier" : "Expand the magnifier"}
+            onClick={() => setMagnifierOpen((open) => !open)}
+          >
+            {magnifierOpen ? "Hide" : "Expand"}
+          </button>
+          {magnifierOpen ? (
+          <>
           {lensPoint && lensMarkup ? (
             <div className="chart-magnifier-content" style={{ transform: `scale(${lensZoom}) translate(${352 / (2 * lensZoom) - lensPoint.x}px, ${136 / (2 * lensZoom) - lensPoint.y}px)` }} dangerouslySetInnerHTML={{ __html: lensMarkup }} />
           ) : (
@@ -931,6 +943,12 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
               +
             </button>
           </div>
+          </>
+          ) : (
+            <button type="button" className="chart-magnifier-tile" onClick={() => setMagnifierOpen(true)}>
+              <p className="truncate font-medium text-stone-900">Magnifier</p>
+            </button>
+          )}
         </div>
       </div>
       {error ? (
