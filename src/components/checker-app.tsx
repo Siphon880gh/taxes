@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { MermaidView } from "@/components/mermaid-view";
 import { PromptBuilder } from "@/components/prompt-builder";
 import { DISCLAIMER } from "@/lib/disclaimer";
@@ -104,6 +104,8 @@ export function CheckerApp() {
   const [topCollapsed, setTopCollapsed] = useState(false);
   const [libraryStuck, setLibraryStuck] = useState(false);
   const librarySentinel = useRef<HTMLDivElement>(null);
+  const mainRef = useRef<HTMLElement>(null);
+  const framesRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState("");
   const [dockTab, setDockTab] = useState<"answer" | "info" | "comments">("answer");
   const dockRef = useRef<HTMLElement>(null);
@@ -236,6 +238,19 @@ export function CheckerApp() {
   useEffect(() => {
     setDraft(readAnswer(session, selectedId)?.text ?? "");
   }, [selectedId, session]);
+
+  useLayoutEffect(() => {
+    const frames = framesRef.current;
+    const page = mainRef.current;
+    if (!frames || !page) return;
+    const fit = () => {
+      page.style.paddingBottom = `${Math.ceil(frames.getBoundingClientRect().height) + 12}px`;
+    };
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(frames);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const sentinel = librarySentinel.current;
@@ -447,7 +462,7 @@ export function CheckerApp() {
         )}
       </header>
 
-      <main className="flex w-full flex-col gap-6 px-4 py-6 pb-[28rem] sm:px-6 lg:px-8">
+      <main ref={mainRef} className="flex w-full flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
         <div ref={librarySentinel} className="h-px" aria-hidden="true" />
         <section aria-labelledby="cases-heading" className="path-library">
           <div className="flex flex-wrap items-center gap-3 rounded-md border border-stone-300 bg-[#fffdf8] px-4 py-3">
@@ -548,7 +563,7 @@ export function CheckerApp() {
           </p>
         </section>
 
-        <div className="bottom-frames">
+        <div ref={framesRef} className="bottom-frames">
         <section
           className={checklistOpen ? "checklist-frame" : "checklist-frame is-collapsed"}
           aria-labelledby="check-heading"
