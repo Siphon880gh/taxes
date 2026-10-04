@@ -30,6 +30,7 @@ type Props = {
   nodeTips: { id: string; tipId: string; label: string }[];
   edgeTips: { from: string; to: string; tipId: string; label: string }[];
   selectedId: string | null;
+  commentedNodeIds: readonly string[];
   onSelect: (id: string) => void;
   onTip: (tipId: string, nodeId?: string) => void;
   instancePagers: InstancePager[];
@@ -58,13 +59,34 @@ function zoomThatFitsWidth(naturalWidth: number, available: number): number | nu
   return Math.max(0.05, Math.floor(((available - 24) / naturalWidth) * 1000) / 1000);
 }
 
+function applyCommentCues(svg: Element, known: Set<string>, commented: Set<string>, show: boolean) {
+  svg.querySelectorAll("g.node").forEach((node) => {
+    const id = matchNodeId(node.id, known);
+    const showCue = Boolean(id && show && commented.has(id));
+    node.classList.toggle("has-comment", showCue);
+    const existing = node.querySelector(":scope > .comment-cue");
+    if (!showCue) {
+      existing?.remove();
+      return;
+    }
+    const cue = existing ?? document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    cue.setAttribute("class", "comment-cue");
+    cue.setAttribute("r", "5");
+    if (!existing) node.appendChild(cue);
+    const shape = node.querySelector("rect, polygon, path");
+    const box = shape instanceof SVGGraphicsElement ? shape.getBBox() : (node as SVGGElement).getBBox();
+    cue.setAttribute("cx", String(box.x + 8));
+    cue.setAttribute("cy", String(box.y + 8));
+  });
+}
+
 function distToRect(x: number, y: number, rect: DOMRect): number {
   const dx = Math.max(rect.left - x, 0, x - rect.right);
   const dy = Math.max(rect.top - y, 0, y - rect.bottom);
   return Math.hypot(dx, dy);
 }
 
-export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, onSelect, onTip, instancePagers, onSelectInstance, levelNodes, levelExpanded, onToggleLevel }: Props) {
+export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, commentedNodeIds, onSelect, onTip, instancePagers, onSelectInstance, levelNodes, levelExpanded, onToggleLevel }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -72,11 +94,12 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
   const onSelectRef = useRef(onSelect);
   const onTipRef = useRef(onTip);
   const onSelectInstanceRef = useRef(onSelectInstance);
-  const propsRef = useRef({ nodeIds, nodeTips, edgeTips, selectedId, instancePagers });
+  const propsRef = useRef({ nodeIds, nodeTips, edgeTips, selectedId, instancePagers, commentedNodeIds });
+  const showCommentCuesRef = useRef(true);
   onSelectRef.current = onSelect;
   onTipRef.current = onTip;
   onSelectInstanceRef.current = onSelectInstance;
-  propsRef.current = { nodeIds, nodeTips, edgeTips, selectedId, instancePagers };
+  propsRef.current = { nodeIds, nodeTips, edgeTips, selectedId, instancePagers, commentedNodeIds };
 
   const [markers, setMarkers] = useState<Marker[]>([]);
   const [instanceMarkers, setInstanceMarkers] = useState<InstanceMarker[]>([]);
@@ -88,6 +111,8 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
   const [lensZoom, setLensZoom] = useState(2);
   const [viewportMaxHeight, setViewportMaxHeight] = useState<number | null>(null);
   const [panning, setPanning] = useState(false);
+  const [showCommentCues, setShowCommentCues] = useState(true);
+  showCommentCuesRef.current = showCommentCues;
   const pendingFit = useRef(true);
   const fitSvgRef = useRef<SVGSVGElement | null>(null);
   const panRef = useRef<{
@@ -116,7 +141,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
       const svg = host.querySelector("svg");
       const stage = host.parentElement;
       if (!svg || !stage || cancelled) return;
-      const { nodeIds: ids, nodeTips: tipsForNodes, edgeTips: tipsForEdges, selectedId: current, instancePagers: pagers } = propsRef.current;
+      const { nodeIds: ids, nodeTips: tipsForNodes, edgeTips: tipsForEdges, selectedId: current, instancePagers: pagers, commentedNodeIds: commentedIds } = propsRef.current;
       const known = new Set(ids);
       const pagersByNode = new Map(pagers.map((pager) => [pager.nodeId, pager]));
       const stageRect = stage.getBoundingClientRect();
@@ -149,6 +174,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
           y: (rect.top - stageRect.top - 8 * scale) / scale,
         });
       });
+      applyCommentCues(svg, known, new Set(commentedIds), showCommentCuesRef.current);
 
       const claimed = new Set<string>();
       svg.querySelectorAll("path.flowchart-link, .edge path, g.edge path").forEach((path) => {
@@ -377,7 +403,12 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
       const id = matchNodeId(node.id, known);
       node.classList.toggle("is-selected", id === selectedId);
     });
-  }, [selectedId, nodeIds, source]);
+    if (svg instanceof SVGSVGElement) {
+      applyCommentCues(svg, known, new Set(commentedNodeIds), showCommentCues);
+      const html = svg.outerHTML;
+      setLensMarkup((current) => (current === html ? current : html));
+    }
+  }, [selectedId, nodeIds, source, commentedNodeIds, showCommentCues]);
 
   function flashLevelNode(id: string) {
     onSelect(id);
@@ -558,8 +589,19 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
 
   return (
     <div className="rounded-md border border-stone-300 bg-[#fffdf8]">
-      <div className="flex flex-wrap items-center justify-end gap-2 border-b border-stone-200 px-3 py-2" role="group" aria-label="Chart zoom controls">
-        <div className="flex flex-wrap items-center justify-end gap-2">
+      <div className="flex flex-wrap items-center justify-end gap-2 border-b border-stone-200 px-3 py-2">
+        <button
+          type="button"
+          className="btn-secondary chart-cue-toggle"
+          aria-pressed={showCommentCues}
+          aria-label={showCommentCues ? "Hide comment markers on the chart" : "Show comment markers on the chart"}
+          onClick={() => setShowCommentCues((current) => !current)}
+        >
+          <span className="comment-cue-dot" aria-hidden="true" />
+          Comments
+        </button>
+        <span className="chart-toolbar-divider" aria-hidden="true" />
+        <div className="flex flex-wrap items-center justify-end gap-2" role="group" aria-label="Chart zoom controls">
         <button type="button" className="btn-secondary" onClick={() => setZoom((current) => Math.max(0.35, current - 0.15))} aria-label="Zoom out">
           −
         </button>

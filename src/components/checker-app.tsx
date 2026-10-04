@@ -425,6 +425,7 @@ export function CheckerApp() {
             nodeTips={nodeTips}
             edgeTips={visibleEdgeTips}
             selectedId={selectedId}
+            commentedNodeIds={Object.entries(session.comments).flatMap(([id, text]) => (text.trim() ? [id] : []))}
             onSelect={selectNode}
             onTip={showTip}
             instancePagers={instancePagers}

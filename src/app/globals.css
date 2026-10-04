@@ -592,6 +592,42 @@ body {
   cursor: pointer;
 }
 
+.mermaid-host .comment-cue {
+  fill: #9a3412;
+  stroke: #fffdf8;
+  stroke-width: 1.5px;
+  pointer-events: none;
+}
+
+.chart-toolbar-divider {
+  width: 1px;
+  height: 1.45rem;
+  background: #d6d3d1;
+}
+
+.chart-cue-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.chart-cue-toggle[aria-pressed="true"] {
+  border-color: #9a3412;
+  color: #7c2d12;
+}
+
+.comment-cue-dot {
+  display: inline-block;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: #a8a29e;
+}
+
+.chart-cue-toggle[aria-pressed="true"] .comment-cue-dot {
+  background: #9a3412;
+}
+
 .mermaid-host g.node.is-selected rect,
 .mermaid-host g.node.is-selected polygon,
 .mermaid-host g.node.is-selected path,
