@@ -273,7 +273,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
         const answered = fitAnsweredRef.current;
         fitFocusRef.current = null;
         fitAnsweredRef.current = null;
-        if (!focus?.length || !fitNodes(focus)) {
+        if (!focus?.length || !fitNodes(focus, "width")) {
           zoomRef.current = fittedZoom;
           setZoom(fittedZoom);
         }
@@ -479,7 +479,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
     });
   }
 
-  function fitNodes(ids: readonly string[]): boolean {
+  function fitNodes(ids: readonly string[], mode: "contain" | "width" = "contain"): boolean {
     const svg = hostRef.current?.querySelector("svg");
     const viewport = viewportRef.current;
     const canvas = canvasRef.current;
@@ -513,7 +513,9 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
     const inset = 28;
     const zoomW = (availableW - inset) / (maxX - minX);
     const zoomH = availableH > inset ? (availableH - inset) / (maxY - minY) : zoomW;
-    const next = Math.min(2, Math.max(0.05, Math.min(zoomW, zoomH)));
+    // Automatic framing keeps the row as wide as the viewport. Fitting the old, short
+    // viewport height letterboxes a wide rank and shrinks the new nodes.
+    const next = Math.min(2, Math.max(0.05, mode === "width" ? zoomW : Math.min(zoomW, zoomH)));
     const left = minX * next - Math.max(0, (availableW - (maxX - minX) * next) / 2);
     const top = minY * next - Math.max(0, (availableH - (maxY - minY) * next) / 2);
     pendingScroll.current = { left: Math.max(0, left), top: Math.max(0, top) };
@@ -559,7 +561,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
     fitFocusRef.current = fitFocus.ids;
     fitAnsweredRef.current = fitFocus.answeredId;
     if (!pendingFit.current) {
-      fitNodes(fitFocus.ids);
+      fitNodes(fitFocus.ids, "width");
       pulseAnswered(fitFocus.answeredId);
       fitAnsweredRef.current = null;
     }
