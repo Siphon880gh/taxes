@@ -79,6 +79,8 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
     scrollLeft: number;
     scrollTop: number;
     moved: boolean;
+    zooming: boolean;
+    startZoom: number;
   } | null>(null);
   zoomRef.current = zoom;
 
@@ -364,6 +366,8 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
       scrollLeft: viewport.scrollLeft,
       scrollTop: viewport.scrollTop,
       moved: false,
+      zooming: event.metaKey && event.shiftKey,
+      startZoom: zoomRef.current,
     };
   }
 
@@ -383,6 +387,15 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
       } catch {
         // Capture is optional. The drag still pans while the pointer is over the chart.
       }
+    }
+    if (pan.zooming) {
+      // Up increases zoom, down decreases it. Same floor as fit and same ceiling as the zoom-in button.
+      const next = Math.min(2, Math.max(0.05, pan.startZoom * Math.exp(-dy / 160)));
+      if (next !== zoomRef.current) {
+        zoomRef.current = next;
+        setZoom(next);
+      }
+      return;
     }
     viewport.scrollLeft = pan.scrollLeft - dx;
     viewport.scrollTop = pan.scrollTop - dy;
@@ -435,7 +448,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
           style={viewportMaxHeight ? { maxHeight: viewportMaxHeight } : undefined}
           tabIndex={0}
           role="region"
-          aria-label="Decision chart. Drag to pan. Arrow keys scroll."
+          aria-label="Decision chart. Drag to pan. With Command and Shift held, drag up to zoom in and down to zoom out. Arrow keys scroll."
           onPointerDown={onViewportPointerDown}
           onPointerMove={onViewportPointerMove}
           onPointerUp={endPan}
