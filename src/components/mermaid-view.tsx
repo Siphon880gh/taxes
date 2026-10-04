@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent } from "react";
+import { ShortcutText, ShortcutTip, useShortcut } from "@/components/shortcut-layer";
 
 type Marker = {
   key: string;
@@ -38,6 +39,7 @@ type Props = {
   levelNodes: { id: string; title: string }[];
   levelExpanded: boolean;
   onToggleLevel: () => void;
+  shortcutsEnabled?: boolean;
   edges: { from: string; to: string }[];
   /** When set, the next chart draw fits these nodes instead of the whole chart. */
   fitFocus: { key: number; ids: readonly string[]; answeredId: string } | null;
@@ -89,7 +91,7 @@ function distToRect(x: number, y: number, rect: DOMRect): number {
   return Math.hypot(dx, dy);
 }
 
-export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, commentedNodeIds, onSelect, onTip, instancePagers, onSelectInstance, levelNodes, levelExpanded, onToggleLevel, edges, fitFocus }: Props) {
+export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, commentedNodeIds, onSelect, onTip, instancePagers, onSelectInstance, levelNodes, levelExpanded, onToggleLevel, shortcutsEnabled = true, edges, fitFocus }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -711,6 +713,13 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
     endDrag(event.pointerId);
   }
 
+  useShortcut("comments-cues", "c", "Comments", 0, () => setShowCommentCues((current) => !current), shortcutsEnabled);
+  useShortcut("zoom-out", "z", "Zoom out", 0, () => setZoom((current) => Math.max(0.35, current - 0.15)), shortcutsEnabled);
+  useShortcut("zoom-in", "m", "Zoom in", 2, () => setZoom((current) => Math.min(2, current + 0.15)), shortcutsEnabled);
+  useShortcut("fit-zoom", "f", "Fit zoom", 0, fitZoom, shortcutsEnabled);
+  useShortcut("fit-current", "t", "Fit current", 2, fitCurrent, shortcutsEnabled && Boolean(selectedId));
+  useShortcut("level-nodes", "l", "Level's nodes", 0, onToggleLevel, shortcutsEnabled);
+
   return (
     <div className="rounded-md border border-stone-300 bg-[#fffdf8]">
       <div className="flex flex-wrap items-center justify-end gap-2 border-b border-stone-200 px-3 py-2">
@@ -722,24 +731,28 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
           onClick={() => setShowCommentCues((current) => !current)}
         >
           <span className="comment-cue-dot" aria-hidden="true" />
-          Comments
+          <ShortcutText text="Comments" index={0} />
         </button>
         <span className="chart-toolbar-divider" aria-hidden="true" />
         <div className="flex flex-wrap items-center justify-end gap-2" role="group" aria-label="Chart zoom controls">
+        <ShortcutTip label="Zoom out" index={0}>
         <button type="button" className="btn-secondary" onClick={() => setZoom((current) => Math.max(0.35, current - 0.15))} aria-label="Zoom out">
           −
         </button>
+        </ShortcutTip>
         <output className="min-w-12 text-center text-sm text-stone-700" aria-label={`Zoom level ${Math.round(zoom * 100)} percent`}>
           {Math.round(zoom * 100)}%
         </output>
+        <ShortcutTip label="Zoom in" index={2}>
         <button type="button" className="btn-secondary" onClick={() => setZoom((current) => Math.min(2, current + 0.15))} aria-label="Zoom in">
           +
         </button>
+        </ShortcutTip>
         <button type="button" className="btn-secondary" onClick={fitZoom}>
-          Fit zoom
+          <ShortcutText text="Fit zoom" index={0} />
         </button>
         <button type="button" className="btn-secondary" onClick={fitCurrent} disabled={!selectedId}>
-          Fit current
+          <ShortcutText text="Fit current" index={selectedId ? 2 : -1} />
         </button>
         <span
           className="info-dot info-dot-inline"
@@ -864,7 +877,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
             </div>
           ) : null}
           <button type="button" className="chart-level-toggle" aria-expanded={levelExpanded} onClick={onToggleLevel}>
-            Level&apos;s nodes ({levelNodes.length}) <span aria-hidden="true">{levelExpanded ? "−" : "+"}</span>
+            <ShortcutText text="Level's nodes" index={0} /> ({levelNodes.length}) <span aria-hidden="true">{levelExpanded ? "−" : "+"}</span>
           </button>
         </div>
         <div className="chart-magnifier" aria-live="polite" aria-label="Magnified chart area under the pointer">

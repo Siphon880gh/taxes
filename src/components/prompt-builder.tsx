@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ShortcutText, useShortcut } from "@/components/shortcut-layer";
 import type { GraphNode } from "@/lib/graph/types";
 
 const CHATGPT_URL = "https://chatgpt.com/";
@@ -43,6 +44,11 @@ export function PromptBuilder({
     void copyPrompt().then(() => window.open(url, "_blank", "noopener,noreferrer"));
   }
 
+  useShortcut("copy-prompt", "y", "Copy prompt", 3, () => void copyPrompt(), step === "build");
+  useShortcut("open-chatgpt", "g", "ChatGPT", 4, () => openIn(CHATGPT_URL), step === "build");
+  useShortcut("prompt-back", "k", "Back", 3, () => { setStep("build"); setError(null); }, step === "import");
+  useShortcut("prompt-next", "j", "Next: Import JSON", 13, () => { setError(null); setStep("import"); }, step === "build");
+
   function apply() {
     try {
       onApply(draft);
@@ -68,11 +74,11 @@ export function PromptBuilder({
             <pre className="prompt-preview mt-2">{prompt}</pre>
             <div className="mt-3 flex flex-wrap items-center gap-3">
               <button type="button" className="btn-secondary" onClick={() => void copyPrompt()}>
-                {copied ? "Copied" : "Copy prompt"}
+                {copied ? "Copied" : <ShortcutText text="Copy prompt" index={3} />}
               </button>
               <span className="text-sm text-stone-600">Open in</span>
               <button type="button" className="prompt-service" onClick={() => openIn(CHATGPT_URL)}>
-                <ChatGptMark /> ChatGPT
+                <ChatGptMark /> <ShortcutText text="ChatGPT" index={4} />
               </button>
               <button type="button" className="prompt-service" onClick={() => openIn(CLAUDE_URL)}>
                 <ClaudeMark /> Claude
@@ -103,11 +109,11 @@ export function PromptBuilder({
         )}
         <div className="prompt-footer">
           <button type="button" className="btn-secondary" onClick={step === "import" ? () => { setStep("build"); setError(null); } : onClose}>
-            {step === "import" ? "Back" : "Cancel"}
+            {step === "import" ? <ShortcutText text="Back" index={3} /> : "Cancel"}
           </button>
           {step === "build" ? (
             <button type="button" className="btn-primary" onClick={() => { setError(null); setStep("import"); }}>
-              Next: Import JSON
+              <ShortcutText text="Next: Import JSON" index={13} />
             </button>
           ) : (
             <button type="button" className="btn-primary" onClick={apply}>

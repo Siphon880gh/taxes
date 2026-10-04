@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { MermaidView } from "@/components/mermaid-view";
 import { PromptBuilder } from "@/components/prompt-builder";
+import { pickShortcutLetter, ShortcutLayer, ShortcutText, ShortcutTip, useShortcut } from "@/components/shortcut-layer";
 import { DISCLAIMER } from "@/lib/disclaimer";
 import {
   applyAnswer,
@@ -63,6 +64,29 @@ function fitCurrentIds(
     if (visible) shown.add(visible);
   }
   return [...shown];
+}
+
+function AnswerChoice({
+  choiceId,
+  label,
+  className,
+  pressed,
+  shortcut,
+  onPick,
+}: {
+  choiceId: string;
+  label: string;
+  className: string;
+  pressed: boolean;
+  shortcut: { key: string; index: number } | null;
+  onPick: () => void;
+}) {
+  useShortcut(`answer-${choiceId}`, shortcut?.key ?? "", label, shortcut?.index ?? 0, onPick, Boolean(shortcut));
+  return (
+    <button type="button" aria-pressed={pressed} className={className} onClick={onPick}>
+      <ShortcutText text={label} index={shortcut ? shortcut.index : -1} />
+    </button>
+  );
 }
 
 function firstDockTab(node: GraphNode): "answer" | "info" | "comments" {
@@ -454,7 +478,67 @@ export function CheckerApp() {
     setLevelExpanded(false);
   }
 
+  const dialogOpen = Boolean(promptOpen || costOpen || purposeOpen || modalId);
+  const pageKeys = !dialogOpen;
+  const dockShowsExpand = dockCollapsed;
+  const checklistShowsExpand = !checklistOpen && !dockShowsExpand;
+  const headerShowsExpand = topCollapsed && !dockShowsExpand && !checklistShowsExpand;
+  const showAdd = Boolean(selected && repeatable && stored?.answerId === "yes" && !dockCollapsed);
+  const answerFormOpen = Boolean(
+    selected?.kind === "question" &&
+    (selected.answers?.length || selected.textInput) &&
+    dockTab !== "comments" &&
+    !(selected.tipId && dockTab === "info") &&
+    !dockCollapsed,
+  );
+  const showTextAnswer = Boolean(answerFormOpen && selected?.textInput);
+  const showAnswerTab = Boolean(selected?.kind === "question" && (selected.answers?.length || selected.textInput));
+  const showInfoTab = Boolean(selected?.tipId);
+  const choiceTaken = new Set<string>(["e", "i", "f", "t", "c", "z", "m", "l"]);
+  if (!dockCollapsed || checklistOpen) choiceTaken.add("h");
+  if (dockShowsExpand || checklistShowsExpand || headerShowsExpand) choiceTaken.add("x");
+  if (showAdd) choiceTaken.add("d");
+  if (showTextAnswer) choiceTaken.add("u");
+  if (showAnswerTab) choiceTaken.add("a");
+  if (showInfoTab) choiceTaken.add("n");
+  if (selected) choiceTaken.add("o");
+  if (selected && !dockCollapsed) choiceTaken.add("s");
+  if (!topCollapsed) {
+    choiceTaken.add("p");
+    choiceTaken.add("b");
+  }
+  if (toast?.readMore) choiceTaken.add("r");
+  const choiceShortcut = new Map<string, { key: string; index: number }>();
+  if (answerFormOpen && pageKeys && selected?.answers) {
+    for (const choice of selected.answers) {
+      const found = pickShortcutLetter(choice.label, choiceTaken);
+      if (!found) continue;
+      choiceTaken.add(found.key);
+      choiceShortcut.set(choice.id, found);
+    }
+  }
+  useShortcut("export", "e", "Export", 0, exportChart, pageKeys);
+  useShortcut("import", "i", "Import", 0, () => importInput.current?.click(), pageKeys);
+  useShortcut("cost", "p", "Preparation cost comparison", 0, () => setCostOpen(true), pageKeys && !topCollapsed);
+  useShortcut("about", "b", "About", 1, () => setPurposeOpen(true), pageKeys && !topCollapsed);
+  useShortcut("header-expand", "x", "Expand", 1, () => setTopCollapsed(false), pageKeys && headerShowsExpand);
+  useShortcut("dock-toggle", dockCollapsed ? "x" : "h", dockCollapsed ? "Expand" : "Hide", dockCollapsed ? 1 : 0, () => (dockCollapsed ? expandDock() : collapseDock()), pageKeys);
+  useShortcut("checklist-toggle", checklistOpen ? "h" : "x", checklistOpen ? "Hide" : "Expand", checklistOpen ? 0 : 1, () => (checklistOpen ? setChecklistOpen(false) : openChecklist()), pageKeys && (checklistOpen || checklistShowsExpand));
+  useShortcut("answer-tab", "a", "Answer", 0, () => setDockTab("answer"), pageKeys && showAnswerTab && !dockCollapsed);
+  useShortcut("info-tab", "n", "Information", 1, () => setDockTab("info"), pageKeys && showInfoTab && !dockCollapsed);
+  useShortcut("comments-tab", "o", "Comments", 1, () => setDockTab("comments"), pageKeys && Boolean(selected) && !dockCollapsed);
+  useShortcut("ask-ai", "s", "Ask AI", 1, () => setPromptOpen(true), pageKeys && Boolean(selected) && !dockCollapsed);
+  useShortcut("add-another", "d", "Add another", 1, addAnotherInstance, pageKeys && showAdd);
+  useShortcut("use-answer", "u", "Use this answer", 0, () => {
+    if (!selected?.textInput) return;
+    const text = draft.trim();
+    if (!text) return;
+    answer(selected.id, selected.textInput.answerId, text);
+  }, pageKeys && showTextAnswer);
+  useShortcut("read-more", "r", "Read more", 0, () => { if (toast) setModalId(toast.id); }, pageKeys && Boolean(toast?.readMore));
+
   return (
+    <ShortcutLayer>
     <div className="min-h-screen">
       <header className={topCollapsed ? "hidden" : "border-b border-stone-300 bg-[#fffdf8]"}>
         {topCollapsed ? null : (
@@ -464,9 +548,11 @@ export function CheckerApp() {
               <p className="text-sm font-medium uppercase tracking-[0.14em] text-stone-500">Return review</p>
               <div className="flex items-center gap-2">
                 <h1 className="font-display text-3xl text-stone-900 sm:text-4xl">Tax Final Confirmation</h1>
+                <ShortcutTip label="About" index={1}>
                 <button type="button" className="info-dot info-dot-inline" aria-label="About Tax Final Confirmation" onClick={() => setPurposeOpen(true)}>
                   i
                 </button>
+                </ShortcutTip>
               </div>
               <p className="mt-1 max-w-2xl text-stone-700">
                 Walk the return you already prepared. The chart names schedules and lines to verify. It does not prepare a return.
@@ -510,7 +596,7 @@ export function CheckerApp() {
                 <p className="font-display text-lg text-stone-900">Tax Final Confirmation</p>
                 <span className="text-sm text-stone-700">Return year: {returnYear}</span>
                 {topCollapsed ? (
-                  <button type="button" className="btn-secondary" onClick={() => setTopCollapsed(false)}>Expand</button>
+                  <button type="button" className="btn-secondary" onClick={() => setTopCollapsed(false)}><ShortcutText text="Expand" index={headerShowsExpand ? 1 : -1} /></button>
                 ) : null}
               </div>
             ) : null}
@@ -537,10 +623,10 @@ export function CheckerApp() {
               </select>
             </label>
             <button type="button" className="btn-secondary" onClick={exportChart}>
-              Export
+              <ShortcutText text="Export" index={0} />
             </button>
             <button type="button" className="btn-secondary" onClick={() => importInput.current?.click()}>
-              Import
+              <ShortcutText text="Import" index={0} />
             </button>
             <input
               ref={importInput}
@@ -576,7 +662,7 @@ export function CheckerApp() {
                 Click a box to answer it. The <span className="info-dot info-dot-inline">i</span> opens a note and does not answer the question.
               </p>
               <button type="button" className="btn-secondary" onClick={() => setCostOpen(true)}>
-                Preparation cost comparison
+                <ShortcutText text="Preparation cost comparison" index={0} />
               </button>
           </div> : null}
           <MermaidView
@@ -596,6 +682,7 @@ export function CheckerApp() {
             })}
             levelExpanded={levelExpanded}
             onToggleLevel={() => setLevelExpanded((expanded) => !expanded)}
+            shortcutsEnabled={pageKeys}
             edges={view.edges}
             fitFocus={fitFocus}
           />
@@ -616,7 +703,7 @@ export function CheckerApp() {
             aria-label={checklistOpen ? "Collapse the confirmation checklist" : "Expand the confirmation checklist"}
             onClick={checklistOpen ? () => setChecklistOpen(false) : openChecklist}
           >
-            {checklistOpen ? "Hide" : "Expand"}
+            <ShortcutText text={checklistOpen ? "Hide" : "Expand"} index={checklistOpen || checklistShowsExpand ? (checklistOpen ? 0 : 1) : -1} />
           </button>
           {checklistOpen ? (
             <div className="checklist-frame-inner">
@@ -676,7 +763,7 @@ export function CheckerApp() {
             aria-label={dockCollapsed ? "Expand the bottom panel" : "Collapse the bottom panel"}
             onClick={dockCollapsed ? expandDock : collapseDock}
           >
-            {dockCollapsed ? "Expand" : "Hide"}
+            <ShortcutText text={dockCollapsed ? "Expand" : "Hide"} index={dockCollapsed ? 1 : 0} />
           </button>
           {dockCollapsed ? (
             <button type="button" className="question-dock-tile" onClick={expandDock}>
@@ -691,16 +778,20 @@ export function CheckerApp() {
                 </h2>
                 <div className="flex items-center gap-2">
                   {selected ? (
+                    <ShortcutTip label="Ask AI" index={1}>
                     <button type="button" className="ai-open" aria-label={`Ask AI about ${selected.title}`} onClick={() => setPromptOpen(true)}>
                       <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
                         <path fill="currentColor" d="M8 1.2 9.1 6 14 7.2 9.1 8.4 8 13.2 6.9 8.4 2 7.2 6.9 6z" />
                       </svg>
                     </button>
+                    </ShortcutTip>
                   ) : null}
                   {repeatable && stored?.answerId === "yes" ? (
+                    <ShortcutTip label="Add another" index={1}>
                     <button type="button" className="add-instance" onClick={addAnotherInstance} aria-label={`Add another ${repeatable.singular}`} title={`Add another ${repeatable.singular}`}>
                       +
                     </button>
+                    </ShortcutTip>
                   ) : null}
                 </div>
               </div>
@@ -738,12 +829,12 @@ export function CheckerApp() {
                 <div className="dock-tabs" role="tablist" aria-label="Answer, information, or comments">
                   {selected.kind === "question" && (selected.answers?.length || selected.textInput) ? (
                     <button type="button" role="tab" aria-selected={dockTab === "answer"} className={dockTab === "answer" ? "dock-tab dock-tab-on" : "dock-tab"} onClick={() => setDockTab("answer")}>
-                      Answer
+                      <ShortcutText text="Answer" index={0} />
                     </button>
                   ) : null}
                   {selected.tipId ? (
                     <button type="button" role="tab" aria-selected={dockTab === "info"} className={dockTab === "info" ? "dock-tab dock-tab-on" : "dock-tab"} onClick={() => setDockTab("info")}>
-                      Information
+                      <ShortcutText text="Information" index={1} />
                     </button>
                   ) : null}
                   <button
@@ -754,7 +845,7 @@ export function CheckerApp() {
                     className={`dock-tab${dockTab === "comments" ? " dock-tab-on" : ""}${selectedComment?.trim() ? " dock-tab-noted" : ""}`}
                     onClick={() => setDockTab("comments")}
                   >
-                    Comments
+                    <ShortcutText text="Comments" index={1} />
                     {selectedComment?.trim() ? <span className="dock-tab-mark" aria-hidden="true" /> : null}
                   </button>
                 </div>
@@ -802,7 +893,7 @@ export function CheckerApp() {
                         onChange={(event) => setDraft(event.target.value)}
                       />
                       <button type="submit" className="btn-primary">
-                        Use this answer
+                        <ShortcutText text="Use this answer" index={0} />
                       </button>
                     </form>
                   ) : null}
@@ -810,15 +901,15 @@ export function CheckerApp() {
                     {selected.answers?.map((choice) => {
                       const pressed = stored?.answerId === choice.id && !stored.text;
                       return (
-                        <button
+                        <AnswerChoice
                           key={choice.id}
-                          type="button"
-                          aria-pressed={pressed}
+                          choiceId={choice.id}
+                          label={choice.label}
+                          pressed={pressed}
                           className={choice.id === "unknown" ? "btn-unknown" : pressed ? "btn-primary" : "btn-secondary"}
-                          onClick={() => answer(selected.id, choice.id)}
-                        >
-                          {choice.label}
-                        </button>
+                          shortcut={choiceShortcut.get(choice.id) ?? null}
+                          onPick={() => answer(selected.id, choice.id)}
+                        />
                       );
                     })}
                   </div>
@@ -829,7 +920,7 @@ export function CheckerApp() {
                           {instances.length} {instances.length === 1 ? repeatable.singular : repeatable.plural}
                         </h3>
                         <button type="button" className="text-sm text-rust underline-offset-2 hover:underline" onClick={addAnotherInstance}>
-                          + Add another
+                          + <ShortcutText text="Add another" index={1} />
                         </button>
                       </div>
                       <p className="mt-1 text-sm text-stone-600">Name each record so you can verify it separately. The chart keeps the shared tax path in one place.</p>
@@ -999,7 +1090,7 @@ export function CheckerApp() {
           <div className="mt-2 flex gap-2">
             {toast.readMore ? (
               <button type="button" className="btn-primary" onClick={() => setModalId(toast.id)}>
-                Read more
+                <ShortcutText text="Read more" index={0} />
               </button>
             ) : null}
             <button type="button" className="btn-secondary" onClick={() => setToastId(null)}>
@@ -1051,5 +1142,6 @@ export function CheckerApp() {
         </div>
       ) : null}
     </div>
+    </ShortcutLayer>
   );
 }
