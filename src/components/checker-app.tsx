@@ -287,7 +287,9 @@ export function CheckerApp() {
     }
     if ((nodeLevels.get(id) ?? 0) !== selectedLevel) setLevelExpanded(false);
     setSelectedId(id);
-    setDockTab((tab) => (tab === "comments" ? "comments" : "answer"));
+    const node = getNode(id);
+    const hasAnswerTab = node.kind === "question" && Boolean(node.tipId) && Boolean(node.answers?.length || node.textInput);
+    setDockTab(hasAnswerTab ? "answer" : "comments");
     setTopCollapsed(true);
   }
 
