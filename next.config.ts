@@ -1,13 +1,10 @@
 import type { NextConfig } from "next";
 
-// The client bundle cannot inline a dotted env name. Same URL, public name only.
-const uploadApi = process.env["SERVER_URL_UPLOAD_API.PHP"] ?? "";
-process.env.NEXT_PUBLIC_SERVER_URL_UPLOAD_API_PHP = uploadApi;
-
 const nextConfig: NextConfig = {
   output: "export",
+  // Inlined for the client panel. Next does not expose other env names to the browser.
   env: {
-    NEXT_PUBLIC_SERVER_URL_UPLOAD_API_PHP: uploadApi,
+    SERVER_URL_UPLOAD_API_PHP: process.env.SERVER_URL_UPLOAD_API_PHP ?? "",
   },
 };
 
