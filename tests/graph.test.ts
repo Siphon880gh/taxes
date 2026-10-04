@@ -17,6 +17,7 @@ import { applyCase, caseStudies } from "../src/lib/graph/cases";
 import { buildChecklist } from "../src/lib/graph/checklist";
 import { costReport } from "../src/lib/graph/cost";
 import { chartView, mermaidSource } from "../src/lib/graph/mermaid";
+import { applyNodeReply, nodePrompt } from "../src/lib/graph/prompt";
 import { getNode } from "../src/lib/graph/nodes";
 import { tips } from "../src/lib/graph/tips";
 import {
@@ -293,6 +294,24 @@ test("a chart session json keeps instances and comments and rejects a bad file",
   assert.throws(() => importSession("{"), /not JSON/);
   assert.throws(() => importSession("[]"), /not a chart session/);
   assert.throws(() => importSession("{}"), /no answers/);
+});
+
+test("a node prompt carries the session and a reply applies only that box", () => {
+  const session = blankSession();
+  const prompt = nodePrompt(session, getNode("filing_status"));
+  assert.match(prompt, /filing_status/);
+  assert.match(prompt, /Current session/);
+  assert.match(prompt, /"answerId": "y2025"/);
+  assert.match(prompt, /single/);
+  assert.doesNotMatch(prompt, /"revealed"/);
+  const next = applyNodeReply(session, "filing_status", '{"nodeId":"filing_status","answerId":"single"}');
+  assert.equal(next.answers.filing_status?.answerId, "single");
+  assert.equal(session.answers.filing_status, undefined);
+  assert.throws(() => applyNodeReply(session, "filing_status", '{"nodeId":"year","answerId":"y2024"}'), /different box/);
+  assert.throws(() => applyNodeReply(session, "filing_status", "not json"), /not JSON/);
+  assert.throws(() => applyNodeReply(session, "filing_status", '{"answerId":"nope"}'), /not one of this box/);
+  const replaced = applyNodeReply(session, "filing_status", sessionToJson(applyAnswer(session, "filing_status", "mfj")));
+  assert.equal(replaced.answers.filing_status?.answerId, "mfj");
 });
 
 test("case studies are labeled as examples and there is more than one", () => {

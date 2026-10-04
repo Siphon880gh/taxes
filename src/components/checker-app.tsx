@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { MermaidView } from "@/components/mermaid-view";
+import { PromptBuilder } from "@/components/prompt-builder";
 import { DISCLAIMER } from "@/lib/disclaimer";
 import {
   applyAnswer,
@@ -17,6 +18,8 @@ import {
   chartView,
   getNode,
   mermaidSource,
+  applyNodeReply,
+  nodePrompt,
   openQuestions,
   importSession,
   instanceScope,
@@ -93,6 +96,7 @@ export function CheckerApp() {
   const [modalId, setModalId] = useState<string | null>(null);
   const [costOpen, setCostOpen] = useState(false);
   const [purposeOpen, setPurposeOpen] = useState(false);
+  const [promptOpen, setPromptOpen] = useState(false);
   const [levelExpanded, setLevelExpanded] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
   const [topCollapsed, setTopCollapsed] = useState(false);
@@ -204,15 +208,16 @@ export function CheckerApp() {
   }, []);
 
   useEffect(() => {
-    if (!modalId && !costOpen && !purposeOpen) return;
+    if (!modalId && !costOpen && !purposeOpen && !promptOpen) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") setModalId(null);
       if (event.key === "Escape") setCostOpen(false);
       if (event.key === "Escape") setPurposeOpen(false);
+      if (event.key === "Escape") setPromptOpen(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [modalId, costOpen, purposeOpen]);
+  }, [modalId, costOpen, purposeOpen, promptOpen]);
 
   const nodeTips = useMemo(
     () =>
@@ -522,11 +527,20 @@ export function CheckerApp() {
                 <h2 id="question-heading" className="font-display text-2xl text-stone-900">
                   {selected ? selected.title : "Pick a box"}
                 </h2>
-                {repeatable && stored?.answerId === "yes" ? (
-                  <button type="button" className="add-instance" onClick={addAnotherInstance} aria-label={`Add another ${repeatable.singular}`} title={`Add another ${repeatable.singular}`}>
-                    +
-                  </button>
-                ) : null}
+                <div className="flex items-center gap-2">
+                  {selected ? (
+                    <button type="button" className="ai-open" aria-label={`Ask AI about ${selected.title}`} onClick={() => setPromptOpen(true)}>
+                      <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                        <path fill="currentColor" d="M8 1.2 9.1 6 14 7.2 9.1 8.4 8 13.2 6.9 8.4 2 7.2 6.9 6z" />
+                      </svg>
+                    </button>
+                  ) : null}
+                  {repeatable && stored?.answerId === "yes" ? (
+                    <button type="button" className="add-instance" onClick={addAnotherInstance} aria-label={`Add another ${repeatable.singular}`} title={`Add another ${repeatable.singular}`}>
+                      +
+                    </button>
+                  ) : null}
+                </div>
               </div>
               {(() => {
                 const scope = selected ? instanceScope(selected.id) ?? (repeatableNodes[selected.id] ? selected.id : null) : null;
@@ -805,6 +819,25 @@ export function CheckerApp() {
             )}
           </aside>
         </div>
+      ) : null}
+
+      {promptOpen && selected ? (
+        <PromptBuilder
+          node={selected}
+          prompt={nodePrompt(session, selected)}
+          onClose={() => setPromptOpen(false)}
+          onApply={(raw) => {
+            const next = applyNodeReply(session, selected.id, raw);
+            setSession(next);
+            setDraft("");
+            if (!next.revealed.includes(selected.id)) {
+              const nextId = openQuestions(next)[0] ?? selected.id;
+              setSelectedId(nextId);
+              setDockTab(firstDockTab(getNode(nextId)));
+            }
+            setPromptOpen(false);
+          }}
+        />
       ) : null}
 
       {purposeOpen ? (
