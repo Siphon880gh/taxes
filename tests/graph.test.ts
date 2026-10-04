@@ -303,6 +303,12 @@ test("a node prompt carries the session and a reply applies only that box", () =
   assert.match(prompt, /Current session/);
   assert.match(prompt, /"answerId": "y2025"/);
   assert.match(prompt, /single/);
+  assert.match(prompt, /not tax advice/);
+  assert.match(prompt, /summarize the financial situation/);
+  assert.match(prompt, /list the forms needed/);
+  assert.match(prompt, /important lines/);
+  assert.match(prompt, /still missing or unknown/);
+  assert.match(prompt, /minimize taxable income and maximize deductions/);
   assert.doesNotMatch(prompt, /"revealed"/);
   const next = applyNodeReply(session, "filing_status", '{"nodeId":"filing_status","answerId":"single"}');
   assert.equal(next.answers.filing_status?.answerId, "single");

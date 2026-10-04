@@ -47,7 +47,9 @@ export function nodePrompt(session: Session, node: GraphNode): string {
     "",
     choiceRule,
     "",
-    "Have a short conversation. First list the common real-world situations that map onto this box's choices, in plain language. Ask which one matches the prepared return. When the user wants the result rendered, return only valid JSON with no markdown fences and no commentary.",
+    "Have a short conversation before any JSON. Use only the session and the node text above. Do not invent forms, schedules, or line numbers that are not already named there.",
+    "In plain language: summarize the financial situation the session shows; list the forms needed; name the important lines; say what is still missing or unknown; and offer tips to minimize taxable income and maximize deductions. Also list the common real-world situations that map onto this box's choices, and ask which one matches the prepared return.",
+    "When the user wants the result rendered, return only valid JSON with no markdown fences and no commentary.",
     "",
     "To apply this box only, return:",
     JSON.stringify(
