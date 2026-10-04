@@ -199,6 +199,11 @@ export function CheckerApp() {
     setChecklistOpen(true);
   }
 
+  function showFrame(mode: "checklist" | "costs" | "sorter") {
+    setFrameMode(mode);
+    if (!dockCollapsed) openChecklist();
+  }
+
   function resizeDock(event: ReactPointerEvent<HTMLButtonElement>) {
     const dock = dockRef.current;
     if (!dock) return;
@@ -695,14 +700,14 @@ export function CheckerApp() {
           aria-labelledby="check-heading"
         >
           <div className="frame-switch" role="group" aria-label="Which panel this frame shows">
-            <button type="button" aria-pressed={frameMode === "checklist"} onClick={() => setFrameMode("checklist")}>
+            <button type="button" aria-pressed={frameMode === "checklist"} onClick={() => showFrame("checklist")}>
               Checklist
             </button>
-            <button type="button" aria-pressed={frameMode === "costs"} onClick={() => setFrameMode("costs")}>
+            <button type="button" aria-pressed={frameMode === "costs"} onClick={() => showFrame("costs")}>
               Tax Pro Costs
             </button>
             <span className="frame-switch-divider" aria-hidden="true" />
-            <button type="button" aria-pressed={frameMode === "sorter"} onClick={() => setFrameMode("sorter")}>
+            <button type="button" aria-pressed={frameMode === "sorter"} onClick={() => showFrame("sorter")}>
               Document Sorter
             </button>
           </div>
