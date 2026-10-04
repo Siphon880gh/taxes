@@ -685,9 +685,6 @@ export function CheckerApp() {
             fitFocus={fitFocus}
             toolsNode={chartToolsNode}
           />
-          <p className="mt-2 text-sm text-stone-600">
-            A rust outline marks an answer left unknown. Those nodes are not treated as a yes.
-          </p>
         </section>
 
         <div ref={framesRef} className="bottom-frames">
