@@ -68,6 +68,8 @@ export type Session = {
   revealed: string[];
   quote: number | null;
   caseStudyId: string | null;
+  /** Free-text notes keyed by node id. Empty comments are omitted. */
+  comments: Record<string, string>;
 };
 
 export type ChecklistItem = {

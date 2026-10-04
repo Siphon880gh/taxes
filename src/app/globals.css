@@ -448,6 +448,20 @@ body {
   font-weight: 650;
 }
 
+.dock-tab-noted {
+  color: #7c2d12;
+}
+
+.dock-tab-mark {
+  display: inline-block;
+  width: 0.45rem;
+  height: 0.45rem;
+  margin-left: 0.4rem;
+  border-radius: 999px;
+  background: #9a3412;
+  vertical-align: 0.08em;
+}
+
 .question-dock-resize {
   position: absolute;
   top: 0;

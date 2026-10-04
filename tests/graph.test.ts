@@ -9,6 +9,7 @@ import {
   readAnswer,
   renameInstance,
   selectInstance,
+  setNodeComment,
 } from "../src/lib/graph/session";
 import { applyCase, caseStudies } from "../src/lib/graph/cases";
 import { buildChecklist } from "../src/lib/graph/checklist";
@@ -255,6 +256,20 @@ test("a chart level wider than 7 collapses into section clusters", () => {
   assert.equal(opened.ids.includes("interest"), true);
   assert.ok(levelCounts(chartView(answerAll("yes"))).every((count) => count <= 7));
   assert.ok(levelCounts(chartView(applyCase("joint-w2-crypto"))).every((count) => count <= 7));
+});
+
+test("a node comment stays on the session and clears when the text is empty", () => {
+  const noted = setNodeComment(blankSession(), "filing_status", "Bring the W-2");
+  assert.equal(noted.comments.filing_status, "Bring the W-2");
+  const answered = applyAnswer(noted, "filing_status", "single");
+  assert.equal(answered.comments.filing_status, "Bring the W-2");
+  assert.equal(answered.answers.filing_status?.answerId, "single");
+  const other = setNodeComment(answered, "year", "Extension year");
+  assert.equal(other.comments.filing_status, "Bring the W-2");
+  assert.equal(other.comments.year, "Extension year");
+  const cleared = setNodeComment(other, "filing_status", "   ");
+  assert.equal(cleared.comments.filing_status, undefined);
+  assert.equal(cleared.comments.year, "Extension year");
 });
 
 test("case studies are labeled as examples and there is more than one", () => {

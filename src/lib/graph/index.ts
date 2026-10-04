@@ -15,6 +15,7 @@ export {
   activeInstanceName,
   instanceScope,
   readAnswer,
+  setNodeComment,
   removeInstance,
   renameInstance,
   repeatableNodes,

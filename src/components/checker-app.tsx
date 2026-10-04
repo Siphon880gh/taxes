@@ -24,6 +24,7 @@ import {
   renameInstance,
   repeatableNodes,
   selectInstance,
+  setNodeComment,
   tips,
 } from "@/lib/graph";
 import { answerOf } from "@/lib/graph/session";
@@ -88,7 +89,7 @@ export function CheckerApp() {
   const [libraryStuck, setLibraryStuck] = useState(false);
   const librarySentinel = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState("");
-  const [dockTab, setDockTab] = useState<"answer" | "info">("answer");
+  const [dockTab, setDockTab] = useState<"answer" | "info" | "comments">("answer");
   const dockRef = useRef<HTMLElement>(null);
   const dockBaseHeight = useRef<number | null>(null);
   const [dockHeight, setDockHeight] = useState<number | null>(null);
@@ -286,7 +287,7 @@ export function CheckerApp() {
     }
     if ((nodeLevels.get(id) ?? 0) !== selectedLevel) setLevelExpanded(false);
     setSelectedId(id);
-    setDockTab("answer");
+    setDockTab((tab) => (tab === "comments" ? "comments" : "answer"));
     setTopCollapsed(true);
   }
 
@@ -477,21 +478,53 @@ export function CheckerApp() {
                   </div>
                 );
               })()}
-              {selected && selected.kind === "question" && selected.tipId && (selected.answers?.length || selected.textInput) ? (
-                <div className="dock-tabs" role="tablist" aria-label="Answer or information">
-                  <button type="button" role="tab" aria-selected={dockTab === "answer"} className={dockTab === "answer" ? "dock-tab dock-tab-on" : "dock-tab"} onClick={() => setDockTab("answer")}>
-                    Answer
-                  </button>
-                  <button type="button" role="tab" aria-selected={dockTab === "info"} className={dockTab === "info" ? "dock-tab dock-tab-on" : "dock-tab"} onClick={() => setDockTab("info")}>
-                    Information
+              {selected ? (
+                <div className="dock-tabs" role="tablist" aria-label="Answer, information, or comments">
+                  {selected.kind === "question" && selected.tipId && (selected.answers?.length || selected.textInput) ? (
+                    <>
+                      <button type="button" role="tab" aria-selected={dockTab === "answer"} className={dockTab === "answer" ? "dock-tab dock-tab-on" : "dock-tab"} onClick={() => setDockTab("answer")}>
+                        Answer
+                      </button>
+                      <button type="button" role="tab" aria-selected={dockTab === "info"} className={dockTab === "info" ? "dock-tab dock-tab-on" : "dock-tab"} onClick={() => setDockTab("info")}>
+                        Information
+                      </button>
+                    </>
+                  ) : null}
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={dockTab === "comments"}
+                    aria-label={session.comments[selected.id]?.trim() ? "Comments, this box has a comment" : "Comments"}
+                    className={`dock-tab${dockTab === "comments" ? " dock-tab-on" : ""}${session.comments[selected.id]?.trim() ? " dock-tab-noted" : ""}`}
+                    onClick={() => setDockTab("comments")}
+                  >
+                    Comments
+                    {session.comments[selected.id]?.trim() ? <span className="dock-tab-mark" aria-hidden="true" /> : null}
                   </button>
                 </div>
-              ) : selected?.tipId ? (
+              ) : null}
+              {selected?.tipId && !(selected.kind === "question" && (selected.answers?.length || selected.textInput)) ? (
                 <button type="button" className="btn-secondary mt-3" onClick={() => showTip(selected.tipId!)}>
                   i · Note on this box
                 </button>
               ) : null}
-              {selected && selected.kind === "question" && selected.tipId && dockTab === "info" && (selected.answers?.length || selected.textInput) ? (
+              {selected && dockTab === "comments" ? (
+                <form className="mt-3 flex flex-col gap-2" onSubmit={(event) => event.preventDefault()}>
+                  <label className="text-sm font-medium text-stone-700" htmlFor="node-comment">
+                    Comment on this box
+                  </label>
+                  <textarea
+                    id="node-comment"
+                    className="min-h-24 rounded-md border border-stone-300 bg-white px-3 py-2 text-stone-900"
+                    value={session.comments[selected.id] ?? ""}
+                    placeholder="Add a comment"
+                    onChange={(event) => {
+                      const text = event.target.value;
+                      setSession((current) => setNodeComment(current, selected.id, text));
+                    }}
+                  />
+                </form>
+              ) : selected && selected.kind === "question" && selected.tipId && dockTab === "info" && (selected.answers?.length || selected.textInput) ? (
                 <DockInfo tipId={selected.tipId} session={session} />
               ) : selected?.kind === "question" ? (
                 <>

@@ -56,6 +56,7 @@ export function rebuild(
   instances: Record<string, string[]> = {},
   instanceAnswers: Record<string, Record<string, StoredAnswer>> = {},
   activeInstance: Record<string, number> = {},
+  comments: Record<string, string> = {},
 ): Session {
   const revealed: string[] = [];
   const used: Record<string, StoredAnswer> = {};
@@ -82,7 +83,7 @@ export function rebuild(
   };
 
   visit("year");
-  return { answers: used, instances, instanceAnswers: scoped, activeInstance, revealed, quote, caseStudyId };
+  return { answers: used, instances, instanceAnswers: scoped, activeInstance, revealed, quote, caseStudyId, comments };
 }
 
 export function blankSession(): Session {
@@ -102,17 +103,17 @@ export function applyAnswer(
       ? { ...session.instances, [nodeId]: [defaultInstanceName(nodeId, 1)] }
       : session.instances;
   if (!scope) {
-    return rebuild({ ...session.answers, [nodeId]: stored }, session.quote, session.caseStudyId, instances, session.instanceAnswers, session.activeInstance);
+    return rebuild({ ...session.answers, [nodeId]: stored }, session.quote, session.caseStudyId, instances, session.instanceAnswers, session.activeInstance, session.comments);
   }
   const index = session.activeInstance[scope] ?? 0;
   const bucket = { ...(session.instanceAnswers[scope] ?? {}), [answerKey(index, nodeId)]: stored };
-  return rebuild(session.answers, session.quote, session.caseStudyId, instances, { ...session.instanceAnswers, [scope]: bucket }, session.activeInstance);
+  return rebuild(session.answers, session.quote, session.caseStudyId, instances, { ...session.instanceAnswers, [scope]: bucket }, session.activeInstance, session.comments);
 }
 
 export function selectInstance(session: Session, scope: string, index: number): Session {
   const names = session.instances[scope] ?? [];
   if (!Number.isInteger(index) || index < 0 || index >= names.length) return session;
-  return rebuild(session.answers, session.quote, session.caseStudyId, session.instances, session.instanceAnswers, { ...session.activeInstance, [scope]: index });
+  return rebuild(session.answers, session.quote, session.caseStudyId, session.instances, session.instanceAnswers, { ...session.activeInstance, [scope]: index }, session.comments);
 }
 
 export function readAnswer(session: Session, nodeId: string): StoredAnswer | undefined {
@@ -140,6 +141,7 @@ export function addInstance(session: Session, nodeId: string): Session {
     { ...session.instances, [nodeId]: [...current, defaultInstanceName(nodeId, nextIndex + 1)] },
     { ...session.instanceAnswers, [nodeId]: bucket },
     { ...session.activeInstance, [nodeId]: nextIndex },
+    session.comments,
   );
 }
 
@@ -176,7 +178,15 @@ export function removeInstance(session: Session, nodeId: string, index: number):
     { ...session.instances, [nodeId]: current.filter((_, itemIndex) => itemIndex !== index) },
     { ...session.instanceAnswers, [nodeId]: bucket },
     { ...session.activeInstance, [nodeId]: nextActive },
+    session.comments,
   );
+}
+
+export function setNodeComment(session: Session, nodeId: string, text: string): Session {
+  const comments = { ...session.comments };
+  if (text.trim()) comments[nodeId] = text;
+  else delete comments[nodeId];
+  return { ...session, comments };
 }
 
 export function answerOf(session: Session, nodeId: string): string | undefined {
