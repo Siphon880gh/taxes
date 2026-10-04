@@ -127,6 +127,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
   } | null>(null);
   const heldKeys = useRef({ meta: false, shift: false });
   const dragCleanup = useRef<(() => void) | null>(null);
+  const skipPageScroll = useRef(false);
   zoomRef.current = zoom;
 
   useEffect(() => {
@@ -392,7 +393,19 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
       }
     };
     viewport.addEventListener("wheel", onWheel, { passive: false });
-    return () => viewport.removeEventListener("wheel", onWheel);
+    const onClick = () => {
+      if (skipPageScroll.current) {
+        skipPageScroll.current = false;
+        return;
+      }
+      if (window.scrollY > 8) return;
+      viewport.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+    viewport.addEventListener("click", onClick, true);
+    return () => {
+      viewport.removeEventListener("wheel", onWheel);
+      viewport.removeEventListener("click", onClick, true);
+    };
   }, []);
 
   useEffect(() => {
@@ -506,6 +519,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
     const viewport = viewportRef.current;
     if (!pan || !viewport || pointerId !== pan.pointerId) return;
     if (pan.moved) {
+      skipPageScroll.current = true;
       const swallow = (clickEvent: MouseEvent) => {
         clickEvent.preventDefault();
         clickEvent.stopPropagation();
