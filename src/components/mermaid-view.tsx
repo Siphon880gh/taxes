@@ -11,6 +11,19 @@ type Marker = {
   y: number;
 };
 
+type InstancePager = {
+  nodeId: string;
+  activeIndex: number;
+  names: string[];
+  label: string;
+};
+
+type InstanceMarker = {
+  nodeId: string;
+  x: number;
+  y: number;
+};
+
 type Props = {
   source: string;
   nodeIds: string[];
@@ -19,6 +32,8 @@ type Props = {
   selectedId: string | null;
   onSelect: (id: string) => void;
   onTip: (tipId: string, nodeId?: string) => void;
+  instancePagers: InstancePager[];
+  onSelectInstance: (scope: string, index: number) => void;
   levelNodes: { id: string; title: string }[];
   levelExpanded: boolean;
   onToggleLevel: () => void;
@@ -49,19 +64,22 @@ function distToRect(x: number, y: number, rect: DOMRect): number {
   return Math.hypot(dx, dy);
 }
 
-export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, onSelect, onTip, levelNodes, levelExpanded, onToggleLevel }: Props) {
+export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, onSelect, onTip, instancePagers, onSelectInstance, levelNodes, levelExpanded, onToggleLevel }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const zoomRef = useRef(1);
   const onSelectRef = useRef(onSelect);
   const onTipRef = useRef(onTip);
-  const propsRef = useRef({ nodeIds, nodeTips, edgeTips, selectedId });
+  const onSelectInstanceRef = useRef(onSelectInstance);
+  const propsRef = useRef({ nodeIds, nodeTips, edgeTips, selectedId, instancePagers });
   onSelectRef.current = onSelect;
   onTipRef.current = onTip;
-  propsRef.current = { nodeIds, nodeTips, edgeTips, selectedId };
+  onSelectInstanceRef.current = onSelectInstance;
+  propsRef.current = { nodeIds, nodeTips, edgeTips, selectedId, instancePagers };
 
   const [markers, setMarkers] = useState<Marker[]>([]);
+  const [instanceMarkers, setInstanceMarkers] = useState<InstanceMarker[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [box, setBox] = useState({ width: 0, height: 320 });
   const [zoom, setZoom] = useState(1);
@@ -98,11 +116,13 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
       const svg = host.querySelector("svg");
       const stage = host.parentElement;
       if (!svg || !stage || cancelled) return;
-      const { nodeIds: ids, nodeTips: tipsForNodes, edgeTips: tipsForEdges, selectedId: current } = propsRef.current;
+      const { nodeIds: ids, nodeTips: tipsForNodes, edgeTips: tipsForEdges, selectedId: current, instancePagers: pagers } = propsRef.current;
       const known = new Set(ids);
+      const pagersByNode = new Map(pagers.map((pager) => [pager.nodeId, pager]));
       const stageRect = stage.getBoundingClientRect();
       const scale = zoomRef.current;
       const next: Marker[] = [];
+      const nextInstanceMarkers: InstanceMarker[] = [];
       const nodeRects = new Map<string, DOMRect>();
 
       svg.querySelectorAll("g.node").forEach((node) => {
@@ -111,6 +131,13 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
         node.classList.toggle("is-selected", id === current);
         const rect = node.getBoundingClientRect();
         nodeRects.set(id, rect);
+        if (pagersByNode.has(id)) {
+          nextInstanceMarkers.push({
+            nodeId: id,
+            x: (rect.left + rect.width / 2 - stageRect.left) / scale,
+            y: (rect.top - stageRect.top) / scale,
+          });
+        }
         const tip = tipsForNodes.find((item) => item.id === id);
         if (!tip) return;
         next.push({
@@ -213,6 +240,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
       const fittedHeight = Math.max(naturalHeight, 280) * (wide ? zoomForFrame : 1);
       setViewportMaxHeight(wide ? Math.min(Math.max(fittedHeight, 360), room) : Math.min(room, window.innerHeight * 0.78));
       setMarkers(next);
+      setInstanceMarkers(nextInstanceMarkers);
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "Could not place the info buttons.");
@@ -272,6 +300,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "The chart could not be drawn.");
           setMarkers([]);
+          setInstanceMarkers([]);
         }
       }
     })();
@@ -289,7 +318,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
       dockObserver?.disconnect();
       hostObserver.disconnect();
     };
-  }, [source]);
+  }, [source, instancePagers]);
 
   useEffect(() => {
     const sync = (event: KeyboardEvent) => {
@@ -577,6 +606,46 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
             >
               <div ref={hostRef} className="mermaid-host" />
               <div className="pointer-events-none absolute inset-0">
+                {instanceMarkers.map((marker) => {
+                  const pager = instancePagers.find((item) => item.nodeId === marker.nodeId);
+                  if (!pager) return null;
+                  const total = pager.names.length;
+                  const currentName = pager.names[pager.activeIndex]?.trim() || `${pager.label} ${pager.activeIndex + 1}`;
+                  const previousName = pager.names[pager.activeIndex - 1]?.trim();
+                  const nextName = pager.names[pager.activeIndex + 1]?.trim();
+                  return (
+                    <div
+                      key={`instance-${marker.nodeId}`}
+                      className="instance-pager pointer-events-auto"
+                      style={{ left: marker.x, top: marker.y }}
+                      role="group"
+                      aria-label={`Switch ${pager.label} instance. Currently ${currentName}, ${pager.activeIndex + 1} of ${total}.`}
+                      title={currentName}
+                      onPointerDown={(event) => event.stopPropagation()}
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <button
+                        type="button"
+                        disabled={pager.activeIndex === 0}
+                        aria-label={previousName ? `Previous: ${previousName}` : `No previous ${pager.label}`}
+                        onClick={() => onSelectInstanceRef.current(marker.nodeId, pager.activeIndex - 1)}
+                      >
+                        <span aria-hidden="true">‹</span>
+                      </button>
+                      <span className="instance-pager-count" aria-live="polite" aria-label={`Instance ${pager.activeIndex + 1} of ${total}`}>
+                        {pager.activeIndex + 1}/{total}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={pager.activeIndex === total - 1}
+                        aria-label={nextName ? `Next: ${nextName}` : `No next ${pager.label}`}
+                        onClick={() => onSelectInstanceRef.current(marker.nodeId, pager.activeIndex + 1)}
+                      >
+                        <span aria-hidden="true">›</span>
+                      </button>
+                    </div>
+                  );
+                })}
                 {markers.map((marker) => (
                   <button
                     key={marker.key}

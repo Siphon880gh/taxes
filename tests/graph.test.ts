@@ -1,6 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { applyAnswer, assertGraphIntact, blankSession, openQuestions } from "../src/lib/graph/session";
+import {
+  addInstance,
+  applyAnswer,
+  assertGraphIntact,
+  blankSession,
+  openQuestions,
+  readAnswer,
+  renameInstance,
+  selectInstance,
+} from "../src/lib/graph/session";
 import { applyCase, caseStudies } from "../src/lib/graph/cases";
 import { buildChecklist } from "../src/lib/graph/checklist";
 import { costReport } from "../src/lib/graph/cost";
@@ -129,6 +138,43 @@ test("the self-employment tip uses the required toast", () => {
   assert.match(body?.bullets?.join("\n") ?? "", /\$176,100/);
   const otherYear = tips.se_tax.readMore?.({ year: 2026, quote: null, caseStudyId: null });
   assert.doesNotMatch(otherYear?.bullets?.join("\n") ?? "", /176,100/);
+});
+
+test("switching self-employment instances redraws the active branch and preserves each answer", () => {
+  let session = applyAnswer(blankSession(), "filing_status", "single");
+  session = applyAnswer(session, "se", "yes");
+  session = applyAnswer(session, "se_entity", "sole");
+  session = addInstance(session, "se");
+  session = applyAnswer(session, "se_entity", "partnership");
+
+  assert.deepEqual(session.instances.se, ["Business activity 1", "Business activity 2"]);
+  assert.equal(session.activeInstance.se, 1);
+  assert.equal(readAnswer(session, "se_entity")?.answerId, "partnership");
+  assert.equal(session.revealed.includes("check_entity_k1"), true);
+  assert.equal(session.revealed.includes("se_count"), false);
+  assert.match(mermaidSource(session), /Checking Business activity 2/);
+
+  session = selectInstance(session, "se", 0);
+  assert.equal(readAnswer(session, "se_entity")?.answerId, "sole");
+  assert.equal(session.revealed.includes("check_entity_k1"), false);
+  assert.equal(session.revealed.includes("se_count"), true);
+  assert.match(mermaidSource(session), /Checking Business activity 1/);
+
+  session = selectInstance(session, "se", 1);
+  assert.equal(readAnswer(session, "se_entity")?.answerId, "partnership");
+});
+
+test("a blank instance name can still be switched to and renamed", () => {
+  let session = applyAnswer(blankSession(), "filing_status", "single");
+  session = applyAnswer(session, "se", "yes");
+  session = addInstance(session, "se");
+  session = renameInstance(session, "se", 1, "");
+  session = selectInstance(session, "se", 0);
+  session = selectInstance(session, "se", 1);
+
+  assert.equal(session.activeInstance.se, 1);
+  session = renameInstance(session, "se", 1, "Consulting");
+  assert.equal(session.instances.se[1], "Consulting");
 });
 
 test("selecting Single groups a fan-out of more than 7 topics by section", () => {

@@ -111,7 +111,7 @@ export function applyAnswer(
 
 export function selectInstance(session: Session, scope: string, index: number): Session {
   const names = session.instances[scope] ?? [];
-  if (!names[index]) return session;
+  if (!Number.isInteger(index) || index < 0 || index >= names.length) return session;
   return rebuild(session.answers, session.quote, session.caseStudyId, session.instances, session.instanceAnswers, { ...session.activeInstance, [scope]: index });
 }
 
@@ -150,7 +150,7 @@ export function activeInstanceName(session: Session, scope: string): string | nu
 
 export function renameInstance(session: Session, nodeId: string, index: number, name: string): Session {
   const current = session.instances[nodeId];
-  if (!current?.[index]) return session;
+  if (!current || !Number.isInteger(index) || index < 0 || index >= current.length) return session;
   const next = [...current];
   next[index] = name;
   return { ...session, instances: { ...session.instances, [nodeId]: next } };

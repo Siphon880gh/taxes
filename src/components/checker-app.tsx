@@ -132,6 +132,20 @@ export function CheckerApp() {
 
   const view = useMemo(() => chartView(session, expandedGroups), [session, expandedGroups]);
   const source = useMemo(() => mermaidSource(session, expandedGroups), [session, expandedGroups]);
+  const instancePagers = useMemo(
+    () =>
+      view.ids.flatMap((nodeId) => {
+        const names = session.instances[nodeId] ?? [];
+        if (names.length < 2) return [];
+        return [{
+          nodeId,
+          activeIndex: Math.min(session.activeInstance[nodeId] ?? 0, names.length - 1),
+          names,
+          label: repeatableNodes[nodeId]?.singular ?? getNode(nodeId).title,
+        }];
+      }),
+    [session.activeInstance, session.instances, view.ids],
+  );
   const checklist = useMemo(() => buildChecklist(session), [session]);
   const cost = useMemo(() => costReport(session), [session]);
   const deduction = useMemo(() => deductionNarrative(session), [session]);
@@ -281,6 +295,17 @@ export function CheckerApp() {
     setSession((current) => addInstance(current, selected.id));
   }
 
+  function switchInstance(scope: string, index: number) {
+    const next = selectInstance(session, scope, index);
+    if (next === session) return;
+    setSession(next);
+    if (!next.revealed.includes(selectedId)) {
+      setSelectedId(next.revealed.includes(scope) ? scope : openQuestions(next)[0] ?? "filing_status");
+      setDockTab("answer");
+    }
+    setLevelExpanded(false);
+  }
+
   return (
     <div className="min-h-screen">
       <header className={topCollapsed ? "hidden" : "border-b border-stone-300 bg-[#fffdf8]"}>
@@ -391,6 +416,8 @@ export function CheckerApp() {
             selectedId={selectedId}
             onSelect={selectNode}
             onTip={showTip}
+            instancePagers={instancePagers}
+            onSelectInstance={switchInstance}
             levelNodes={levelNodes.map((id) => {
               const group = view.groups.find((item) => item.id === id);
               return { id, title: group ? `${group.title} (${group.count})` : getNode(id).title };
@@ -442,7 +469,7 @@ export function CheckerApp() {
                         role="tab"
                         aria-selected={index === active}
                         className={index === active ? "year-btn year-btn-on" : "year-btn"}
-                        onClick={() => setSession((current) => selectInstance(current, scope, index))}
+                        onClick={() => switchInstance(scope, index)}
                       >
                         {name.trim() || `Record ${index + 1}`}
                       </button>

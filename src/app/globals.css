@@ -148,6 +148,61 @@ body {
   vertical-align: middle;
 }
 
+.instance-pager {
+  position: absolute;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  overflow: hidden;
+  transform: translate(-50%, -50%);
+  border: 1px solid #9a3412;
+  border-radius: 999px;
+  background: #fffdf8;
+  box-shadow: 0 2px 7px rgb(28 25 23 / 0.16);
+  color: #7c2d12;
+  font-variant-numeric: tabular-nums;
+}
+
+.instance-pager button {
+  display: inline-flex;
+  width: 1.55rem;
+  height: 1.55rem;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.instance-pager button:hover:not(:disabled) {
+  background: #ffedd5;
+}
+
+.instance-pager button:disabled {
+  cursor: default;
+  opacity: 0.32;
+}
+
+.instance-pager button:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 2px solid #9a3412;
+  outline-offset: -2px;
+}
+
+.instance-pager-count {
+  min-width: 2.35rem;
+  border-right: 1px solid #fed7aa;
+  border-left: 1px solid #fed7aa;
+  padding-inline: 0.3rem;
+  text-align: center;
+  font-size: 0.74rem;
+  font-weight: 700;
+  line-height: 1.55rem;
+}
+
 .toast {
   position: fixed;
   right: 1rem;
