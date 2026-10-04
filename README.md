@@ -1,8 +1,15 @@
 # Tax Final Confirmation
 
-A final cross-check for a return already prepared by a professional or tax platform. The chart asks what is on that return and names the forms, schedules, and lines to verify. It does not prepare a return and it does not tell you to start a form.
+By Weng (Weng Fei Fung).
 
-Tax codes, thresholds, form layouts, and line numbers change. This is a final cross-check of a return already prepared by a professional or tax platform. It is not tax advice and it is not an instruction to begin a form. Figures are shown with a tax year and a source. Unverified items stay flagged. A case study is a saved set of answers so you can see which schedules and lines to verify. It is not a finding about anyone's return.
+![Last Commit](https://img.shields.io/github/last-commit/Siphon880gh/taxes/main)
+<a target="_blank" href="https://github.com/Siphon880gh" rel="nofollow"><img src="https://img.shields.io/badge/GitHub--blue?style=social&logo=GitHub" alt="Github" data-canonical-src="https://img.shields.io/badge/GitHub--blue?style=social&logo=GitHub" style="max-width:8.5ch;"></a>
+<a target="_blank" href="https://www.linkedin.com/in/weng-fung/" rel="nofollow"><img src="https://img.shields.io/badge/LinkedIn-blue?style=flat&logo=linkedin&labelColor=blue" alt="Linked-In" data-canonical-src="https://img.shields.io/badge/LinkedIn-blue?style=flat&amp;logo=linkedin&amp;labelColor=blue" style="max-width:10ch;"></a>
+<a target="_blank" href="https://www.youtube.com/@WengTeachesCode/" rel="nofollow"><img src="https://img.shields.io/badge/Youtube-red?style=flat&logo=youtube&labelColor=red" alt="Youtube" data-canonical-src="https://img.shields.io/badge/Youtube-red?style=flat&amp;logo=youtube&amp;labelColor=red" style="max-width:10ch;"></a>
+
+You finished a return in a DIY tax service such as [FreeTaxUSA](https://www.freetaxusa.com), and you want a second pass before you file. This app walks the return you already prepared and recommends the schedules and forms to double-check, so you can confirm the software landed on the right ones.
+
+The chart asks what is on that return and names the forms, schedules, and lines to verify. It does not prepare a return. Tax codes, thresholds, form layouts, and line numbers change. This is a cross-check, not tax advice. Figures are shown with a tax year and a source. Unverified items stay flagged. A case study is a saved set of answers so you can see which schedules and lines to verify. It is not a finding about anyone's return.
 
 The decision graph, the on-screen chart, and the checklist all come from `src/lib/graph`. Read [docs/DECISION_GRAPH.md](docs/DECISION_GRAPH.md) for the full branching design, the sourced deduction amounts, the 2025 Form 1099-K threshold, and the preparation-price comparison.
 
