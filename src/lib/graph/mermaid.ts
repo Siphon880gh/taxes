@@ -55,7 +55,7 @@ export function nodeLabel(id: string, session: Session | null): string {
 
 export type Edge = { from: string; to: string; label: string };
 
-/** A fan-out wider than this is drawn as section clusters instead of one box per topic. */
+/** A fan-out or a chart level wider than this is drawn as section clusters instead of one box per topic. */
 export const NODE_GROUP_THRESHOLD = 7;
 
 /** Same section names as the decision-graph writeup. A cluster uses the category, not a bucket. */
@@ -96,7 +96,102 @@ function groupLabel(group: ChartGroup): string {
   return `${group.title}<br/>${group.count} topics`;
 }
 
-type WorkingGroup = ChartGroup & { from: string; edgeLabel: string };
+type WorkingGroup = ChartGroup & {
+  from: string;
+  edgeLabel: string;
+  incoming: { from: string; label: string }[];
+  /** Unanswered topics stay behind the cluster when a level would otherwise exceed the threshold. */
+  showAnsweredOnly: boolean;
+};
+
+function concealedMembers(session: Session, group: WorkingGroup, expanded: Set<string>): string[] {
+  if (!group.open) return group.memberIds;
+  if (group.showAnsweredOnly && !expanded.has(group.id)) {
+    return group.memberIds.filter((id) => !readAnswer(session, id));
+  }
+  return [];
+}
+
+function assemble(session: Session, groups: WorkingGroup[], expanded: Set<string>): { ids: string[]; edges: Edge[] } {
+  const hidden = new Set(groups.flatMap((group) => concealedMembers(session, group, expanded)));
+  const memberGroup = new Map<string, WorkingGroup>();
+  for (const group of groups) {
+    for (const memberId of group.memberIds) memberGroup.set(memberId, group);
+  }
+
+  const ids: string[] = [];
+  const seenGroups = new Set<string>();
+  for (const id of session.revealed) {
+    const group = memberGroup.get(id);
+    if (group && !seenGroups.has(group.id)) {
+      ids.push(group.id);
+      seenGroups.add(group.id);
+    }
+    if (!hidden.has(id)) ids.push(id);
+  }
+
+  const edges: Edge[] = [];
+  for (const edge of edgesFor(session)) {
+    if (hidden.has(edge.from) || hidden.has(edge.to)) continue;
+    const covered = groups.some(
+      (group) => group.memberIds.includes(edge.to) && group.incoming.some((source) => source.from === edge.from),
+    );
+    if (covered) continue;
+    edges.push(edge);
+  }
+  for (const group of groups) {
+    const seen = new Set<string>();
+    for (const source of group.incoming) {
+      if (hidden.has(source.from) || seen.has(source.from)) continue;
+      seen.add(source.from);
+      edges.push({ from: source.from, to: group.id, label: source.label });
+    }
+    if (!group.open) continue;
+    for (const memberId of group.memberIds) {
+      if (hidden.has(memberId)) continue;
+      edges.push({ from: group.id, to: memberId, label: "" });
+    }
+  }
+
+  const present = new Set(ids);
+  const reachable = new Set<string>();
+  const queue = present.has("year") ? ["year"] : [];
+  while (queue.length) {
+    const from = queue.shift()!;
+    if (reachable.has(from)) continue;
+    reachable.add(from);
+    for (const edge of edges) {
+      if (edge.from === from && present.has(edge.to)) queue.push(edge.to);
+    }
+  }
+  return {
+    ids: ids.filter((id) => reachable.has(id)),
+    edges: edges.filter((edge) => reachable.has(edge.from) && reachable.has(edge.to)),
+  };
+}
+
+function levelsOf(ids: string[], edges: Edge[]): Map<number, string[]> {
+  const depth = new Map<string, number>([["year", 0]]);
+  const queue = ["year"];
+  const present = new Set(ids);
+  while (queue.length) {
+    const from = queue.shift()!;
+    const level = depth.get(from)!;
+    for (const edge of edges) {
+      if (edge.from !== from || !present.has(edge.to) || depth.has(edge.to)) continue;
+      depth.set(edge.to, level + 1);
+      queue.push(edge.to);
+    }
+  }
+  const byLevel = new Map<number, string[]>();
+  for (const id of ids) {
+    const level = depth.get(id) ?? 0;
+    const list = byLevel.get(level);
+    if (list) list.push(id);
+    else byLevel.set(level, [id]);
+  }
+  return byLevel;
+}
 
 export function chartView(session: Session, expandedGroupIds: readonly string[] = []): ChartView {
   const revealed = new Set(session.revealed);
@@ -138,45 +233,89 @@ export function chartView(session: Session, expandedGroupIds: readonly string[] 
         lockedOpen,
         from: id,
         edgeLabel,
+        incoming: [{ from: id, label: edgeLabel }],
+        showAnsweredOnly: false,
       });
       sectionMembers.forEach((memberId) => claimed.add(memberId));
     }
   }
 
-  const hidden = new Set(groups.filter((group) => !group.open).flatMap((group) => group.memberIds));
-  const memberGroup = new Map<string, WorkingGroup>();
-  for (const group of groups) {
-    for (const memberId of group.memberIds) memberGroup.set(memberId, group);
-  }
-
-  const ids: string[] = [];
-  const seenGroups = new Set<string>();
-  for (const id of session.revealed) {
-    const group = memberGroup.get(id);
-    if (group && !seenGroups.has(group.id)) {
-      ids.push(group.id);
-      seenGroups.add(group.id);
+  let view = assemble(session, groups, expanded);
+  for (let pass = 0; pass < 8; pass++) {
+    const byLevel = levelsOf(view.ids, view.edges);
+    const wide = [...byLevel.entries()].find(([, ids]) => ids.length > NODE_GROUP_THRESHOLD);
+    if (!wide) break;
+    const [level, levelIds] = wide;
+    const onLevel = new Set(levelIds);
+    let changed = false;
+    for (const group of groups) {
+      if (!group.open || expanded.has(group.id)) continue;
+      const sitting = group.memberIds.filter((id) => onLevel.has(id));
+      if (sitting.length < 2 || group.showAnsweredOnly) continue;
+      if (sitting.some((id) => !readAnswer(session, id))) {
+        group.showAnsweredOnly = true;
+        group.lockedOpen = false;
+        changed = true;
+      }
     }
-    if (!hidden.has(id)) ids.push(id);
-  }
-
-  const edges: Edge[] = [];
-  for (const edge of edgesFor(session)) {
-    if (hidden.has(edge.from) || hidden.has(edge.to)) continue;
-    if (groups.some((group) => group.from === edge.from && group.memberIds.includes(edge.to))) continue;
-    edges.push(edge);
-  }
-  for (const group of groups) {
-    edges.push({ from: group.from, to: group.id, label: group.edgeLabel });
-    if (!group.open) continue;
-    for (const memberId of group.memberIds) {
-      edges.push({ from: group.id, to: memberId, label: "" });
+    if (!changed) {
+      for (const group of groups) {
+        if (!group.open || expanded.has(group.id)) continue;
+        const sitting = group.memberIds.filter((id) => onLevel.has(id));
+        if (sitting.length < 2) continue;
+        group.open = false;
+        group.lockedOpen = false;
+        group.showAnsweredOnly = false;
+        changed = true;
+      }
     }
+    if (changed) {
+      view = assemble(session, groups, expanded);
+      continue;
+    }
+
+    const grouped = new Set(groups.flatMap((group) => group.memberIds));
+    const bySection = new Map<SectionId, string[]>();
+    for (const id of levelIds) {
+      if (grouped.has(id) || groups.some((group) => group.id === id)) continue;
+      const section = getNode(id).section;
+      const list = bySection.get(section);
+      if (list) list.push(id);
+      else bySection.set(section, [id]);
+    }
+    for (const [section, sectionMembers] of bySection) {
+      if (sectionMembers.length < 2) continue;
+      const idForGroup = `group_level_${level}_${section}_${[...sectionMembers].sort().join("_")}`;
+      if (groups.some((group) => group.id === idForGroup)) continue;
+      const incoming: { from: string; label: string }[] = [];
+      for (const memberId of sectionMembers) {
+        for (const edge of view.edges) {
+          if (edge.to !== memberId || incoming.some((source) => source.from === edge.from)) continue;
+          incoming.push({ from: edge.from, label: edge.label });
+        }
+      }
+      if (!incoming.length) continue;
+      groups.push({
+        id: idForGroup,
+        title: sectionTitle[section],
+        count: sectionMembers.length,
+        memberIds: sectionMembers,
+        open: expanded.has(idForGroup),
+        lockedOpen: false,
+        from: incoming[0].from,
+        edgeLabel: incoming[0].label,
+        incoming,
+        showAnsweredOnly: false,
+      });
+      changed = true;
+    }
+    if (!changed) break;
+    view = assemble(session, groups, expanded);
   }
 
   return {
-    ids,
-    edges,
+    ids: view.ids,
+    edges: view.edges,
     groups: groups.map((group) => ({
       id: group.id,
       title: group.title,

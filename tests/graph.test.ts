@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { applyAnswer, assertGraphIntact, blankSession } from "../src/lib/graph/session";
+import { applyAnswer, assertGraphIntact, blankSession, openQuestions } from "../src/lib/graph/session";
 import { applyCase, caseStudies } from "../src/lib/graph/cases";
 import { buildChecklist } from "../src/lib/graph/checklist";
 import { costReport } from "../src/lib/graph/cost";
-import { mermaidSource } from "../src/lib/graph/mermaid";
+import { chartView, mermaidSource } from "../src/lib/graph/mermaid";
+import { getNode } from "../src/lib/graph/nodes";
 import { tips } from "../src/lib/graph/tips";
 import {
   federalBasicStandard,
@@ -152,6 +153,62 @@ test("selecting Single groups a fan-out of more than 7 topics by section", () =>
   assert.match(opened, /\n  crypto\[/);
   assert.match(opened, /group_filing_status_invest --> interest/);
   assert.doesNotMatch(opened, /\n  dependents\[/);
+});
+
+function levelCounts(view: ReturnType<typeof chartView>): number[] {
+  const depth = new Map<string, number>([["year", 0]]);
+  const present = new Set(view.ids);
+  const queue = ["year"];
+  while (queue.length) {
+    const from = queue.shift()!;
+    const level = depth.get(from)!;
+    for (const edge of view.edges) {
+      if (edge.from !== from || !present.has(edge.to) || depth.has(edge.to)) continue;
+      depth.set(edge.to, level + 1);
+      queue.push(edge.to);
+    }
+  }
+  const counts = new Map<number, number>();
+  for (const id of view.ids) {
+    const level = depth.get(id) ?? 0;
+    counts.set(level, (counts.get(level) ?? 0) + 1);
+  }
+  return [...counts.values()];
+}
+
+function answerAll(prefer: string) {
+  let session = applyAnswer(blankSession(), "filing_status", "single");
+  for (let guard = 0; guard < 80; guard++) {
+    const open = openQuestions(session);
+    if (!open.length) break;
+    let progressed = false;
+    for (const id of open) {
+      const node = getNode(id);
+      const choice = node.answers?.find((answer) => answer.id === prefer) ?? node.answers?.[0];
+      if (!choice && node.textInput) {
+        session = applyAnswer(session, id, node.textInput.answerId, "sample");
+        progressed = true;
+        continue;
+      }
+      if (!choice) continue;
+      session = applyAnswer(session, id, choice.id);
+      progressed = true;
+    }
+    if (!progressed) break;
+  }
+  return session;
+}
+
+test("a chart level wider than 7 collapses into section clusters", () => {
+  const session = answerAll("no");
+  const view = chartView(session);
+  assert.ok(levelCounts(view).every((count) => count <= 7));
+  assert.equal(view.groups.find((group) => group.id === "group_filing_status_invest")?.open, false);
+  assert.equal(view.ids.includes("interest"), false);
+  const opened = chartView(session, ["group_filing_status_invest"]);
+  assert.equal(opened.ids.includes("interest"), true);
+  assert.ok(levelCounts(chartView(answerAll("yes"))).every((count) => count <= 7));
+  assert.ok(levelCounts(chartView(applyCase("joint-w2-crypto"))).every((count) => count <= 7));
 });
 
 test("case studies are labeled as examples and there is more than one", () => {
