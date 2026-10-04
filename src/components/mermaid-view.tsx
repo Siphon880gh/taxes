@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type PointerEvent } from "react";
+import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent } from "react";
 
 type Marker = {
   key: string;
@@ -82,6 +82,8 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
     zooming: boolean;
     startZoom: number;
   } | null>(null);
+  const heldKeys = useRef({ meta: false, shift: false });
+  const dragCleanup = useRef<(() => void) | null>(null);
   zoomRef.current = zoom;
 
   useEffect(() => {
@@ -290,6 +292,31 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
   }, [source]);
 
   useEffect(() => {
+    const sync = (event: KeyboardEvent) => {
+      if (event.key === "Meta" || event.metaKey) heldKeys.current.meta = true;
+      if (event.key === "Shift" || event.shiftKey) heldKeys.current.shift = true;
+    };
+    const release = (event: KeyboardEvent) => {
+      heldKeys.current.meta = event.key === "Meta" ? false : event.metaKey;
+      heldKeys.current.shift = event.key === "Shift" ? false : event.shiftKey;
+    };
+    const blur = () => {
+      heldKeys.current.meta = false;
+      heldKeys.current.shift = false;
+    };
+    window.addEventListener("keydown", sync);
+    window.addEventListener("keyup", release);
+    window.addEventListener("blur", blur);
+    return () => {
+      window.removeEventListener("keydown", sync);
+      window.removeEventListener("keyup", release);
+      window.removeEventListener("blur", blur);
+      dragCleanup.current?.();
+      dragCleanup.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
     const svg = hostRef.current?.querySelector("svg");
     if (!svg) return;
     const known = new Set(nodeIds);
@@ -353,39 +380,28 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
     });
   }
 
-  function onViewportPointerDown(event: PointerEvent<HTMLDivElement>) {
-    if (event.button !== 0) return;
-    const target = event.target;
-    if (target instanceof Element && target.closest("button, a")) return;
-    const viewport = viewportRef.current;
-    if (!viewport) return;
-    panRef.current = {
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      scrollLeft: viewport.scrollLeft,
-      scrollTop: viewport.scrollTop,
-      moved: false,
-      zooming: event.metaKey && event.shiftKey,
-      startZoom: zoomRef.current,
-    };
+  function wantsZoom(event: { metaKey: boolean; shiftKey: boolean; getModifierState?: (key: "Meta" | "Shift") => boolean }) {
+    const meta = event.metaKey || event.getModifierState?.("Meta") === true || heldKeys.current.meta;
+    const shift = event.shiftKey || event.getModifierState?.("Shift") === true || heldKeys.current.shift;
+    return meta && shift;
   }
 
-  function onViewportPointerMove(event: PointerEvent<HTMLDivElement>) {
-    updateLens(event);
+  function dragMove(pointerId: number, clientX: number, clientY: number) {
     const pan = panRef.current;
     const viewport = viewportRef.current;
-    if (!pan || !viewport || event.pointerId !== pan.pointerId) return;
-    const dx = event.clientX - pan.startX;
-    const dy = event.clientY - pan.startY;
+    if (!pan || !viewport || pointerId !== pan.pointerId) return;
+    const dx = clientX - pan.startX;
+    const dy = clientY - pan.startY;
     if (!pan.moved) {
       if (Math.hypot(dx, dy) < 6) return;
       pan.moved = true;
       setPanning(true);
-      try {
-        viewport.setPointerCapture(event.pointerId);
-      } catch {
-        // Capture is optional. The drag still pans while the pointer is over the chart.
+      if (!pan.zooming) {
+        try {
+          viewport.setPointerCapture(pointerId);
+        } catch {
+          // Capture is optional. The drag still pans while the pointer is over the chart.
+        }
       }
     }
     if (pan.zooming) {
@@ -401,10 +417,10 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
     viewport.scrollTop = pan.scrollTop - dy;
   }
 
-  function endPan(event: PointerEvent<HTMLDivElement>) {
+  function endDrag(pointerId: number) {
     const pan = panRef.current;
     const viewport = viewportRef.current;
-    if (!pan || !viewport || event.pointerId !== pan.pointerId) return;
+    if (!pan || !viewport || pointerId !== pan.pointerId) return;
     if (pan.moved) {
       const swallow = (clickEvent: MouseEvent) => {
         clickEvent.preventDefault();
@@ -416,11 +432,75 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
     }
     panRef.current = null;
     setPanning(false);
+    dragCleanup.current?.();
+    dragCleanup.current = null;
     try {
-      if (viewport.hasPointerCapture(event.pointerId)) viewport.releasePointerCapture(event.pointerId);
+      if (viewport.hasPointerCapture(pointerId)) viewport.releasePointerCapture(pointerId);
     } catch {
       // The pointer is already gone.
     }
+  }
+
+  function armZoomListeners(pointerId: number) {
+    if (dragCleanup.current) return;
+    const move = (event: globalThis.PointerEvent) => dragMove(event.pointerId, event.clientX, event.clientY);
+    const mouseMove = (event: MouseEvent) => {
+      if (panRef.current?.zooming) dragMove(pointerId, event.clientX, event.clientY);
+    };
+    const up = (event: globalThis.PointerEvent) => endDrag(event.pointerId);
+    const mouseUp = () => {
+      if (panRef.current?.zooming) endDrag(pointerId);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("mousemove", mouseMove);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("mouseup", mouseUp);
+    dragCleanup.current = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("mousemove", mouseMove);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("mouseup", mouseUp);
+    };
+  }
+
+  function onViewportPointerDown(event: PointerEvent<HTMLDivElement>) {
+    if (event.button !== 0) return;
+    const target = event.target;
+    if (target instanceof Element && target.closest("button, a")) return;
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const zooming = wantsZoom(event);
+    // Cmd+drag is a native drag on macOS. Cancelling it here keeps the pointer stream, and the click, in the page.
+    if (zooming) event.preventDefault();
+    dragCleanup.current?.();
+    dragCleanup.current = null;
+    panRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      scrollLeft: viewport.scrollLeft,
+      scrollTop: viewport.scrollTop,
+      moved: false,
+      zooming,
+      startZoom: zoomRef.current,
+    };
+    if (zooming) armZoomListeners(event.pointerId);
+  }
+
+  function onViewportMouseDown(event: ReactMouseEvent<HTMLDivElement>) {
+    if (event.button !== 0 || !wantsZoom(event)) return;
+    event.preventDefault();
+  }
+
+  function onViewportPointerMove(event: PointerEvent<HTMLDivElement>) {
+    updateLens(event);
+    dragMove(event.pointerId, event.clientX, event.clientY);
+  }
+
+  function endPan(event: PointerEvent<HTMLDivElement>) {
+    // A Cmd-drag fires pointercancel once the browser starts its own drag. Zoom keeps listening until mouseup.
+    if (event.type === "pointercancel" && panRef.current?.zooming) return;
+    endDrag(event.pointerId);
   }
 
   return (
@@ -450,13 +530,14 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, o
           role="region"
           aria-label="Decision chart. Drag to pan. With Command and Shift held, drag up to zoom in and down to zoom out. Arrow keys scroll."
           onPointerDown={onViewportPointerDown}
+          onMouseDown={onViewportMouseDown}
           onPointerMove={onViewportPointerMove}
           onPointerUp={endPan}
           onPointerCancel={endPan}
           onPointerLeave={(event) => {
             setLensPoint(null);
             const pan = panRef.current;
-            if (pan && !pan.moved && event.pointerId === pan.pointerId) panRef.current = null;
+            if (pan && !pan.zooming && !pan.moved && event.pointerId === pan.pointerId) panRef.current = null;
           }}
           onDragStart={(event) => event.preventDefault()}
         >
