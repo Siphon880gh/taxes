@@ -729,8 +729,8 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
   }, [fitNoteOpen]);
 
   useShortcut("comments-cues", "c", "Comments", 0, () => setShowCommentCues((current) => !current), shortcutsEnabled);
-  useShortcut("zoom-out", "z", "Zoom out", 0, () => setZoom((current) => Math.max(0.35, current - 0.15)), shortcutsEnabled);
-  useShortcut("zoom-in", "m", "Zoom in", 2, () => setZoom((current) => Math.min(2, current + 0.15)), shortcutsEnabled);
+  useShortcut("zoom-out", "-", "Zoom out", 0, () => setZoom((current) => Math.max(0.35, current - 0.15)), shortcutsEnabled);
+  useShortcut("zoom-in", "+", "Zoom in", 0, () => setZoom((current) => Math.min(2, current + 0.15)), shortcutsEnabled);
   useShortcut("fit-zoom", "f", "Fit zoom", 0, fitZoom, shortcutsEnabled);
   useShortcut("fit-current", "t", "Fit current", 2, fitCurrent, shortcutsEnabled && Boolean(selectedId));
   useShortcut("level-nodes", "l", "Level's nodes", 0, onToggleLevel, shortcutsEnabled);
@@ -749,17 +749,17 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
       </button>
       <span className="chart-toolbar-divider" aria-hidden="true" />
       <div className="flex flex-wrap items-center justify-end gap-2" role="group" aria-label="Chart zoom controls">
-        <ShortcutTip label="Zoom out" index={0}>
+        <ShortcutTip label="-" index={0}>
           <button type="button" className="btn-secondary" onClick={() => setZoom((current) => Math.max(0.35, current - 0.15))} aria-label="Zoom out">
-            −
+            <ShortcutText text="-" index={0} />
           </button>
         </ShortcutTip>
         <output className="min-w-12 text-center text-sm text-stone-700" aria-label={`Zoom level ${Math.round(zoom * 100)} percent`}>
           {Math.round(zoom * 100)}%
         </output>
-        <ShortcutTip label="Zoom in" index={2}>
+        <ShortcutTip label="+" index={0}>
           <button type="button" className="btn-secondary" onClick={() => setZoom((current) => Math.min(2, current + 0.15))} aria-label="Zoom in">
-            +
+            <ShortcutText text="+" index={0} />
           </button>
         </ShortcutTip>
         <button type="button" className="btn-secondary" onClick={fitZoom}>

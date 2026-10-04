@@ -494,7 +494,7 @@ export function CheckerApp() {
   const showTextAnswer = Boolean(answerFormOpen && selected?.textInput);
   const showAnswerTab = Boolean(selected?.kind === "question" && (selected.answers?.length || selected.textInput));
   const showInfoTab = Boolean(selected?.tipId);
-  const choiceTaken = new Set<string>(["e", "i", "f", "t", "c", "z", "m", "l"]);
+  const choiceTaken = new Set<string>(["e", "i", "f", "t", "c", "l"]);
   if (!dockCollapsed || checklistOpen) choiceTaken.add("h");
   if (dockShowsExpand || checklistShowsExpand || headerShowsExpand) choiceTaken.add("x");
   if (showAdd) choiceTaken.add("d");

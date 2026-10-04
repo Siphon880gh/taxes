@@ -27,10 +27,9 @@ const legacyShortcuts: { keys: string[]; label: string }[] = [
 ];
 
 function isTypingTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  if (target.isContentEditable) return true;
-  const tag = target.tagName;
-  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+  if (!(target instanceof Element)) return false;
+  if (target instanceof HTMLElement && target.isContentEditable) return true;
+  return Boolean(target.closest("input, textarea, select"));
 }
 
 export function pickShortcutLetter(label: string, taken: Set<string>): { key: string; index: number } | null {
@@ -89,8 +88,9 @@ export function ShortcutLayer({ children }: { children: ReactNode }) {
         return;
       }
       if (event.shiftKey && event.key !== "Shift") clearShiftTimer();
-      if (event.repeat || event.ctrlKey || event.altKey || event.metaKey || event.key.length !== 1) return;
-      const key = event.key.toLowerCase();
+      if (event.repeat || event.ctrlKey || event.altKey || event.metaKey) return;
+      const key = event.key === "Add" ? "+" : event.key === "Subtract" ? "-" : event.key.toLowerCase();
+      if (key.length !== 1) return;
       const hit = entriesRef.current.find((item) => item.key === key);
       if (!hit) return;
       event.preventDefault();
