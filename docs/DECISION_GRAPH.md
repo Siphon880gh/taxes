@@ -176,7 +176,7 @@ flowchart TD
   mfs_spouse["Does the spouse itemize on a separate return?"]
   deduction_choice["What the prepared return deducted"]
   itemized_amount["Schedule A total already on the return"]
-  jurisdiction["Which state return is being checked?"]
+  jurisdiction["Which state return is being checked? Only California is supported for now."]
   ca_itemized["California itemized total on the prepared Form 540, if any"]
   check_ca_health["California kept a state health-coverage rule after the federal penalty ended. Verify the state return's coverage questions, including Covered California if a Form 1095-A is in the file. This chart does not compute a penalty."]
   deduction_result["Standard vs itemized — sourced amounts for the selected year, status, and jurisdiction. Verify Form 1040 line 12e. Not a recommendation to change the return."]
@@ -1652,9 +1652,9 @@ This is the number the software already computed. It is not a new itemized retur
 
 #### Jurisdiction (`jurisdiction`)
 
-Which state return should this check use? If the state is not named, choose unknown.
+Which state return should this check use? Only California is supported for now. If the state is not named, choose unknown.
 
-A state standard deduction is shown only after you select a state this tool has a sourced figure for.
+Only California is supported for now. Selecting California opens the Form 540 check.
 
 - **California (Form 540)** → `ca_itemized`, `check_ca_health`, `deduction_result`
 - **Louisiana (IT-540)** → `deduction_result`

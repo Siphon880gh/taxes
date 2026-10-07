@@ -1787,9 +1787,9 @@ export const nodes: GraphNode[] = [
     section: "deductions",
     kind: "question",
     title: "Jurisdiction",
-    chart: "Which state return is being checked?",
-    prompt: "Which state return should this check use? If the state is not named, choose unknown.",
-    help: "A state standard deduction is shown only after you select a state this tool has a sourced figure for.",
+    chart: "Which state return is being checked? Only California is supported for now.",
+    prompt: "Which state return should this check use? Only California is supported for now. If the state is not named, choose unknown.",
+    help: "Only California is supported for now. Selecting California opens the Form 540 check.",
     answers: [
       choice("california", "California (Form 540)", ["ca_itemized", "check_ca_health", "deduction_result"], "California"),
       choice("louisiana", "Louisiana (IT-540)", ["deduction_result"], "Louisiana"),

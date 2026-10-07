@@ -71,6 +71,8 @@ test("Weng 2025 opens Schedule C, Schedule E, and Form 1040 without inventing th
   assert.match(chart, /form_1040/);
   assert.doesNotMatch(chart, /-->\|"Louisiana"\|/);
   assert.match(chart, /class .*jurisdiction/);
+  assert.match(getNode("jurisdiction").prompt ?? "", /Only California is supported for now/);
+  assert.match(getNode("jurisdiction").chart, /Only California is supported for now/);
   assert.match(chart, /pay_amount/);
   assert.match(chart, /rental_records/);
   assert.match(chart, /flag_records/);
