@@ -1,0 +1,3 @@
+- 1099-NEC is a tax statement you get from your de factor “employer”
+- You have to file your income from this convenient 1099-NEC into Schedule C (Mnemonic **c**ost of doing business)
+- But if you had worked with a client or other entity, there’s no convenient 1099-NEC tax statement issued from them to you. You still had worked and generated income or profit. This custom account goes to Schedule C as well

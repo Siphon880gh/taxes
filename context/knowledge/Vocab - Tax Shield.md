@@ -1,0 +1,1 @@
+A tax shield is **the reduction in income taxes that results from taking an allowable deduction from taxable income**. For example, because interest on debt is a tax-deductible expense, taking on debt creates a tax shield.
