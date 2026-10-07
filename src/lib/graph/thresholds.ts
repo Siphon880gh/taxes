@@ -228,7 +228,7 @@ export function stateStandard(
       amount: null,
       year,
       unverified: true,
-      note: "No state standard deduction is applied. Louisiana and Los Angeles / California stay unresolved until you choose one. “LA” is not guessed.",
+      note: "No state standard deduction is applied until a state is selected.",
     };
   }
   if (jurisdiction === "federal") {

@@ -58,7 +58,7 @@ const sectionIntro: Record<SectionId, string> = {
   other:
     "Retirement distributions, HSA, education, estimated tax, and dependents are separate gates. Line numbers that were not read off the form stay flagged.",
   deductions:
-    "The deduction comparison uses the selected year, filing status, and jurisdiction. Louisiana and Los Angeles / California are different answers. Unknown applies no state figure. The tool compares sourced amounts with what the prepared return already did. It does not choose a deduction for the filer. No personal mortgage does not decide standard versus itemized.",
+    "The deduction comparison uses the selected year, filing status, and jurisdiction. Unknown applies no state figure. The tool compares sourced amounts with what the prepared return already did. It does not choose a deduction for the filer. No personal mortgage does not decide standard versus itemized.",
   flow:
     "Schedule C, Schedule E, and any other schedule the path turns up are drawn into Form 1040. The sentences on those nodes are the forms to verify in FreeTaxUSA. They are not an instruction to start a form.",
 };
@@ -246,7 +246,7 @@ ${wengCost.framing}
 
 ${wengCost.quoteNote}
 
-H&R Block's online dollar price was not in the HTML retrieved October 3, 2026, so the panel says the price is unverified. TurboTax Do It Yourself Premium is $139 federal for a path with Schedule C or Schedule E. The online state add-on was not a fixed published dollar, so it is not added. "LA" is not resolved, so no state price is applied to the quote.
+H&R Block's online dollar price was not in the HTML retrieved October 3, 2026, so the panel says the price is unverified. TurboTax Do It Yourself Premium is $139 federal for a path with Schedule C or Schedule E. The online state add-on was not a fixed published dollar, so it is not added. The state is unknown, so no state price is applied to the quote.
 
 ## Case studies
 

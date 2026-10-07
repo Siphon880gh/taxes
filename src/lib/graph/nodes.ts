@@ -1313,16 +1313,15 @@ export const nodes: GraphNode[] = [
     section: "deductions",
     kind: "question",
     title: "Jurisdiction",
-    chart: "Which state? Do not guess LA.",
-    prompt:
-      "Which jurisdiction should location-specific checks use? If notes say “LA,” choose Louisiana, Los Angeles / California, or unknown. Nothing is guessed.",
-    help: "State standard deductions and state prices stay closed until this is answered.",
+    chart: "Which state return is being checked?",
+    prompt: "Which state return should this check use? If the state is not named, choose unknown.",
+    help: "A state standard deduction is shown only after you select a state this tool has a sourced figure for.",
     answers: [
+      choice("california", "California (Form 540)", ["ca_itemized", "deduction_result"], "California"),
       choice("louisiana", "Louisiana (IT-540)", ["deduction_result"], "Louisiana"),
-      choice("california", "Los Angeles / California (Form 540)", ["ca_itemized", "deduction_result"], "California"),
       choice("federal", "Federal return only", ["deduction_result"], "Federal only"),
       choice("other", "A different state", ["deduction_result"], "Other state"),
-      unk(["deduction_result"], "Unknown — LA not resolved"),
+      unk(["deduction_result"]),
     ],
   },
   {

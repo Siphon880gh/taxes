@@ -130,7 +130,7 @@ flowchart TD
   mfs_spouse["Does the spouse itemize on a separate return?"]
   deduction_choice["What the prepared return deducted"]
   itemized_amount["Schedule A total already on the return"]
-  jurisdiction["Which state? Do not guess LA."]
+  jurisdiction["Which state return is being checked?"]
   ca_itemized["California itemized total on the prepared Form 540, if any"]
   deduction_result["Standard vs itemized — sourced amounts for the selected year, status, and jurisdiction. Verify Form 1040 line 12e. Not a recommendation to change the return."]
   flag_deduction["A deduction fact is unknown — do not treat a comparison as finished"]
@@ -298,8 +298,8 @@ flowchart TD
   deduction_choice -->|"Standard"| deduction_result
   deduction_choice -->|"Itemized"| itemized_amount
   itemized_amount -->|"Unknown"| deduction_result
-  jurisdiction -->|"Louisiana"| deduction_result
   jurisdiction -->|"California"| ca_itemized
+  jurisdiction -->|"California"| deduction_result
   ca_itemized -->|"Unknown"| deduction_result
   deduction_result -->|"flows onto"| form_1040
 ```
@@ -1123,7 +1123,7 @@ No credit is assumed.
 
 ### Standard deduction and itemizing
 
-The deduction comparison uses the selected year, filing status, and jurisdiction. Louisiana and Los Angeles / California are different answers. Unknown applies no state figure. The tool compares sourced amounts with what the prepared return already did. It does not choose a deduction for the filer. No personal mortgage does not decide standard versus itemized.
+The deduction comparison uses the selected year, filing status, and jurisdiction. Unknown applies no state figure. The tool compares sourced amounts with what the prepared return already did. It does not choose a deduction for the filer. No personal mortgage does not decide standard versus itemized.
 
 #### Personal mortgage (`personal_mortgage`)
 
@@ -1197,15 +1197,15 @@ This is the number the software already computed. It is not a new itemized retur
 
 #### Jurisdiction (`jurisdiction`)
 
-Which jurisdiction should location-specific checks use? If notes say “LA,” choose Louisiana, Los Angeles / California, or unknown. Nothing is guessed.
+Which state return should this check use? If the state is not named, choose unknown.
 
-State standard deductions and state prices stay closed until this is answered.
+A state standard deduction is shown only after you select a state this tool has a sourced figure for.
 
+- **California (Form 540)** → `ca_itemized`, `deduction_result`
 - **Louisiana (IT-540)** → `deduction_result`
-- **Los Angeles / California (Form 540)** → `ca_itemized`, `deduction_result`
 - **Federal return only** → `deduction_result`
 - **A different state** → `deduction_result`
-- **Unknown — LA not resolved** → `deduction_result`
+- **I don't know** → `deduction_result`
 
 #### California itemized total (`ca_itemized`)
 
@@ -1319,7 +1319,7 @@ The age of the depreciation schedule itself doesn't change the price. What matte
 
 The depreciation-records answer is unknown, so the comparison stays at the $975 quote. Nothing is added or subtracted.
 
-H&R Block's online dollar price was not in the HTML retrieved October 3, 2026, so the panel says the price is unverified. TurboTax Do It Yourself Premium is $139 federal for a path with Schedule C or Schedule E. The online state add-on was not a fixed published dollar, so it is not added. "LA" is not resolved, so no state price is applied to the quote.
+H&R Block's online dollar price was not in the HTML retrieved October 3, 2026, so the panel says the price is unverified. TurboTax Do It Yourself Premium is $139 federal for a path with Schedule C or Schedule E. The online state add-on was not a fixed published dollar, so it is not added. The state is unknown, so no state price is applied to the quote.
 
 ## Case studies
 
@@ -1394,7 +1394,7 @@ flowchart TD
   group_filing_status_deductions["Standard deduction and itemizing<br/>5 topics"]
   personal_mortgage["Personal mortgage<br/>No mortgage"]
   check_no_mortgage["No personal mortgage — verify Schedule A is not claiming home mortgage interest. This does not choose the standard deduction."]
-  jurisdiction["Jurisdiction<br/>Unknown — LA not resolved"]
+  jurisdiction["Jurisdiction<br/>I don't know"]
   deduction_result["Standard vs itemized — sourced amounts for the selected year, status, and jurisdiction. Verify Form 1040 line 12e. Not a recommendation to change the return."]
   year -->|"2025"| filing_status
   filing_status -->|"Single"| w2
@@ -1484,7 +1484,7 @@ flowchart TD
   check_capgain["Verify Form 8949 and Schedule D. They flow to Form 1040. Line numbers for the 1040 total are flagged if you are not on the 2025 form you have open."]
   group_filing_status_other["Retirement, HSA, education, estimates, and dependents<br/>5 topics"]
   group_filing_status_deductions["Standard deduction and itemizing<br/>5 topics"]
-  jurisdiction["Jurisdiction<br/>Unknown — LA not resolved"]
+  jurisdiction["Jurisdiction<br/>I don't know"]
   deduction_result["Standard vs itemized — sourced amounts for the selected year, status, and jurisdiction. Verify Form 1040 line 12e. Not a recommendation to change the return."]
   year -->|"2025"| filing_status
   filing_status -->|"MFJ"| w2
