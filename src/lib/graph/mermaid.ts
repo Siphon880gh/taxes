@@ -1,4 +1,5 @@
-import { getNode, listNodes } from "./nodes";
+import { numberEntryChart, suggestionChart } from "./allocate";
+import { freeEntry, getNode, listNodes } from "./nodes";
 import { activeInstanceName, instanceScope, readAnswer } from "./session";
 import type { SectionId, Session } from "./types";
 
@@ -39,10 +40,16 @@ function withInstance(label: string, id: string, session: Session | null): strin
 export function nodeLabel(id: string, session: Session | null): string {
   const node = getNode(id);
   if (id === "schedule_c") return scheduleCLabel(session);
+  const suggestion = suggestionChart(id, session);
+  if (suggestion) return withInstance(suggestion, id, session);
   if (session && node.kind === "question") {
     const stored = readAnswer(session, id);
     if (stored) {
-      if (node.textInput && stored.answerId === node.textInput.answerId) {
+      const entry = freeEntry(node);
+      if (entry && stored.answerId === entry.answerId) {
+        if (node.numberInputs) {
+          return withInstance(numberEntryChart(id, stored.text) ?? `${escapeUser(node.title)}<br/>Entered`, id, session);
+        }
         return withInstance(`${escapeUser(node.title)}<br/>${escapeUser(stored.text?.trim() || "Entered")}`, id, session);
       }
       const choice = node.answers?.find((answer) => answer.id === stored.answerId);
@@ -205,10 +212,9 @@ export function chartView(session: Session, expandedGroupIds: readonly string[] 
     const stored = readAnswer(session, id);
     if (!stored) continue;
     const answer = node.answers?.find((item) => item.id === stored.answerId);
-    const next =
-      answer?.next ??
-      (node.textInput && stored.answerId === node.textInput.answerId ? node.textInput.next : null);
-    const edgeLabel = answer?.edge ?? answer?.label ?? node.textInput?.edge ?? "Entered";
+    const entry = freeEntry(node);
+    const next = answer?.next ?? (entry && stored.answerId === entry.answerId ? entry.next : null);
+    const edgeLabel = answer?.edge ?? answer?.label ?? entry?.edge ?? "Entered";
     if (!next) continue;
     const members = next.filter((to) => revealed.has(to) && !claimed.has(to));
     if (members.length <= NODE_GROUP_THRESHOLD) continue;
@@ -343,15 +349,16 @@ export function edgesFor(session: Session | null): Edge[] {
           }
         }
       }
-      if (!session && node.textInput) {
-        for (const to of node.textInput.next) {
-          edges.push({ from: node.id, to, label: node.textInput.edge ?? "Entered" });
+      const entry = freeEntry(node);
+      if (!session && entry) {
+        for (const to of entry.next) {
+          edges.push({ from: node.id, to, label: entry.edge ?? "Entered" });
         }
       }
-      if (session && node.textInput && readAnswer(session, node.id)?.answerId === node.textInput.answerId) {
-        for (const to of node.textInput.next) {
+      if (session && entry && readAnswer(session, node.id)?.answerId === entry.answerId) {
+        for (const to of entry.next) {
           if (revealed.has(to)) {
-            edges.push({ from: node.id, to, label: node.textInput.edge ?? "Entered" });
+            edges.push({ from: node.id, to, label: entry.edge ?? "Entered" });
           }
         }
       }

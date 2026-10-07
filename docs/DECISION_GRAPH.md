@@ -53,7 +53,7 @@ flowchart TD
   check_paid_off["Paid-off rental — verify Schedule E line 12 mortgage interest"]
   rental_history["When did the rental start, and was it on an earlier return?"]
   check_history["Rental was on earlier returns — verify those returns agree. Do not set a depreciation start year from this alone."]
-  schedule_e["Schedule E is where rental property income and expenses go: rent collected and things like repairs, insurance, and depreciation. Verify it on the prepared return. Not an instruction to start a form."]
+  schedule_e["Schedule E is where rental property income and expenses go: rent collected, repairs (including a permit for a repair), insurance, depreciation, and rental fees such as Los Angeles RSO and SCEP. Verify it on the prepared return. Not an instruction to start a form."]
   rental_tenant["Did a tenant pay water or other expenses?"]
   note_tenant_no["No tenant-paid expenses on this path"]
   flag_tenant["Tenant-paid water or other expenses unknown — verify line 3 and line 17"]
@@ -61,9 +61,25 @@ flowchart TD
   check_tenant["Verify tenant-paid amounts against Schedule E line 3 and the expense lines"]
   rental_alloc["Any owner use, or square-footage split?"]
   sqft_docs["Is the square-footage split documented?"]
-  check_sqft["Verify the rental portion. Pub. 527 allows square footage as a method. No percentage is computed here."]
+  check_sqft["Square footage is or is not documented. The line 16 factor comes from the numbers entered, not from this box."]
   check_alloc["Verify Schedule E line 2 fair-rental and personal-use days"]
   flag_alloc["Owner/tenant allocation unknown — verify line 2 and any square-footage worksheet"]
+  alloc_sqft["Rental square feet and whole-property square feet"]
+  check_sqft_factor["Suggest a square-footage factor for Schedule E line 16 (taxes) from the numbers entered."]
+  alloc_occupants["People in the rental units and everyone on the property"]
+  check_water_factor["Suggest an occupant factor for Schedule E line 17 (utilities) from the numbers entered."]
+  rental_fees["Los Angeles RSO and SCEP fees"]
+  note_rental_fees_no["No Los Angeles RSO or SCEP fee on this path"]
+  flag_rental_fees["RSO and SCEP fees unknown — verify Schedule E line 19"]
+  check_rental_fees["Suggest verifying Los Angeles RSO and SCEP fees on Schedule E line 19."]
+  rental_repairs["Rental repairs, and a permit cost if there was one"]
+  note_repairs_none["No rental repairs on this path"]
+  flag_repairs["Repairs and permit costs unknown — verify Schedule E line 14"]
+  check_repairs["Suggest verifying repairs, and any permit for that repair, on Schedule E line 14."]
+  rental_insurance["Property insurance premium"]
+  note_insurance_none["No property insurance premium on this path"]
+  flag_insurance["Insurance premium unknown — verify Schedule E line 9"]
+  check_insurance["Suggest verifying the insurance premium on Schedule E line 9, using the square-footage factor when the owner lives on the property."]
   rental_depr["Does this return claim depreciation?"]
   check_depr["Verify Schedule E line 18 and whether Form 4562 is attached for a 2025 reason"]
   flag_depr["Whether depreciation was claimed is unknown — verify line 18"]
@@ -195,15 +211,34 @@ flowchart TD
   rental_history -->|"Since 2019"| rental_records
   rental_history -->|"Since 2019"| form_1040
   rental_history -->|"Unknown"| flag_rental
+  rental_history -->|"Unknown"| rental_fees
   schedule_e -->|"flows onto"| form_1040
   rental_tenant -->|"Yes"| tenant_how
   rental_tenant -->|"No"| note_tenant_no
   rental_tenant -->|"Unknown"| flag_tenant
   tenant_how -->|"Both sides"| check_tenant
   rental_alloc -->|"All rented"| check_alloc
-  rental_alloc -->|"Square footage"| sqft_docs
+  rental_alloc -->|"All rented"| rental_fees
+  rental_alloc -->|"Shared property"| sqft_docs
+  rental_alloc -->|"Shared property"| alloc_sqft
+  rental_alloc -->|"Shared property"| alloc_occupants
   rental_alloc -->|"Unknown"| flag_alloc
   sqft_docs -->|"Documented"| check_sqft
+  alloc_sqft -->|"Unknown"| flag_alloc
+  alloc_sqft -->|"Square feet"| check_sqft_factor
+  alloc_occupants -->|"Unknown"| flag_alloc
+  alloc_occupants -->|"Occupants"| check_water_factor
+  rental_fees -->|"None"| note_rental_fees_no
+  rental_fees -->|"None"| rental_repairs
+  rental_fees -->|"Unknown"| flag_rental_fees
+  rental_fees -->|"Fees entered"| check_rental_fees
+  rental_repairs -->|"None"| note_repairs_none
+  rental_repairs -->|"None"| rental_insurance
+  rental_repairs -->|"Unknown"| flag_repairs
+  rental_repairs -->|"Repairs entered"| check_repairs
+  rental_insurance -->|"None"| note_insurance_none
+  rental_insurance -->|"Unknown"| flag_insurance
+  rental_insurance -->|"Premium entered"| check_insurance
   rental_depr -->|"Claimed"| check_depr
   rental_depr -->|"Unknown"| flag_depr
   rental_records -->|"Clean"| check_records_clean
@@ -565,7 +600,7 @@ A start year does not by itself say the depreciation schedule started that year.
 - **Began in 2019, same tenants, and it was on earlier returns** → `check_history`, `schedule_e`, `rental_tenant`, `rental_alloc`, `rental_depr`, `rental_records`, `form_1040`
 - **Began in a prior year and was on an earlier return** → `check_history`, `schedule_e`, `rental_tenant`, `rental_alloc`, `rental_depr`, `rental_records`, `form_1040`
 - **First year of the rental** → `schedule_e`, `rental_tenant`, `rental_alloc`, `rental_depr`, `rental_records`, `form_1040`
-- **I don't know** → `flag_rental`, `schedule_e`, `rental_records`, `form_1040`
+- **I don't know** → `flag_rental`, `schedule_e`, `rental_records`, `rental_fees`, `form_1040`
 
 #### Prior-year rental (`check_history`)
 
@@ -615,11 +650,11 @@ Utilities are line 17 on the 2025 Schedule E. Other expenses may be line 19. Thi
 
 How is the property split between tenants and the owner?
 
-- **Entire property rented, no owner use** → `check_alloc`
-- **Part of the property is owner-occupied (square footage)** → `sqft_docs`
-- **Personal-use days** → `check_alloc`
-- **Both a space split and personal-use days** → `sqft_docs`, `check_alloc`
-- **I don't know** → `flag_alloc`
+- **Entire property rented, no owner use** → `check_alloc`, `rental_fees`
+- **Owner lives in one unit and rents the other units** → `sqft_docs`, `alloc_sqft`, `alloc_occupants`, `rental_fees`
+- **Personal-use days** → `check_alloc`, `rental_fees`
+- **Both a space split and personal-use days** → `sqft_docs`, `alloc_sqft`, `alloc_occupants`, `check_alloc`, `rental_fees`
+- **I don't know** → `flag_alloc`, `rental_fees`
 
 #### Square footage (`sqft_docs`)
 
@@ -631,9 +666,9 @@ Is the rental portion measured by square footage you can point to?
 
 #### Square footage (`check_sqft`)
 
-Verify the rental portion. Pub. 527 allows square footage as a method. No percentage is computed here.
+Square footage is or is not documented. The line 16 factor comes from the numbers entered, not from this box.
 
-Do not invent a square-footage percentage.
+Pub. 527 allows square footage as a method. This box does not calculate the factor.
 
 #### Use allocation (`check_alloc`)
 
@@ -645,7 +680,126 @@ Personal-use days and a room rental are different splits. The chart does not cal
 
 Owner/tenant allocation unknown — verify line 2 and any square-footage worksheet
 
-No allocation percentage is assumed.
+No allocation percentage is assumed until square feet or occupant counts are entered.
+
+#### Square feet for property tax (`alloc_sqft`)
+
+Enter the rental unit’s square feet and the whole property’s square feet.
+
+When the owner lives in one unit and rents the other units on the same property, property tax is split by square footage: rental square feet divided by the whole property. A rental portion of .27 means multiply Schedule E line 16 by .27. The optional bill is the year’s property-tax total. The chart uses only the numbers you enter.
+
+- Entered numbers (Rental unit square feet; Whole property square feet; Property tax bill for the year) continue to `check_sqft_factor`.
+
+- **I don't know** → `flag_alloc`
+
+#### Property-tax factor (`check_sqft_factor`)
+
+Suggest a square-footage factor for Schedule E line 16 (taxes) from the numbers entered.
+
+2025 Schedule E line 16 is taxes. Compare that line with rental square feet divided by the whole property. The same factor is the one to compare with insurance on line 9.
+
+#### Occupants for shared water (`alloc_occupants`)
+
+Enter how many people live in the rental units, and how many people live on the property, including the owner and their family.
+
+Shared water on one meter is split by occupant count: people in the rental units divided by everyone living on the property. 4 rental occupants and 6 people on the property means multiply Schedule E line 17 by 4/6. The optional bill is the year’s water total. Pub. 527 says to divide a mixed-use expense by a reasonable method. Square footage and number of rooms are the methods it names. This box asks for the occupant split.
+
+- Entered numbers (People living in the rental units; Everyone living on the property, including the owner and family; Water bill for the year) continue to `check_water_factor`.
+
+- **I don't know** → `flag_alloc`
+
+#### Water factor (`check_water_factor`)
+
+Suggest an occupant factor for Schedule E line 17 (utilities) from the numbers entered.
+
+2025 Schedule E line 17 is utilities. Compare that line with people in the rental units divided by everyone on the property.
+
+#### RSO and SCEP fees (`rental_fees`)
+
+What did you pay in Los Angeles RSO and SCEP fees for this rental?
+
+RSO is the Rent Stabilization Ordinance fee. SCEP is the Systematic Code Enforcement Program fee. They are fees for renting, not a square-footage split of the home’s property tax. 2025 Schedule E line 19 is other expenses that are not listed on lines 5 through 18.
+
+- Entered numbers (RSO fee; SCEP fee) continue to `check_rental_fees`, `rental_repairs`.
+
+- **No RSO or SCEP fee** → `note_rental_fees_no`, `rental_repairs`
+- **I don't know** → `flag_rental_fees`, `rental_repairs`
+
+#### No rental fees (`note_rental_fees_no`)
+
+No Los Angeles RSO or SCEP fee on this path
+
+Nothing is added to Schedule E line 19 from this answer.
+
+#### Rental fees unknown (`flag_rental_fees`)
+
+RSO and SCEP fees unknown — verify Schedule E line 19
+
+Line 19 is other expenses. Unknown does not assume a fee.
+
+#### Rental fees (`check_rental_fees`)
+
+Suggest verifying Los Angeles RSO and SCEP fees on Schedule E line 19.
+
+Line 19 is for ordinary and necessary expenses that are not listed on lines 5 through 18. These fees are not the property tax on line 16.
+
+#### Repairs and permits (`rental_repairs`)
+
+What did you pay for repairs on the rental, and was there a permit cost for that repair?
+
+2025 Schedule E line 14 is repairs and maintenance that keep the property in ordinary operating condition. An improvement is not a line 14 repair, so a permit for an improvement is not part of the suggestion. Enter the repair amount, and the permit amount when the repair had one.
+
+- Entered numbers (Repair costs; Permit costs for those repairs) continue to `check_repairs`, `rental_insurance`.
+
+- **No repairs and no permit** → `note_repairs_none`, `rental_insurance`
+- **I don't know** → `flag_repairs`, `rental_insurance`
+
+#### No repairs (`note_repairs_none`)
+
+No rental repairs on this path
+
+Nothing is added to Schedule E line 14 from this answer.
+
+#### Repairs unknown (`flag_repairs`)
+
+Repairs and permit costs unknown — verify Schedule E line 14
+
+Unknown does not assume a repair or a permit.
+
+#### Repairs (`check_repairs`)
+
+Suggest verifying repairs, and any permit for that repair, on Schedule E line 14.
+
+The 2025 instructions allow repairs and maintenance on line 14. They do not allow the cost of improvements. This chart does not decide whether a permit was for a repair or an improvement.
+
+#### Insurance premium (`rental_insurance`)
+
+What was the insurance premium for the property?
+
+2025 Schedule E line 9 is insurance. When the owner lives in one unit and rents the others, the suggestion uses the same square-footage factor as property tax. When the whole property is rented, the suggestion is the full premium.
+
+- Entered numbers (Insurance premium) continue to `check_insurance`.
+
+- **No insurance premium** → `note_insurance_none`
+- **I don't know** → `flag_insurance`
+
+#### No insurance premium (`note_insurance_none`)
+
+No property insurance premium on this path
+
+Nothing is added to Schedule E line 9 from this answer.
+
+#### Insurance unknown (`flag_insurance`)
+
+Insurance premium unknown — verify Schedule E line 9
+
+Unknown does not assume a premium.
+
+#### Insurance (`check_insurance`)
+
+Suggest verifying the insurance premium on Schedule E line 9, using the square-footage factor when the owner lives on the property.
+
+Line 9 is insurance. The square-footage factor is rental square feet divided by the whole property, the same split suggested for line 16.
 
 #### Depreciation claimed (`rental_depr`)
 
@@ -901,6 +1055,8 @@ Nothing is assumed.
 
 Does the return include estimated tax payments?
 
+Estimated tax payments are amounts already paid during the year, usually quarterly, when withholding did not cover the tax. On a prepared return they are a credit against the tax, not a new form to start. Yes means those payments are on the return and should be verified.
+
 - **Yes** → `check_est`, `form_1040`
 - **No** → `note_est_no`
 - **I don't know** → `flag_est`
@@ -1077,9 +1233,9 @@ Flows onto `form_1040`.
 
 #### Schedule E (`schedule_e`)
 
-Schedule E is where rental property income and expenses go: rent collected and things like repairs, insurance, and depreciation. Verify it on the prepared return. Not an instruction to start a form.
+Schedule E is where rental property income and expenses go: rent collected, repairs (including a permit for a repair), insurance, depreciation, and rental fees such as Los Angeles RSO and SCEP. Verify it on the prepared return. Not an instruction to start a form.
 
-2025 lines to verify: line 2 days, line 3 rents, line 12 mortgage interest, line 17 utilities, line 18 depreciation, line 26 total.
+2025 lines to verify: line 2 days, line 3 rents, line 9 insurance, line 12 mortgage interest, line 14 repairs, line 16 taxes, line 17 utilities, line 18 depreciation, line 19 other, line 26 total.
 
 Flows onto `form_1040`.
 
@@ -1196,12 +1352,12 @@ flowchart TD
   filing_status["Filing status<br/>Single"]
   w2["W-2 wages?"]
   se["Self-employment<br/>Yes"]
-  se_entity["Entity<br/>Sole proprietor — no LLC and no corporation"]
-  se_count["How many activities<br/>Two or more"]
-  se_names["Activity names<br/>nursing and coding"]
-  schedule_c["Schedule C is for self-employment income and expenses, including the 1099-NEC freelance jobs (nursing and coding).<br/>Verify on the prepared return. Not an instruction to start a form."]
-  schedule_se["Schedule SE — self-employment tax on sole-proprietor net profit. Verify it. The i button outlines the calculation. Not a tax computation."]
-  check_no_entity["Verify the work is not reported on Form 1065 or Form 1120-S"]
+  se_entity["Entity<br/>Sole proprietor — no LLC and no corporation<br/>Checking Nursing 1099"]
+  se_count["How many activities<br/>Two or more<br/>Checking Nursing 1099"]
+  se_names["Activity names<br/>nursing and coding<br/>Checking Nursing 1099"]
+  schedule_c["Schedule C is for self-employment income and expenses, including the 1099-NEC freelance jobs (nursing and coding).<br/>Verify on the prepared return. Not an instruction to start a form.<br/>Checking Nursing 1099"]
+  schedule_se["Schedule SE — self-employment tax on sole-proprietor net profit. Verify it. The i button outlines the calculation. Not a tax computation.<br/>Checking Nursing 1099"]
+  check_no_entity["Verify the work is not reported on Form 1065 or Form 1120-S<br/>Checking Nursing 1099"]
   form_1040["Form 1040 — Schedule C, Schedule E, and any other schedules this path turns up flow onto the main Form 1040. Verify the prepared return. Not an instruction to start a form."]
   payapps["Payment apps<br/>Yes"]
   pay_class["What the payments were<br/>Goods and services (transactional)"]
@@ -1209,33 +1365,25 @@ flowchart TD
   pay_amount["Payment-app amount<br/>Amount unknown"]
   check_manual["Goods-and-services income is still reportable when the platform does not issue Form 1099-K. Verify the manual entry. Not an instruction to start a form."]
   rental["Rental real estate<br/>Yes"]
-  rental_count["How many properties<br/>Exactly one"]
-  check_one_property["One property — verify a single Schedule E column"]
-  rental_own["Ownership<br/>Wholly owned"]
-  check_whole["Wholly owned — verify it is not a Form 1065 rental"]
-  rental_debt["Rental mortgage<br/>Paid off — no mortgage"]
-  check_paid_off["Paid-off rental — verify Schedule E line 12 mortgage interest"]
-  rental_history["Rental history<br/>Began in 2019, same tenants, and it was on earlier returns"]
-  check_history["Rental was on earlier returns — verify those returns agree. Do not set a depreciation start year from this alone."]
-  schedule_e["Schedule E is where rental property income and expenses go: rent collected and things like repairs, insurance, and depreciation. Verify it on the prepared return. Not an instruction to start a form."]
-  rental_tenant["Did a tenant pay water or other expenses?"]
-  rental_alloc["Any owner use, or square-footage split?"]
-  rental_depr["Does this return claim depreciation?"]
-  rental_records["Depreciation records<br/>I don't know"]
-  flag_records["Carry-forward cleanliness is unknown. Do not assume the schedule started in 2019. No fee is changed."]
-  interest["Interest or ordinary dividends?"]
-  capgain["Sales of stocks, funds, or other capital assets?"]
-  crypto["Crypto or other digital assets?"]
-  retirement["IRA or pension distributions (Form 1099-R)?"]
-  hsa["Health savings account (Form 8889)?"]
-  education["Education credit or student loan interest?"]
-  estimates["Estimated tax payments?"]
-  dependents["Dependents on the return?"]
+  rental_count["How many properties<br/>Exactly one<br/>Checking Rental property 1"]
+  check_one_property["One property — verify a single Schedule E column<br/>Checking Rental property 1"]
+  rental_own["Ownership<br/>Wholly owned<br/>Checking Rental property 1"]
+  check_whole["Wholly owned — verify it is not a Form 1065 rental<br/>Checking Rental property 1"]
+  rental_debt["Rental mortgage<br/>Paid off — no mortgage<br/>Checking Rental property 1"]
+  check_paid_off["Paid-off rental — verify Schedule E line 12 mortgage interest<br/>Checking Rental property 1"]
+  rental_history["Rental history<br/>Began in 2019, same tenants, and it was on earlier returns<br/>Checking Rental property 1"]
+  check_history["Rental was on earlier returns — verify those returns agree. Do not set a depreciation start year from this alone.<br/>Checking Rental property 1"]
+  schedule_e["Schedule E is where rental property income and expenses go: rent collected, repairs (including a permit for a repair), insurance, depreciation, and rental fees such as Los Angeles RSO and SCEP. Verify it on the prepared return. Not an instruction to start a form.<br/>Checking Rental property 1"]
+  rental_tenant["Did a tenant pay water or other expenses?<br/>Checking Rental property 1"]
+  rental_alloc["Any owner use, or square-footage split?<br/>Checking Rental property 1"]
+  rental_depr["Does this return claim depreciation?<br/>Checking Rental property 1"]
+  rental_records["Depreciation records<br/>I don't know<br/>Checking Rental property 1"]
+  flag_records["Carry-forward cleanliness is unknown. Do not assume the schedule started in 2019. No fee is changed.<br/>Checking Rental property 1"]
+  group_filing_status_invest["Interest, capital gains, and digital assets<br/>3 topics"]
+  group_filing_status_other["Retirement, HSA, education, estimates, and dependents<br/>5 topics"]
+  group_filing_status_deductions["Standard deduction and itemizing<br/>5 topics"]
   personal_mortgage["Personal mortgage<br/>No mortgage"]
   check_no_mortgage["No personal mortgage — verify Schedule A is not claiming home mortgage interest. This does not choose the standard deduction."]
-  age_blind["Age 65 or older, or blind, at year end?"]
-  claimed_dependent["Can someone else claim you?"]
-  deduction_choice["What the prepared return deducted"]
   jurisdiction["Jurisdiction<br/>Unknown — LA not resolved"]
   deduction_result["Standard vs itemized — sourced amounts for the selected year, status, and jurisdiction. Verify Form 1040 line 12e. Not a recommendation to change the return."]
   year -->|"2025"| filing_status
@@ -1243,19 +1391,6 @@ flowchart TD
   filing_status -->|"Single"| se
   filing_status -->|"Single"| payapps
   filing_status -->|"Single"| rental
-  filing_status -->|"Single"| interest
-  filing_status -->|"Single"| capgain
-  filing_status -->|"Single"| crypto
-  filing_status -->|"Single"| retirement
-  filing_status -->|"Single"| hsa
-  filing_status -->|"Single"| education
-  filing_status -->|"Single"| estimates
-  filing_status -->|"Single"| dependents
-  filing_status -->|"Single"| personal_mortgage
-  filing_status -->|"Single"| age_blind
-  filing_status -->|"Single"| claimed_dependent
-  filing_status -->|"Single"| deduction_choice
-  filing_status -->|"Single"| jurisdiction
   se -->|"Yes"| se_entity
   se_entity -->|"Sole prop"| se_count
   se_count -->|"Two or more"| se_names
@@ -1290,8 +1425,15 @@ flowchart TD
   personal_mortgage -->|"No mortgage"| check_no_mortgage
   jurisdiction -->|"Unknown"| deduction_result
   deduction_result -->|"flows onto"| form_1040
+  filing_status -->|"Single"| group_filing_status_invest
+  filing_status -->|"Single"| group_filing_status_other
+  filing_status -->|"Single"| group_filing_status_deductions
+  group_filing_status_deductions --> personal_mortgage
+  group_filing_status_deductions --> jurisdiction
   classDef unknown fill:#fff7ed,stroke:#c2410c,stroke-width:2px
   class pay_amount,rental_records,flag_records,jurisdiction unknown
+  classDef cluster fill:#f5f5f4,stroke:#57534e,stroke-dasharray:4 3
+  class group_filing_status_invest,group_filing_status_other,group_filing_status_deductions cluster
 ```
 
 ### Joint W-2 & Crypto Example
@@ -1326,20 +1468,12 @@ flowchart TD
   payapps["Venmo, PayPal, or similar payment apps?"]
   rental["Rental real estate<br/>No"]
   note_rental_no["No Schedule E rental branch"]
-  interest["Interest or ordinary dividends?"]
-  capgain["Sales of stocks, funds, or other capital assets?"]
+  group_filing_status_invest["Interest, capital gains, and digital assets<br/>3 topics"]
   crypto["Digital assets<br/>Yes — sold, exchanged, or received as payment"]
   check_crypto["Verify the Form 1040 digital-asset question and the 8949 / Schedule D entries. Not an instruction to start those forms."]
   check_capgain["Verify Form 8949 and Schedule D. They flow to Form 1040. Line numbers for the 1040 total are flagged if you are not on the 2025 form you have open."]
-  retirement["IRA or pension distributions (Form 1099-R)?"]
-  hsa["Health savings account (Form 8889)?"]
-  education["Education credit or student loan interest?"]
-  estimates["Estimated tax payments?"]
-  dependents["Dependents on the return?"]
-  personal_mortgage["Personal mortgage on a home you live in?"]
-  age_blind["Age 65 or older, or blind, at year end?"]
-  claimed_dependent["Can someone else claim you?"]
-  deduction_choice["What the prepared return deducted"]
+  group_filing_status_other["Retirement, HSA, education, estimates, and dependents<br/>5 topics"]
+  group_filing_status_deductions["Standard deduction and itemizing<br/>5 topics"]
   jurisdiction["Jurisdiction<br/>Unknown — LA not resolved"]
   deduction_result["Standard vs itemized — sourced amounts for the selected year, status, and jurisdiction. Verify Form 1040 line 12e. Not a recommendation to change the return."]
   year -->|"2025"| filing_status
@@ -1347,19 +1481,6 @@ flowchart TD
   filing_status -->|"MFJ"| se
   filing_status -->|"MFJ"| payapps
   filing_status -->|"MFJ"| rental
-  filing_status -->|"MFJ"| interest
-  filing_status -->|"MFJ"| capgain
-  filing_status -->|"MFJ"| crypto
-  filing_status -->|"MFJ"| retirement
-  filing_status -->|"MFJ"| hsa
-  filing_status -->|"MFJ"| education
-  filing_status -->|"MFJ"| estimates
-  filing_status -->|"MFJ"| dependents
-  filing_status -->|"MFJ"| personal_mortgage
-  filing_status -->|"MFJ"| age_blind
-  filing_status -->|"MFJ"| claimed_dependent
-  filing_status -->|"MFJ"| deduction_choice
-  filing_status -->|"MFJ"| jurisdiction
   w2 -->|"Yes"| check_w2
   w2 -->|"Yes"| form_1040
   check_w2 -->|"flows onto"| form_1040
@@ -1372,8 +1493,15 @@ flowchart TD
   check_capgain -->|"flows onto"| form_1040
   jurisdiction -->|"Unknown"| deduction_result
   deduction_result -->|"flows onto"| form_1040
+  filing_status -->|"MFJ"| group_filing_status_invest
+  group_filing_status_invest --> crypto
+  filing_status -->|"MFJ"| group_filing_status_other
+  filing_status -->|"MFJ"| group_filing_status_deductions
+  group_filing_status_deductions --> jurisdiction
   classDef unknown fill:#fff7ed,stroke:#c2410c,stroke-width:2px
   class jurisdiction unknown
+  classDef cluster fill:#f5f5f4,stroke:#57534e,stroke-dasharray:4 3
+  class group_filing_status_invest,group_filing_status_other,group_filing_status_deductions cluster
 ```
 
 
@@ -1394,6 +1522,7 @@ The modal starts from net profit, then 92.35% of that profit, the 15.3% split, t
 | ten99k | node `pay_1099k`; node `check_1099k_form`; node `pay_amount`; node `check_manual`; edge `check_manual` → `form_1040`; edge `check_1099k_form` → `form_1040` | A payment app may not issue Form 1099-K, and goods-and-services income can still be reportable. Read more |
 | std_vs_item | node `deduction_choice`; node `itemized_amount`; node `deduction_result`; edge `deduction_result` → `form_1040` | The check compares the sourced standard deduction with what the prepared return already did. Read more |
 | depr_records | node `rental_records`; node `flag_records`; edge `rental_history` → `rental_records` | The age of the depreciation schedule does not change the preparation fee. Clean records do. Read more |
+| estimates | node `estimates` | Estimated tax is tax paid during the year when withholding does not cover it, including self-employment tax. Read more |
 | form_1040 | node `form_1040`; edge `schedule_c` → `form_1040`; edge `schedule_e` → `form_1040` | Schedules on this path are checked where they land on Form 1040. Read more |
 
 ## Sources
@@ -1408,6 +1537,7 @@ Retrieved October 3, 2026, unless a page itself carries another date.
 - 2025 Instructions for Schedule A (Form 1040) (Tax year 2025): https://www.irs.gov/instructions/i1040sca
 - 2025 Instructions for Schedule B (Form 1040) (Tax year 2025): https://www.irs.gov/instructions/i1040sb
 - 2025 Instructions for Schedule C (Form 1040) (Tax year 2025): https://www.irs.gov/instructions/i1040sc
+- IRS estimated taxes (Page last reviewed September 25, 2026): https://www.irs.gov/businesses/small-businesses-self-employed/estimated-taxes
 - 2025 Schedule E (Form 1040) and instructions (Tax year 2025): https://www.irs.gov/instructions/i1040se
 - Publication 527 (2025), Residential Rental Property (Tax year 2025): https://www.irs.gov/pub/irs-pdf/p527.pdf
 - Publication 334 (2025), Tax Guide for Small Business (Tax year 2025): https://www.irs.gov/pub/irs-prior/p334--2025.pdf

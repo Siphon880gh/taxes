@@ -1,3 +1,4 @@
+import { suggestionText } from "./allocate";
 import { citations } from "./sources";
 import { answerOf } from "./session";
 import { ten99kThreshold } from "./thresholds";
@@ -97,8 +98,8 @@ export function buildChecklist(session: Session): ChecklistItem[] {
     items.push({
       id: "sch-e",
       form: "Schedule E (Form 1040)",
-      line: "2, 3, 12, 17, 18, 26",
-      summary: `Verify rents (line 3), days (line 2), utilities (line 17), depreciation (line 18), mortgage interest (line 12), and the total (line 26).${yearNote}`,
+      line: "2, 3, 9, 12, 14, 16, 17, 18, 19, 26",
+      summary: `Verify rents (line 3), days (line 2), insurance (line 9), repairs (line 14), taxes (line 16), utilities (line 17), other expenses such as rental fees (line 19), depreciation (line 18), mortgage interest (line 12), and the total (line 26).${yearNote}`,
       certainty: lineCertainty,
       source: citations.scheduleE_2025,
     });
@@ -148,9 +149,22 @@ export function buildChecklist(session: Session): ChecklistItem[] {
       id: "alloc",
       form: "Schedule E (Form 1040)",
       line: "2",
-      summary: "Verify the split between rental and owner use, including square footage if that method was used. No percentage is computed here.",
+      summary: "Verify the split between rental and owner use, including square footage if that method was used. A factor is suggested only from square feet or occupant counts you enter.",
       certainty: "verify",
       source: citations.pub527_2025,
+    });
+  }
+  for (const id of ["check_sqft_factor", "check_water_factor", "check_rental_fees", "check_repairs", "check_insurance"] as const) {
+    const summary = has(session, id) ? suggestionText(id, session) : null;
+    if (!summary) continue;
+    const line = id === "check_sqft_factor" ? "16" : id === "check_water_factor" ? "17" : id === "check_rental_fees" ? "19" : id === "check_repairs" ? "14" : "9";
+    items.push({
+      id,
+      form: "Schedule E (Form 1040)",
+      line,
+      summary: `${summary}${yearNote}`,
+      certainty: lineCertainty,
+      source: id === "check_water_factor" || id === "check_sqft_factor" ? citations.pub527_2025 : citations.scheduleE_2025,
     });
   }
   if (has(session, "check_depr") || has(session, "flag_depr") || has(session, "flag_records") || has(session, "check_records_clean") || has(session, "check_records_problem")) {

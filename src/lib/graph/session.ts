@@ -1,4 +1,4 @@
-import { getNode, listNodes } from "./nodes";
+import { freeEntry, getNode, listNodes } from "./nodes";
 import type { Session, StoredAnswer } from "./types";
 
 export function instanceScope(nodeId: string): "se" | "rental" | null {
@@ -77,9 +77,10 @@ export function rebuild(
       choice.next.forEach(visit);
       return;
     }
-    if (node.textInput && stored.answerId === node.textInput.answerId) {
+    const entry = freeEntry(node);
+    if (entry && stored.answerId === entry.answerId) {
       used[id] = stored;
-      node.textInput.next.forEach(visit);
+      entry.next.forEach(visit);
     }
   };
 
@@ -290,9 +291,10 @@ export function assertGraphIntact(): string[] {
           if (!ids.has(next)) errors.push(`${node.id} → missing ${next}`);
         }
       }
-      if (node.textInput) {
-        for (const next of node.textInput.next) {
-          if (!ids.has(next)) errors.push(`${node.id} text → missing ${next}`);
+      const entry = freeEntry(node);
+      if (entry) {
+        for (const next of entry.next) {
+          if (!ids.has(next)) errors.push(`${node.id} entry → missing ${next}`);
         }
       }
     }

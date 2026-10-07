@@ -20,6 +20,7 @@ import { buildChecklist } from "../src/lib/graph/checklist";
 import { costReport } from "../src/lib/graph/cost";
 import { chartView, mermaidSource } from "../src/lib/graph/mermaid";
 import { applyNodeReply, nodePrompt } from "../src/lib/graph/prompt";
+import { numberEntryError } from "../src/lib/graph/allocate";
 import { getNode } from "../src/lib/graph/nodes";
 import { tips } from "../src/lib/graph/tips";
 import {
@@ -97,6 +98,55 @@ test("Weng 2025 opens Schedule C, Schedule E, and Form 1040 without inventing th
   assert.ok(checklist.includes("sch-c"));
   assert.ok(checklist.includes("sch-e"));
   assert.ok(checklist.includes("1099k-manual"));
+});
+
+test("a shared rental suggests the square-footage and occupant factors, then walks fees, repairs, and insurance", () => {
+  let session = applyAnswer(blankSession(), "filing_status", "single");
+  session = applyAnswer(session, "rental", "yes");
+  session = applyAnswer(session, "rental_count", "one");
+  session = applyAnswer(session, "rental_own", "whole");
+  session = applyAnswer(session, "rental_debt", "paid_off");
+  session = applyAnswer(session, "rental_history", "prior_2019");
+  assert.equal(session.revealed.includes("rental_fees"), false);
+  assert.equal(session.revealed.includes("alloc_sqft"), false);
+
+  session = applyAnswer(session, "rental_alloc", "sqft");
+  assert.equal(session.revealed.includes("alloc_sqft"), true);
+  assert.equal(session.revealed.includes("alloc_occupants"), true);
+  assert.equal(session.revealed.includes("rental_fees"), true);
+  assert.equal(numberEntryError("alloc_sqft", "rentalSqft=2000;totalSqft=100"), "Enter the rental square feet and the whole property square feet. Rental square feet stay within the whole property.");
+
+  session = applyAnswer(session, "alloc_sqft", "entered", "rentalSqft=27;totalSqft=100;taxBill=2140.70");
+  session = applyAnswer(session, "alloc_occupants", "entered", "rentalPeople=4;totalPeople=6;waterBill=1988.34");
+  const chart = mermaidSource(session);
+  assert.match(chart, /Suggest multiplying USD 2,140\.70 by \.27 for Schedule E line 16/);
+  assert.match(chart, /27 \/ 100 = \.27/);
+  assert.match(chart, /Suggest multiplying USD 1,988\.34 by 4\/6 for Schedule E line 17/);
+  assert.match(chart, /4 \/ 6 = \.67/);
+
+  session = applyAnswer(session, "rental_fees", "entered", "rso=67;scep=10.50");
+  session = applyAnswer(session, "rental_repairs", "entered", "repairs=1998;permits=150");
+  session = applyAnswer(session, "rental_insurance", "entered", "premium=2365");
+  const walked = mermaidSource(session);
+  assert.match(walked, /Schedule E line 19/);
+  assert.match(walked, /RSO USD 67\.00 and SCEP USD 10\.50/);
+  assert.match(walked, /Schedule E line 14/);
+  assert.match(walked, /permit costs USD 150\.00/);
+  assert.match(walked, /Suggest multiplying USD 2,365\.00 by \.27 for Schedule E line 9/);
+
+  const lines = buildChecklist(session).map((item) => item.line);
+  assert.ok(lines.includes("16"));
+  assert.ok(lines.includes("17"));
+  assert.ok(lines.includes("19"));
+  assert.ok(lines.includes("14"));
+  assert.ok(lines.includes("9"));
+
+  const whole = applyAnswer(session, "rental_alloc", "all_rental");
+  assert.equal(whole.revealed.includes("alloc_sqft"), false);
+  assert.equal(whole.revealed.includes("rental_fees"), true);
+  const insured = applyAnswer(whole, "rental_insurance", "entered", "premium=2365");
+  assert.match(mermaidSource(insured), /The whole property is rented/);
+  assert.doesNotMatch(mermaidSource(insured), /by \.27 for Schedule E line 9/);
 });
 
 test("records problems do not invent a dollar adder on the quote", () => {

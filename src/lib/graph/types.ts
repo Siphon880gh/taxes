@@ -47,6 +47,13 @@ export type GraphNode = {
     next: string[];
     edge?: string;
   };
+  /** Number fields stored in `text` as `id=value` pairs separated by semicolons. */
+  numberInputs?: {
+    fields: { id: string; label: string; optional?: boolean }[];
+    answerId: string;
+    next: string[];
+    edge?: string;
+  };
   tipId?: string;
   /** Drawn when both this node and the target are revealed. */
   flowsTo?: string[];

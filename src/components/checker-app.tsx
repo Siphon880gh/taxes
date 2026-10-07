@@ -2,9 +2,10 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { MermaidView } from "@/components/mermaid-view";
-import { DocumentSorter } from "@/components/document-sorter";
+import { DocumentSorter, SUMMARIES_SKILL_NOTE } from "@/components/document-sorter";
 import { PromptBuilder } from "@/components/prompt-builder";
 import { pickShortcutLetter, ShortcutLayer, ShortcutText, ShortcutTip, useShortcut } from "@/components/shortcut-layer";
+import { decodeNumbers, encodeNumbers, numberEntryError, suggestionText } from "@/lib/graph/allocate";
 import { DISCLAIMER } from "@/lib/disclaimer";
 import {
   applyAnswer,
@@ -90,10 +91,75 @@ function AnswerChoice({
   );
 }
 
+function asksForAnswer(node: GraphNode): boolean {
+  return node.kind === "question" && Boolean(node.answers?.length || node.textInput || node.numberInputs);
+}
+
 function firstDockTab(node: GraphNode): "answer" | "info" | "comments" {
-  if (node.kind === "question" && (node.answers?.length || node.textInput)) return "answer";
+  if (asksForAnswer(node)) return "answer";
   if (node.tipId) return "info";
   return "comments";
+}
+
+function NumberEntry({
+  nodeId,
+  fields,
+  initial,
+  enabled,
+  onSubmit,
+}: {
+  nodeId: string;
+  fields: { id: string; label: string; optional?: boolean }[];
+  initial: string;
+  enabled: boolean;
+  onSubmit: (text: string) => void;
+}) {
+  const [values, setValues] = useState(() => decodeNumbers(initial));
+  const [error, setError] = useState<string | null>(null);
+  function submit() {
+    const text = encodeNumbers(values);
+    const problem = numberEntryError(nodeId, text);
+    if (problem) {
+      setError(problem);
+      return;
+    }
+    setError(null);
+    onSubmit(text);
+  }
+  useShortcut("use-answer", "u", "Use this answer", 0, submit, enabled);
+  return (
+    <form
+      className="mt-3 flex flex-col gap-2"
+      onSubmit={(event) => {
+        event.preventDefault();
+        submit();
+      }}
+    >
+      {fields.map((field) => (
+        <label key={field.id} className="flex flex-col gap-1 text-sm font-medium text-stone-700" htmlFor={`node-number-${field.id}`}>
+          {field.optional ? `${field.label} (optional)` : field.label}
+          <input
+            id={`node-number-${field.id}`}
+            inputMode="decimal"
+            className="rounded-md border border-stone-300 bg-white px-3 py-2 font-normal text-stone-900"
+            value={values[field.id] ?? ""}
+            onChange={(event) => {
+              setError(null);
+              setValues((current) => ({ ...current, [field.id]: event.target.value }));
+            }}
+          />
+        </label>
+      ))}
+      {error ? (
+        <p className="text-sm text-rust" role="alert">
+          {error}
+        </p>
+      ) : null}
+      <button type="submit" className="btn-primary">
+        <ShortcutText text="Use this answer" index={enabled ? 0 : -1} />
+      </button>
+    </form>
+  );
 }
 
 const YEARS = [
@@ -150,6 +216,7 @@ export function CheckerApp() {
   const [modalId, setModalId] = useState<string | null>(null);
   const [frameMode, setFrameMode] = useState<"checklist" | "costs" | "sorter">("checklist");
   const [sorterReminder, setSorterReminder] = useState(false);
+  const [suggestSummaries, setSuggestSummaries] = useState(false);
   const [chartToolsNode, setChartToolsNode] = useState<HTMLDivElement | null>(null);
   const [purposeOpen, setPurposeOpen] = useState(false);
   const [promptOpen, setPromptOpen] = useState(false);
@@ -493,19 +560,20 @@ export function CheckerApp() {
   const showAdd = Boolean(selected && repeatable && stored?.answerId === "yes" && !dockCollapsed);
   const answerFormOpen = Boolean(
     selected?.kind === "question" &&
-    (selected.answers?.length || selected.textInput) &&
+    asksForAnswer(selected) &&
     dockTab !== "comments" &&
     !(selected.tipId && dockTab === "info") &&
     !dockCollapsed,
   );
   const showTextAnswer = Boolean(answerFormOpen && selected?.textInput);
-  const showAnswerTab = Boolean(selected?.kind === "question" && (selected.answers?.length || selected.textInput));
+  const showNumberAnswer = Boolean(answerFormOpen && selected?.numberInputs);
+  const showAnswerTab = Boolean(selected && asksForAnswer(selected));
   const showInfoTab = Boolean(selected?.tipId);
   const choiceTaken = new Set<string>(["e", "i", "f", "t", "c", "l"]);
   if (!dockCollapsed || checklistOpen) choiceTaken.add("h");
   if (dockShowsExpand || checklistShowsExpand || headerShowsExpand) choiceTaken.add("x");
   if (showAdd) choiceTaken.add("d");
-  if (showTextAnswer) choiceTaken.add("u");
+  if (showTextAnswer || showNumberAnswer) choiceTaken.add("u");
   if (showAnswerTab) choiceTaken.add("a");
   if (showInfoTab) choiceTaken.add("n");
   if (selected) choiceTaken.add("o");
@@ -724,7 +792,10 @@ export function CheckerApp() {
             <div className="checklist-frame-inner">
               {sorterReminder ? (
                 <p className="sorter-reminder" role="status">
-                  Open this codebase in Cursor and invoke the skill tax-document-classification.
+                  <span>
+                    Open this codebase in Cursor and invoke the skill tax-document-classification.
+                    {suggestSummaries ? ` ${SUMMARIES_SKILL_NOTE}` : ""}
+                  </span>
                   <button type="button" onClick={() => setSorterReminder(false)}>Dismiss</button>
                 </p>
               ) : null}
@@ -807,7 +878,10 @@ export function CheckerApp() {
                   )}
                 </>
               ) : (
-                <DocumentSorter onUploaded={() => setSorterReminder(true)} />
+                <DocumentSorter
+                  onUploaded={() => setSorterReminder(true)}
+                  onSuggestSummaries={setSuggestSummaries}
+                />
               )}
             </div>
           ) : (
@@ -894,7 +968,10 @@ export function CheckerApp() {
               })()}
               {selected?.kind === "check" ? (
                 <>
-                  <p className="mt-2 text-stone-800">{selected.help ?? selected.chart}</p>
+                  <p className="mt-2 text-stone-800">{suggestionText(selected.id, session) ?? selected.help ?? selected.chart}</p>
+                  {suggestionText(selected.id, session) && selected.help ? (
+                    <p className="mt-2 text-sm text-stone-600">{selected.help}</p>
+                  ) : null}
                   <p className="mt-2 text-sm text-stone-600">
                     This is a line to verify on the prepared return. It is not an instruction to start the form.
                   </p>
@@ -902,7 +979,7 @@ export function CheckerApp() {
               ) : null}
               {selected ? (
                 <div className="dock-tabs" role="tablist" aria-label="Answer, information, or comments">
-                  {selected.kind === "question" && (selected.answers?.length || selected.textInput) ? (
+                  {asksForAnswer(selected) ? (
                     <button type="button" role="tab" aria-selected={dockTab === "answer"} className={dockTab === "answer" ? "dock-tab dock-tab-on" : "dock-tab"} onClick={() => setDockTab("answer")}>
                       <ShortcutText text="Answer" index={0} />
                     </button>
@@ -943,10 +1020,20 @@ export function CheckerApp() {
                 </form>
               ) : selected?.tipId && dockTab === "info" ? (
                 <DockInfo tipId={selected.tipId} session={session} />
-              ) : selected?.kind === "question" && (selected.answers?.length || selected.textInput) ? (
+              ) : selected && asksForAnswer(selected) ? (
                 <>
                   <p className="mt-2 text-stone-800">{selected.prompt}</p>
                   {selected.help ? <p className="mt-2 text-sm text-stone-600">{selected.help}</p> : null}
+                  {selected.numberInputs ? (
+                    <NumberEntry
+                      key={`${selected.id}:${stored?.text ?? ""}`}
+                      nodeId={selected.id}
+                      fields={selected.numberInputs.fields}
+                      initial={stored?.text ?? ""}
+                      enabled={pageKeys && showNumberAnswer}
+                      onSubmit={(text) => answer(selected.id, selected.numberInputs!.answerId, text)}
+                    />
+                  ) : null}
                   {selected.textInput ? (
                     <form
                       className="mt-3 flex flex-col gap-2"

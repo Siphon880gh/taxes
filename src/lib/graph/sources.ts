@@ -71,7 +71,7 @@ export const citations = {
     url: "https://www.irs.gov/instructions/i1040se",
     yearLabel: "Tax year 2025",
     citation:
-      "2025 Schedule E Part I: line 2 fair rental and personal use days; line 3 rents received; line 12 mortgage interest paid to banks; line 17 utilities; line 18 depreciation; line 26 total rental real estate and royalty income or loss. Form 4562 is attached only for depreciation on property first placed in service in 2025, listed property, or a section 179 or amortization claim that began in 2025. The instructions also refer to Form 1040 line 26 for an estimated-tax amount credited from a trust.",
+      "2025 Schedule E Part I: line 2 fair rental and personal use days; line 3 rents received; line 9 insurance; line 12 mortgage interest paid to banks; line 14 repairs; line 16 taxes; line 17 utilities; line 18 depreciation; line 19 other expenses not listed on lines 5 through 18; line 26 total rental real estate and royalty income or loss. Line 14 is repairs and maintenance that keep the property in ordinary operating condition, not improvements. Form 4562 is attached only for depreciation on property first placed in service in 2025, listed property, or a section 179 or amortization claim that began in 2025. The instructions also refer to Form 1040 line 26 for an estimated-tax amount credited from a trust.",
   } satisfies Citation,
   pub527_2025: {
     title: "Publication 527 (2025), Residential Rental Property",

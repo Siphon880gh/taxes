@@ -82,6 +82,12 @@ function design(): string {
             "",
           );
         }
+        if (node.numberInputs) {
+          lines.push(
+            `- Entered numbers (${node.numberInputs.fields.map((field) => field.label).join("; ")}) continue to ${node.numberInputs.next.map((id) => `\`${id}\``).join(", ")}.`,
+            "",
+          );
+        }
         for (const answer of node.answers ?? []) {
           const next = answer.next.length ? answer.next.map((id) => `\`${id}\``).join(", ") : "stops";
           lines.push(`- **${answer.label}** → ${next}`);

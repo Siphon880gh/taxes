@@ -19,6 +19,12 @@ function nodeFacts(node: GraphNode) {
     textInput: node.textInput
       ? { answerId: node.textInput.answerId, placeholder: node.textInput.placeholder }
       : null,
+    numberInputs: node.numberInputs
+      ? {
+          answerId: node.numberInputs.answerId,
+          fields: node.numberInputs.fields.map((field) => ({ id: field.id, label: field.label, optional: Boolean(field.optional) })),
+        }
+      : null,
   };
 }
 
@@ -26,11 +32,13 @@ function nodeFacts(node: GraphNode) {
 export function nodePrompt(session: Session, node: GraphNode): string {
   const facts = nodeFacts(node);
   const choices = facts.answers.map((answer) => `- ${answer.id}: ${answer.label}`).join("\n");
-  const choiceRule = facts.textInput
-    ? `This box takes free text. The only answerId is "${facts.textInput.answerId}". Put the words from the prepared return in text.`
-    : facts.answers.length
-      ? `answerId must be one of:\n${choices}`
-      : "This box is a line to verify. It has no answer choices. Do not invent an answerId for it.";
+  const choiceRule = facts.numberInputs
+    ? `This box takes numbers. For the entered amounts, answerId is "${facts.numberInputs.answerId}" and text is semicolon-separated id=value pairs using these field ids: ${facts.numberInputs.fields.map((field) => field.id).join(", ")}. Example: rentalSqft=400;totalSqft=1481. Choice ids:\n${choices}`
+    : facts.textInput
+      ? `This box takes free text. The only answerId is "${facts.textInput.answerId}". Put the words from the prepared return in text.`
+      : facts.answers.length
+        ? `answerId must be one of:\n${choices}`
+        : "This box is a line to verify. It has no answer choices. Do not invent an answerId for it.";
   return [
     "You are helping someone double-check a tax return that is already prepared. This is not tax advice and not an instruction to prepare or file a return.",
     "",
@@ -53,9 +61,11 @@ export function nodePrompt(session: Session, node: GraphNode): string {
     "",
     "To apply this box only, return:",
     JSON.stringify(
-      facts.textInput
-        ? { nodeId: node.id, answerId: facts.textInput.answerId, text: "words from the prepared return" }
-        : { nodeId: node.id, answerId: facts.answers[0]?.id ?? "unknown" },
+      facts.numberInputs
+        ? { nodeId: node.id, answerId: facts.numberInputs.answerId, text: "rentalSqft=400;totalSqft=1481" }
+        : facts.textInput
+          ? { nodeId: node.id, answerId: facts.textInput.answerId, text: "words from the prepared return" }
+          : { nodeId: node.id, answerId: facts.answers[0]?.id ?? "unknown" },
       null,
       2,
     ),
@@ -90,7 +100,8 @@ export function applyNodeReply(session: Session, nodeId: string, raw: string): S
       throw new Error("That reply is for a different box.");
     }
     const text = typeof parsed.text === "string" ? parsed.text : undefined;
-    if (node.textInput && parsed.answerId === node.textInput.answerId) {
+    const entryId = node.numberInputs?.answerId ?? node.textInput?.answerId;
+    if (entryId && parsed.answerId === entryId) {
       if (!text?.trim()) throw new Error("That reply needs the text from the prepared return.");
       return applyAnswer(session, nodeId, parsed.answerId, text);
     }
