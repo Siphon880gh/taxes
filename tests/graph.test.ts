@@ -149,6 +149,22 @@ test("a shared rental suggests the square-footage and occupant factors, then wal
   assert.doesNotMatch(mermaidSource(insured), /by \.27 for Schedule E line 9/);
 });
 
+test("square-footage entry links to parcel maps by APN or address", () => {
+  for (const id of ["alloc_sqft", "sqft_docs"]) {
+    const links = getNode(id).links ?? [];
+    assert.deepEqual(
+      links.map((link) => link.href),
+      [
+        "https://portal.assessor.lacounty.gov/mapsearch",
+        "https://zimas.lacity.org/",
+        "https://www.google.com/maps",
+      ],
+    );
+    assert.match(links.map((link) => link.detail).join(" "), /AIN|APN/);
+    assert.match(links.map((link) => link.detail).join(" "), /feet/);
+  }
+});
+
 test("records problems do not invent a dollar adder on the quote", () => {
   const base = applyCase("weng-2025");
   const next = applyAnswer(base, "rental_records", "problems");

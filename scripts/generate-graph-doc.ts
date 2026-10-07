@@ -76,6 +76,10 @@ function design(): string {
       if (node.kind === "question") {
         lines.push(node.prompt ?? node.chart, "");
         if (node.help) lines.push(node.help, "");
+        for (const link of node.links ?? []) {
+          lines.push(`- [${link.label}](${link.href}): ${link.detail}`);
+        }
+        if (node.links?.length) lines.push("");
         if (node.textInput) {
           lines.push(
             `- Entered text continues to ${node.textInput.next.map((id) => `\`${id}\``).join(", ")}.`,

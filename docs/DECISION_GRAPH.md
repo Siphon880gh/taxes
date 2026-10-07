@@ -660,6 +660,12 @@ How is the property split between tenants and the owner?
 
 Is the rental portion measured by square footage you can point to?
 
+Look the parcel up by assessor parcel number (APN or AIN) or by address. The map shows how the land is divided so you can measure the rental portion against the whole property.
+
+- [Los Angeles County Assessor map](https://portal.assessor.lacounty.gov/mapsearch): Search by AIN (assessor parcel number) or street address. The map shows how the parcel is drawn.
+- [City of Los Angeles ZIMAS](https://zimas.lacity.org/): Search by address or APN. Measure reads a length in feet and the area of a shape you draw on the rental portion.
+- [Google Maps satellite](https://www.google.com/maps): Search the address and switch to satellite to see how the buildings sit on the lot, then use Measure distance.
+
 - **Yes, square footage is documented** → `check_sqft`
 - **No square-footage record** → `check_sqft`
 - **I don't know** → `check_sqft`
@@ -686,7 +692,11 @@ No allocation percentage is assumed until square feet or occupant counts are ent
 
 Enter the rental unit’s square feet and the whole property’s square feet.
 
-When the owner lives in one unit and rents the other units on the same property, property tax is split by square footage: rental square feet divided by the whole property. A rental portion of .27 means multiply Schedule E line 16 by .27. The optional bill is the year’s property-tax total. The chart uses only the numbers you enter.
+When the owner lives in one unit and rents the other units on the same property, property tax is split by square footage: rental square feet divided by the whole property. A rental portion of .27 means multiply Schedule E line 16 by .27. Look the parcel up by assessor parcel number (APN or AIN) or by address, see how the land is divided, and measure the rental portion and the whole property. The optional bill is the year’s property-tax total. The chart uses only the numbers you enter.
+
+- [Los Angeles County Assessor map](https://portal.assessor.lacounty.gov/mapsearch): Search by AIN (assessor parcel number) or street address. The map shows how the parcel is drawn.
+- [City of Los Angeles ZIMAS](https://zimas.lacity.org/): Search by address or APN. Measure reads a length in feet and the area of a shape you draw on the rental portion.
+- [Google Maps satellite](https://www.google.com/maps): Search the address and switch to satellite to see how the buildings sit on the lot, then use Measure distance.
 
 - Entered numbers (Rental unit square feet; Whole property square feet; Property tax bill for the year) continue to `check_sqft_factor`.
 

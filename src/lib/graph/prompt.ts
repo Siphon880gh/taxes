@@ -14,6 +14,7 @@ function nodeFacts(node: GraphNode) {
     section: node.section,
     prompt: node.prompt ?? null,
     help: node.help ?? null,
+    links: (node.links ?? []).map((link) => ({ label: link.label, href: link.href, detail: link.detail })),
     chart: node.chart,
     answers: (node.answers ?? []).map((answer) => ({ id: answer.id, label: answer.label })),
     textInput: node.textInput

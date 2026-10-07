@@ -1024,6 +1024,18 @@ export function CheckerApp() {
                 <>
                   <p className="mt-2 text-stone-800">{selected.prompt}</p>
                   {selected.help ? <p className="mt-2 text-sm text-stone-600">{selected.help}</p> : null}
+                  {selected.links?.length ? (
+                    <ul className="mt-3 flex flex-col gap-2">
+                      {selected.links.map((link) => (
+                        <li key={link.href}>
+                          <a className="text-sm text-rust underline-offset-2 hover:underline" href={link.href} target="_blank" rel="noreferrer">
+                            {link.label}
+                          </a>
+                          <p className="text-sm text-stone-600">{link.detail}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
                   {selected.numberInputs ? (
                     <NumberEntry
                       key={`${selected.id}:${stored?.text ?? ""}`}

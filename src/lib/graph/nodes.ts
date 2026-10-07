@@ -1,4 +1,4 @@
-import type { Answer, GraphNode } from "./types";
+import type { Answer, GraphNode, NodeLink } from "./types";
 
 const GATES = [
   "w2",
@@ -38,6 +38,25 @@ export function freeEntry(node: GraphNode): { answerId: string; next: string[]; 
 }
 
 const FLOW = ["form_1040"];
+
+/** Maps for measuring the rental share of a lot. LA County calls the APN an AIN. */
+const parcelMapLinks: NodeLink[] = [
+  {
+    label: "Los Angeles County Assessor map",
+    href: "https://portal.assessor.lacounty.gov/mapsearch",
+    detail: "Search by AIN (assessor parcel number) or street address. The map shows how the parcel is drawn.",
+  },
+  {
+    label: "City of Los Angeles ZIMAS",
+    href: "https://zimas.lacity.org/",
+    detail: "Search by address or APN. Measure reads a length in feet and the area of a shape you draw on the rental portion.",
+  },
+  {
+    label: "Google Maps satellite",
+    href: "https://www.google.com/maps",
+    detail: "Search the address and switch to satellite to see how the buildings sit on the lot, then use Measure distance.",
+  },
+];
 
 export const nodes: GraphNode[] = [
   {
@@ -549,6 +568,8 @@ export const nodes: GraphNode[] = [
     title: "Square footage",
     chart: "Is the square-footage split documented?",
     prompt: "Is the rental portion measured by square footage you can point to?",
+    help: "Look the parcel up by assessor parcel number (APN or AIN) or by address. The map shows how the land is divided so you can measure the rental portion against the whole property.",
+    links: parcelMapLinks,
     answers: [
       choice("yes", "Yes, square footage is documented", ["check_sqft"], "Documented"),
       choice("no", "No square-footage record", ["check_sqft"], "Not documented"),
@@ -586,7 +607,8 @@ export const nodes: GraphNode[] = [
     title: "Square feet for property tax",
     chart: "Rental square feet and whole-property square feet",
     prompt: "Enter the rental unit’s square feet and the whole property’s square feet.",
-    help: "When the owner lives in one unit and rents the other units on the same property, property tax is split by square footage: rental square feet divided by the whole property. A rental portion of .27 means multiply Schedule E line 16 by .27. The optional bill is the year’s property-tax total. The chart uses only the numbers you enter.",
+    help: "When the owner lives in one unit and rents the other units on the same property, property tax is split by square footage: rental square feet divided by the whole property. A rental portion of .27 means multiply Schedule E line 16 by .27. Look the parcel up by assessor parcel number (APN or AIN) or by address, see how the land is divided, and measure the rental portion and the whole property. The optional bill is the year’s property-tax total. The chart uses only the numbers you enter.",
+    links: parcelMapLinks,
     numberInputs: {
       fields: [
         { id: "rentalSqft", label: "Rental unit square feet" },

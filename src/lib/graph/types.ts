@@ -23,6 +23,12 @@ export type SectionId =
   | "deductions"
   | "flow";
 
+export type NodeLink = {
+  label: string;
+  href: string;
+  detail: string;
+};
+
 export type Answer = {
   id: string;
   label: string;
@@ -40,6 +46,8 @@ export type GraphNode = {
   chart: string;
   prompt?: string;
   help?: string;
+  /** Outside pages that help answer this box, such as a parcel map. */
+  links?: NodeLink[];
   answers?: Answer[];
   textInput?: {
     placeholder: string;
