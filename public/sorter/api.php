@@ -396,6 +396,46 @@ function list_stage(string $stage): array
     return $files;
 }
 
+function visible_child_dirs(string $dir): array
+{
+    $found = [];
+    if (!is_dir($dir)) {
+        return $found;
+    }
+    foreach (scandir($dir) ?: [] as $name) {
+        if ($name === "." || $name === ".." || $name === "" || $name[0] === ".") {
+            continue;
+        }
+        $abs = $dir . "/" . $name;
+        if (is_link($abs) || !is_dir($abs)) {
+            continue;
+        }
+        $found[] = $name;
+    }
+    return $found;
+}
+
+function document_folders_present(string $stage): bool
+{
+    if (visible_child_dirs($stage) !== []) {
+        return true;
+    }
+    $sorter = dirname($stage);
+    foreach (visible_child_dirs($sorter) as $name) {
+        if ($name === "stage") {
+            continue;
+        }
+        if ($name === "sorted") {
+            if (visible_child_dirs($sorter . "/sorted") !== []) {
+                return true;
+            }
+            continue;
+        }
+        return true;
+    }
+    return false;
+}
+
 function status_payload(string $stage): array
 {
     return [
@@ -403,6 +443,8 @@ function status_payload(string $stage): array
         "root" => "sorter/stage",
         "files" => list_stage($stage),
         "categories" => CATEGORIES,
+        "summaries" => is_file($stage . "/Summaries.md"),
+        "folders" => document_folders_present($stage),
     ];
 }
 

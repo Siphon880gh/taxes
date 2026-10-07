@@ -17,8 +17,13 @@ type Status = {
   ok: boolean;
   files?: StagedFile[];
   categories?: string[];
+  summaries?: boolean;
+  folders?: boolean;
   error?: string;
 };
+
+export const SUMMARIES_SKILL_NOTE =
+  "Open this codebase in Cursor and invoke the skill tax-document-summaries to create summaries (for example, a Rental Income and Deductions Summary) to help a tax professional quickly see the numbers and get an idea what forms are needed.";
 
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -26,10 +31,19 @@ function formatBytes(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function DocumentSorter({ onUploaded }: { onUploaded: () => void }) {
+export function DocumentSorter({
+  onUploaded,
+  onSuggestSummaries,
+}: {
+  onUploaded: () => void;
+  onSuggestSummaries?: (suggest: boolean) => void;
+}) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const onSuggestSummariesRef = useRef(onSuggestSummaries);
+  onSuggestSummariesRef.current = onSuggestSummaries;
   const [files, setFiles] = useState<StagedFile[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
+  const [suggestSummaries, setSuggestSummaries] = useState(false);
   const [over, setOver] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -46,6 +60,9 @@ export function DocumentSorter({ onUploaded }: { onUploaded: () => void }) {
       }
       setFiles(body.files ?? []);
       setCategories(body.categories ?? []);
+      const suggest = body.summaries !== true && body.folders === true;
+      setSuggestSummaries(suggest);
+      onSuggestSummariesRef.current?.(suggest);
     } catch (err) {
       setError(err instanceof Error ? err.message : `Could not reach ${ENDPOINT}. The PHP server must be running.`);
     }
@@ -79,8 +96,8 @@ export function DocumentSorter({ onUploaded }: { onUploaded: () => void }) {
         if (result.archive) archives += 1;
         finished += 1;
       }
-      onUploaded();
       await refresh();
+      onUploaded();
       setMessage(
         archives > 0
           ? "Upload finished. Folder structure from the archive was kept under sorter/stage."
@@ -88,8 +105,8 @@ export function DocumentSorter({ onUploaded }: { onUploaded: () => void }) {
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed.");
-      if (finished > 0) onUploaded();
       await refresh();
+      if (finished > 0) onUploaded();
     } finally {
       setBusy(false);
     }
@@ -128,6 +145,7 @@ export function DocumentSorter({ onUploaded }: { onUploaded: () => void }) {
       </h2>
       <div className="sorter-note" role="note">
         <p>Open this codebase in Cursor and invoke the skill tax-document-classification.</p>
+        {suggestSummaries ? <p>{SUMMARIES_SKILL_NOTE}</p> : null}
         <p>You can upload a zip or tar. Its folder structure and category structure are kept.</p>
         <details className="sorter-why">
           <summary>Why do I need my own AI harness?</summary>

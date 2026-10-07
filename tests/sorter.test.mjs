@@ -55,12 +55,19 @@ async function ready() {
 
 test("php api stores a file, keeps archive folders, rejects traversal, and places a category", async () => {
   await ready();
+  const empty = await (await fetch(base)).json();
+  assert.equal(empty.summaries, false);
+  assert.equal(empty.folders, false);
+
   const plain = path.join(tmp, "a1b2c3.pdf");
   fs.writeFileSync(plain, "not really");
   const uploaded = await fetch(base, { method: "POST", body: form("upload", { file: plain }) });
   const uploadedBody = await uploaded.json();
   assert.equal(uploadedBody.ok, true);
   assert.deepEqual(uploadedBody.stored, ["a1b2c3.pdf"]);
+  const loose = await (await fetch(base)).json();
+  assert.equal(loose.folders, false);
+  assert.equal(loose.summaries, false);
 
   const zip = makeZip({
     "Income - Rental/Electric Bill.pdf": "bill",
@@ -96,6 +103,12 @@ with tarfile.open(sys.argv[1], "w:gz") as tf:
 
   const status = await (await fetch(base)).json();
   assert.equal(status.files.some((file) => file.path === "notes/readme.txt"), true);
+  assert.equal(status.folders, true);
+  assert.equal(status.summaries, false);
+  fs.writeFileSync(path.join(sorterDir, "stage", "Summaries.md"), "# Tax year\n");
+  const withSummary = await (await fetch(base)).json();
+  assert.equal(withSummary.summaries, true);
+  assert.equal(withSummary.folders, true);
   const placed = await fetch(base, {
     method: "POST",
     body: form("place", { path: "notes/readme.txt", category: "Deductions" }),
@@ -111,6 +124,28 @@ with tarfile.open(sys.argv[1], "w:gz") as tf:
   });
   const escapedBody = await escaped.json();
   assert.equal(escapedBody.ok, false);
+
+  const stageDir = path.join(sorterDir, "stage");
+  fs.renameSync(stageDir, path.join(tmp, "parked-stage"));
+  fs.mkdirSync(stageDir);
+  const placedCategory = await (await fetch(base)).json();
+  assert.equal(placedCategory.folders, true);
+  assert.equal(placedCategory.summaries, false);
+
+  fs.rmSync(path.join(sorterDir, "Deductions"), { recursive: true, force: true });
+  const cleared = await (await fetch(base)).json();
+  assert.equal(cleared.folders, false);
+  assert.equal(cleared.summaries, false);
+
+  fs.mkdirSync(path.join(sorterDir, "sorted", "Income - Rental"), { recursive: true });
+  const sortedFolders = await (await fetch(base)).json();
+  assert.equal(sortedFolders.folders, true);
+  assert.equal(sortedFolders.summaries, false);
+
+  fs.rmSync(path.join(sorterDir, "sorted"), { recursive: true, force: true });
+  fs.mkdirSync(path.join(sorterDir, "sorted", ".tax-sorter"), { recursive: true });
+  const hiddenWork = await (await fetch(base)).json();
+  assert.equal(hiddenWork.folders, false);
 });
 
 function form(action, fields) {
