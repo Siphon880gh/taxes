@@ -30,6 +30,14 @@ export function buildChecklist(session: Session): ChecklistItem[] {
       certainty: lineCertainty,
       source: citations.form1040_2025,
     });
+    items.push({
+      id: "w2-withheld",
+      form: "Form 1040",
+      line: "25a — confirm on the form",
+      summary:
+        "The filing notes map W-2 box 2 (federal income tax withheld) to Form 1040 line 25a. Boxes 16 and 17 go on the state return. Confirm line 25a on the form in front of you.",
+      certainty: "verify",
+    });
   }
   if (has(session, "schedule_c")) {
     const names = session.answers.se_names?.text;
@@ -38,8 +46,8 @@ export function buildChecklist(session: Session): ChecklistItem[] {
       form: "Schedule C (Form 1040)",
       line: "1 and 31",
       summary: names
-        ? `Verify a separate Schedule C for each activity (${names}). Line 1 should include the 1099-NEC amounts. Line 31 flows to Schedule 1 line 3.${yearNote}`
-        : `Verify Schedule C line 1 (1099-NEC gross receipts) and line 31 (net profit to Schedule 1 line 3).${yearNote}`,
+        ? `Verify a separate Schedule C for each activity (${names}). Line B is the activity code. Line 1 should include the 1099-NEC amounts and any income that never came with a 1099-NEC. Line 31 flows to Schedule 1 line 3. The filing notes also name line 8 (advertising), line 18 (office), and line 27a (other); confirm those lines.${yearNote}`
+        : `Verify Schedule C line B (activity code), line 1 (1099-NEC gross receipts, plus income with no 1099-NEC), and line 31 (net profit to Schedule 1 line 3). The filing notes also name line 8, line 18, and line 27a; confirm those lines.${yearNote}`,
       certainty: lineCertainty,
       source: citations.scheduleC_2025,
     });
@@ -50,9 +58,49 @@ export function buildChecklist(session: Session): ChecklistItem[] {
       form: "Schedule SE (Form 1040)",
       line: "2 and 4a",
       summary:
-        "Verify Schedule SE. Net profit from Schedule C line 31 is included on Schedule SE line 2. The 92.35% computation is line 4a under the regular method in Publication 334 (2025). Net earnings were not entered, so the $400 filing threshold is not applied as a conclusion.",
+        "Verify Schedule SE. Net profit from Schedule C line 31 is included on Schedule SE line 2. The 92.35% computation is line 4a under the regular method in Publication 334 (2025). One-half of the tax is Schedule 1 line 15. Net earnings were not entered, so the $400 filing threshold is not applied as a conclusion.",
       certainty: yearIs2025(session) ? "sourced" : "verify",
       source: citations.pub334_2025,
+    });
+    items.push({
+      id: "sch-se-extra",
+      form: "Schedule 2 and Schedule SE",
+      line: "Schedule SE line 7 — confirm on the form",
+      summary:
+        "The filing notes place self-employment tax on Schedule 2 and call the Social Security wage-base cap Schedule SE line 7. Confirm both on the form. The 2025 wage base in Publication 334 is stored separately and is not applied as a tax computation.",
+      certainty: "verify",
+      source: citations.pub334_2025,
+    });
+  }
+  if (has(session, "check_se_both")) {
+    items.push({
+      id: "se-both",
+      form: "Form 8995 or Form 8995-A, and Schedule C line 25",
+      line: "5 and 25 — confirm on the form",
+      summary:
+        "Verify Form 8995 or Form 8995-A, including the 20% figure on line 5, and Schedule C line 25 for the work share of utilities. Neither amount is computed here.",
+      certainty: "verify",
+    });
+  }
+  if (has(session, "check_8995") || has(session, "flag_qbi")) {
+    items.push({
+      id: "8995",
+      form: "Form 8995 or Form 8995-A",
+      line: "5 — confirm on the form",
+      summary: has(session, "flag_qbi")
+        ? "Qualified business income is unknown. Form 8995 is not assumed, and the 20% deduction is not computed."
+        : "Verify Form 8995 or Form 8995-A. The filing notes show the 20% deduction, subject to limits, on line 5. Confirm that line. The notes' 2024 income cutoffs are not applied.",
+      certainty: "verify",
+    });
+  }
+  if (has(session, "check_home_c")) {
+    items.push({
+      id: "sch-c-25",
+      form: "Schedule C (Form 1040)",
+      line: "25",
+      summary:
+        "Verify Schedule C line 25 for the work share of utilities. A home-office share of insurance, taxes, or mortgage is a separate proportion. Neither share is computed here.",
+      certainty: "verify",
     });
   }
   if (has(session, "check_no_entity")) {
@@ -102,6 +150,49 @@ export function buildChecklist(session: Session): ChecklistItem[] {
       summary: `Verify rents (line 3), days (line 2), insurance (line 9), repairs (line 14), taxes (line 16), utilities (line 17), other expenses such as rental fees (line 19), depreciation (line 18), mortgage interest (line 12), and the total (line 26).${yearNote}`,
       certainty: lineCertainty,
       source: citations.scheduleE_2025,
+    });
+    items.push({
+      id: "sch-e-21",
+      form: "Schedule E (Form 1040)",
+      line: "21 — confirm on the form",
+      summary: "The filing notes name line 21 for net rental income or loss. Confirm that line on the form. It is not in the stored 2025 line list.",
+      certainty: "verify",
+    });
+  }
+  if (has(session, "check_rental_passive")) {
+    items.push({
+      id: "rental-passive",
+      form: "Schedule E (Form 1040)",
+      summary:
+        "This rental is passive in the filing notes. Keep it on Schedule E. Do not treat Form 8995 as applying, and do not move it onto Schedule C.",
+      certainty: "verify",
+    });
+  }
+  if (has(session, "check_rental_active")) {
+    items.push({
+      id: "rental-qbi",
+      form: "Form 8995 or Form 8995-A",
+      line: "5 — confirm on the form",
+      summary:
+        "Active rental: verify Form 8995 or Form 8995-A against Schedule E. Confirm line 21 on Schedule E and line 5 on the QBI form. The notes' 2024 income cutoffs are not applied.",
+      certainty: "verify",
+    });
+  } else if (has(session, "flag_rental_qbi")) {
+    items.push({
+      id: "rental-qbi",
+      form: "Form 8995 or Form 8995-A",
+      summary: "Whether the rental is passive or active is unknown. Form 8995 is not assumed.",
+      certainty: "verify",
+    });
+  }
+  if (has(session, "check_safe_harbor") || has(session, "check_qbi_no_harbor")) {
+    items.push({
+      id: "rental-harbor",
+      form: "Rental real estate QBI safe-harbor statement",
+      summary: has(session, "check_safe_harbor")
+        ? "Verify the signed statement: not a residence, separate books, 250 hours logged, not a triple-net lease, and no home-office deduction on this property."
+        : "No safe-harbor statement on this path. If Form 8995 is claimed, be ready to show material participation. Do not create the 250-hour statement from this chart.",
+      certainty: "verify",
     });
   }
   if (has(session, "check_paid_off")) {
@@ -182,7 +273,8 @@ export function buildChecklist(session: Session): ChecklistItem[] {
     items.push({
       id: "sch-b",
       form: "Schedule B (Form 1040)",
-      summary: "Verify Schedule B. The 2025 instructions require it when taxable interest or ordinary dividends are over $1,500, and in the other listed cases.",
+      summary:
+        "Verify Schedule B, including Forms 1099-INT and 1099-DIV. Tax-exempt interest is Form 1040 line 2a. On the 2025 form, taxable interest is line 2b and ordinary dividends are line 3b. The 2025 instructions require Schedule B when taxable interest or ordinary dividends are over $1,500, and in the other listed cases.",
       certainty: yearIs2025(session) ? "sourced" : "verify",
       source: citations.scheduleB_2025,
     });
@@ -191,7 +283,8 @@ export function buildChecklist(session: Session): ChecklistItem[] {
     items.push({
       id: "8949",
       form: "Form 8949 and Schedule D",
-      summary: "Verify sales already reported on Form 8949 and Schedule D. Do not start those forms from this chart.",
+      summary:
+        "Verify Form 1099-B, Form 8949, and Schedule D, including a capital-loss carryforward. The filing notes put the net gain or loss on Form 1040 line 7. Confirm line 7 on the form. Do not start those forms from this chart.",
       certainty: "verify",
     });
   }
@@ -226,7 +319,8 @@ export function buildChecklist(session: Session): ChecklistItem[] {
       id: "edu",
       form: "Form 8863 / Schedule 1",
       line: "Flagged",
-      summary: "Verify an education credit or student loan interest already on the return. Line numbers are flagged.",
+      summary:
+        "Verify Form 1098-T and Form 8863 for an education credit. American Opportunity and Lifetime Learning cannot both be claimed for the same student. Student loan interest is on Schedule 1. The filing notes place credits on Schedule 3. Line numbers are flagged.",
       certainty: "verify",
     });
   }
@@ -255,7 +349,17 @@ export function buildChecklist(session: Session): ChecklistItem[] {
       id: "no-mtg",
       form: "Schedule A (Form 1040)",
       line: "Home mortgage interest — flagged",
-      summary: "No personal mortgage was described. If the return itemizes, verify mortgage interest is not claimed. This does not choose the standard deduction.",
+      summary:
+        "No personal mortgage was described. If the return itemizes, verify Form 1098 and mortgage interest are not claimed. This does not choose the standard deduction.",
+      certainty: "verify",
+    });
+  }
+  if (has(session, "check_mortgage")) {
+    items.push({
+      id: "mtg",
+      form: "Form 1098 and Schedule A (Form 1040)",
+      line: "Home mortgage interest — flagged",
+      summary: "A personal mortgage was described. If the return itemizes, verify Form 1098 and the Schedule A mortgage-interest line. This does not start Schedule A.",
       certainty: "verify",
     });
   }
@@ -277,6 +381,93 @@ export function buildChecklist(session: Session): ChecklistItem[] {
       summary: "Schedules on this path flow onto Form 1040. Verify line 11b (AGI) and line 12e (deduction) on the 2025 form, and confirm the lines if the year is different.",
       certainty: lineCertainty,
       source: citations.form1040_2025,
+    });
+    items.push({
+      id: "1040-schedules",
+      form: "Schedules 1, 2, and 3 (Form 1040)",
+      line: "15 — confirm on the form",
+      summary:
+        "Schedule 1 is adjustments, Schedule 2 is additional taxes, and Schedule 3 is credits. The filing notes use Form 1040 line 15 for taxable income. Confirm line 15 on the form.",
+      certainty: "verify",
+    });
+  }
+  const flaggedForms: { id: string; when: string; form: string; line?: string; summary: string }[] = [
+    {
+      id: "1099g",
+      when: "check_1099g",
+      form: "Form 1099-G",
+      line: "Box 1; Form 1040 line flagged",
+      summary:
+        "Verify Form 1099-G box 1 (unemployment compensation) and box 4 if federal tax was withheld. The Form 1040 line is not named in the filing notes.",
+    },
+    {
+      id: "8962",
+      when: "check_8962",
+      form: "Form 1095-A and Form 8962",
+      line: "Schedule 3 — confirm on the form",
+      summary: "Verify Form 1095-A and Form 8962. The filing notes place the net premium tax credit on Schedule 3. The credit is not computed here.",
+    },
+    {
+      id: "eitc-kids",
+      when: "check_eitc_kids",
+      form: "Form 1040 and Schedule EIC",
+      line: "27 — confirm on the form",
+      summary: "Verify the earned income credit and Schedule EIC. The filing notes place the credit on Form 1040 line 27. Confirm that line.",
+    },
+    {
+      id: "eitc",
+      when: "check_eitc",
+      form: "Form 1040",
+      line: "27 — confirm on the form",
+      summary: "Verify the earned income credit. The filing notes place it on Form 1040 line 27. Confirm that line. Schedule EIC is not opened from a no-child answer.",
+    },
+    {
+      id: "6251",
+      when: "check_6251",
+      form: "Form 6251",
+      summary: "Verify Form 6251. Exemption amounts are not stored, so no cap is shown.",
+    },
+    {
+      id: "2210",
+      when: "check_2210",
+      form: "Form 2210",
+      summary: "Verify Form 2210. This chart does not compute an underpayment penalty.",
+    },
+    {
+      id: "9465",
+      when: "check_9465",
+      form: "Form 9465",
+      summary: "Verify Form 9465, the installment agreement request. This chart does not compute a payment.",
+    },
+    {
+      id: "4868",
+      when: "check_4868",
+      form: "Form 4868",
+      summary: "Verify Form 4868. It extends time to file, not time to pay.",
+    },
+    {
+      id: "care",
+      when: "check_care",
+      form: "Schedule 3 (Form 1040)",
+      line: "Form number flagged",
+      summary: "Verify the dependent care credit on Schedule 3. The filing notes do not name a separate form number.",
+    },
+    {
+      id: "ca-health",
+      when: "check_ca_health",
+      form: "California return",
+      summary:
+        "California kept a state health-coverage rule. Verify the state return's coverage questions. This chart does not compute a penalty.",
+    },
+  ];
+  for (const item of flaggedForms) {
+    if (!has(session, item.when)) continue;
+    items.push({
+      id: item.id,
+      form: item.form,
+      line: item.line,
+      summary: item.summary,
+      certainty: "verify",
     });
   }
 

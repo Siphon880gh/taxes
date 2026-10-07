@@ -50,8 +50,8 @@ export const tips: Record<string, Tip> = {
     readMore: () => ({
       title: "Schedule C on the prepared return",
       paragraphs: [
-        "Schedule C is for self-employment income and expenses, including 1099-NEC freelance jobs. On the 2025 form, line 1 is gross receipts and should include amounts properly shown on Forms 1099-NEC. A separate Schedule C is used for each business.",
-        "Line 31, the net profit or loss, is included on Schedule 1 (Form 1040) line 3 and on Schedule SE line 2. Those schedules flow onto Form 1040. Verify what was already prepared. This is not an instruction to start a form.",
+        "Schedule C is for self-employment income and expenses, including 1099-NEC freelance jobs. On the 2025 form, line 1 is gross receipts and should include amounts properly shown on Forms 1099-NEC. Income that never came with a 1099-NEC still belongs on that schedule. Line B is the activity code. A separate Schedule C is used for each business.",
+        "Line 31, the net profit or loss, is included on Schedule 1 (Form 1040) line 3 and on Schedule SE line 2. Those schedules flow onto Form 1040. The filing notes put a work share of utilities on line 25, office expenses on line 18, advertising on line 8, and other expenses on line 27a. Confirm those lines. Verify what was already prepared. This is not an instruction to start a form.",
       ],
       citations: [citations.scheduleC_2025, citations.pub334_2025],
     }),
@@ -126,7 +126,7 @@ export const tips: Record<string, Tip> = {
     readMore: () => ({
       title: "How the schedules meet Form 1040",
       paragraphs: [
-        "Schedule C and Schedule E, and any other schedule this path turns up, flow onto the main Form 1040. On the 2025 form, Schedule C line 31 is included on Schedule 1 line 3. Schedule E's rental total is line 26; confirm on the form where that total is carried. Form 1040 line 11b is adjusted gross income and line 12e is the deduction.",
+        "Schedule C and Schedule E, and any other schedule this path turns up, flow onto the main Form 1040. On the 2025 form, Schedule C line 31 is included on Schedule 1 line 3. Schedule E's rental total is line 26; confirm on the form where that total is carried. Form 1040 line 11b is adjusted gross income and line 12e is the deduction. The filing notes use Schedule 1 for adjustments, Schedule 2 for additional taxes, Schedule 3 for credits, and line 15 for taxable income. Confirm line 15 on the form.",
         "Every one of these is a line to verify on the prepared return. The chart is not an instruction to start a form.",
       ],
       citations: [citations.form1040_2025, citations.scheduleC_2025, citations.scheduleE_2025],

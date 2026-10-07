@@ -73,7 +73,7 @@ const sectionTitle: Record<SectionId, string> = {
   payments: "Payment apps and Form 1099-K",
   rental: "Rental real estate",
   invest: "Interest, capital gains, and digital assets",
-  other: "Retirement, HSA, education, estimates, and dependents",
+  other: "Other income, credits, and payments",
   deductions: "Standard deduction and itemizing",
   flow: "How the schedules meet Form 1040",
 };

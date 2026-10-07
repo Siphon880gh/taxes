@@ -37,7 +37,7 @@ const sectionTitle: Record<SectionId, string> = {
   payments: "Payment apps and Form 1099-K",
   rental: "Rental real estate",
   invest: "Interest, capital gains, and digital assets",
-  other: "Retirement, HSA, education, estimates, and dependents",
+  other: "Other income, credits, and payments",
   deductions: "Standard deduction and itemizing",
   flow: "How the schedules meet Form 1040",
 };
@@ -46,21 +46,21 @@ const sectionIntro: Record<SectionId, string> = {
   start:
     "The walk starts with the tax year on the prepared return, then the filing status. Every status opens the same topic gates. Married filing separately also asks whether the spouse itemizes, because that can remove the standard deduction.",
   income:
-    "W-2 wages are their own question. A yes answer points at Form 1040 line 1a. No wages and an unknown answer do not invent a W-2.",
+    "W-2 wages are their own question. A yes answer points at Form 1040 line 1a. The filing notes also map W-2 box 2 to line 25a; that line stays flagged until it is read on the form. No wages and an unknown answer do not invent a W-2.",
   se:
-    "Self-employment asks whether the work is a sole proprietorship or an entity, how many activities there are, and what they are called. Nursing and coding are names a case study can supply. They are not built into a blank start. A separate Schedule C is the 2025 instruction for each business. Schedule C and Schedule SE flow onto Form 1040.",
+    "Self-employment asks whether the work is a sole proprietorship or an entity, how many activities there are, and what they are called. It then asks whether Form 8995 or Form 8995-A is on that activity, whether Schedule C line 25 has a work-from-home share, or both. Nursing and coding are names a case study can supply. They are not built into a blank start. A separate Schedule C is the 2025 instruction for each business. Schedule C and Schedule SE flow onto Form 1040. Schedule 2 and Schedule SE line 7 are named in the filing notes and stay flagged.",
   payments:
     "Venmo, PayPal, and similar apps are split into personal transfers and goods-and-services payments. A belief that the amount is too low is not a conclusion. If no Form 1099-K was issued, the income can still be reportable and entered manually. An unknown amount does not get compared with the threshold.",
   rental:
-    "The rental branch asks how many properties, who owns them, whether a mortgage remains, and whether the activity was on an earlier return. It still asks tenant-paid expenses, owner-use allocation including square footage, whether this return claims depreciation, and whether the carry-forward schedule looks clean. Activity that began in 2019 does not set the depreciation start year. The preparation fee moves only as a qualitative note from the records answer.",
+    "The rental branch asks how many properties, who owns them, and whether the rental is day-to-day work or passive. Passive stays on Schedule E and does not open Form 8995. Active opens Form 8995 or Form 8995-A and the 250-hour safe-harbor question. It still asks whether a mortgage remains, whether the activity was on an earlier return, tenant-paid expenses, owner-use allocation including square footage, whether this return claims depreciation, and whether the carry-forward schedule looks clean. Activity that began in 2019 does not set the depreciation start year. The preparation fee moves only as a qualitative note from the records answer.",
   invest:
-    "Interest and dividends, capital-asset sales, and crypto each open only when the answer says they apply. Schedule B uses the 2025 $1,500 test when the amount is known to be over or under. An unknown amount does not get that test applied as a conclusion. Crypto disposals also open Form 8949 and Schedule D as items to verify. The digital-asset checkbox position is flagged rather than guessed.",
+    "Interest and dividends, including tax-exempt interest on Form 1099-INT, and ordinary dividends on Form 1099-DIV, open only when the answer says they apply. Schedule B uses the 2025 $1,500 test when the amount is known to be over or under. An unknown amount does not get that test applied as a conclusion. Capital-asset sales open Form 1099-B, Form 8949, and Schedule D. The filing notes put the net on Form 1040 line 7; that line stays flagged. Crypto disposals also open those forms as items to verify. The digital-asset checkbox position is flagged rather than guessed.",
   other:
-    "Retirement distributions, HSA, education, estimated tax, and dependents are separate gates. Line numbers that were not read off the form stay flagged.",
+    "Retirement distributions, HSA, education, estimated tax, and dependents are separate gates. So are Form 1099-G, Form 1095-A with Form 8962, the earned income credit, Form 6251, Form 2210, Form 9465, and Form 4868. A dependent care credit is asked only after dependents are claimed, and it points at Schedule 3. Line numbers that were not read off the form stay flagged.",
   deductions:
     "The deduction comparison uses the selected year, filing status, and jurisdiction. Unknown applies no state figure. The tool compares sourced amounts with what the prepared return already did. It does not choose a deduction for the filer. No personal mortgage does not decide standard versus itemized.",
   flow:
-    "Schedule C, Schedule E, and any other schedule the path turns up are drawn into Form 1040. The sentences on those nodes are the forms to verify in FreeTaxUSA. They are not an instruction to start a form.",
+    "Schedule C, Schedule E, and any other schedule the path turns up are drawn into Form 1040. Schedule 1, Schedule 2, and Schedule 3 are named there because the filing notes treat them as the adjustments, additional taxes, and credits. The sentences on those nodes are the forms to verify. They are not an instruction to start a form.",
 };
 
 function money(amount: number): string {

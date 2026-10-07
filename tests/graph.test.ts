@@ -255,7 +255,7 @@ test("selecting Single groups a fan-out of more than 7 topics by section", () =>
   const chart = mermaidSource(session);
   assert.match(chart, /group_filing_status_invest\[/);
   assert.match(chart, /Interest, capital gains, and digital assets<br\/>3 topics/);
-  assert.match(chart, /Retirement, HSA, education, estimates, and dependents<br\/>5 topics/);
+  assert.match(chart, /Other income, credits, and payments<br\/>12 topics/);
   assert.match(chart, /Standard deduction and itemizing<br\/>5 topics/);
   assert.doesNotMatch(chart, /\n  interest\[/);
   assert.doesNotMatch(chart, /\n  dependents\[/);
@@ -422,6 +422,56 @@ test("a node prompt carries the session and a reply applies only that box", () =
   assert.throws(() => applyNodeReply(session, "filing_status", '{"answerId":"nope"}'), /not one of this box/);
   const replaced = applyNodeReply(session, "filing_status", sessionToJson(applyAnswer(session, "filing_status", "mfj")));
   assert.equal(replaced.answers.filing_status?.answerId, "mfj");
+});
+
+test("filing notes open the forms and lines that were not already on the chart", () => {
+  let session = applyAnswer(blankSession(), "filing_status", "single");
+  session = applyAnswer(session, "w2", "yes");
+  for (const id of ["unemployment", "marketplace", "eitc", "amt", "underpay", "installment", "extension"]) {
+    assert.equal(session.revealed.includes(id), true, id);
+  }
+
+  session = applyAnswer(session, "se", "yes");
+  session = applyAnswer(session, "se_entity", "sole");
+  session = applyAnswer(session, "se_count", "one");
+  session = applyAnswer(session, "se_names", "named", "coding");
+  assert.equal(session.revealed.includes("se_screen"), true);
+  session = applyAnswer(session, "se_screen", "both");
+  const seChart = mermaidSource(session);
+  assert.match(seChart, /Form 8995 or Form 8995-A/);
+  assert.match(seChart, /line 5/);
+  assert.match(seChart, /Schedule C line 25/);
+  assert.match(seChart, /Schedule 1 line 15/);
+  assert.match(seChart, /line 25a/);
+
+  session = applyAnswer(session, "rental", "yes");
+  session = applyAnswer(session, "rental_count", "one");
+  session = applyAnswer(session, "rental_own", "whole");
+  assert.equal(session.revealed.includes("rental_participation"), true);
+  session = applyAnswer(session, "rental_debt", "paid_off");
+  session = applyAnswer(session, "rental_participation", "passive");
+  assert.match(mermaidSource(session, chartView(session).groups.map((group) => group.id)), /Do not treat Form 8995 as applying/);
+  session = applyAnswer(session, "rental_participation", "active");
+  session = applyAnswer(session, "rental_safe_harbor", "yes");
+  const rentalChart = mermaidSource(session, chartView(session).groups.map((group) => group.id));
+  assert.match(rentalChart, /line 21/);
+  assert.match(rentalChart, /250 hours are logged/);
+
+  session = applyAnswer(session, "marketplace", "yes");
+  session = applyAnswer(session, "unemployment", "yes");
+  session = applyAnswer(session, "eitc", "children");
+  session = applyAnswer(session, "jurisdiction", "california");
+  const forms = mermaidSource(session, chartView(session).groups.map((group) => group.id));
+  assert.match(forms, /Form 1095-A and Form 8962/);
+  assert.match(forms, /Form 1099-G box 1/);
+  assert.match(forms, /Schedule EIC/);
+  assert.match(forms, /California kept a state health-coverage rule/);
+
+  const checklist = buildChecklist(session).map((item) => item.form).join("\n");
+  assert.match(checklist, /Form 8995 or Form 8995-A/);
+  assert.match(checklist, /Form 1095-A and Form 8962/);
+  assert.match(checklist, /Form 1099-G/);
+  assert.match(checklist, /Schedule EIC/);
 });
 
 test("case studies are labeled as examples and there is more than one", () => {
