@@ -18,9 +18,9 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True  # keep the skill folder free of __pycache__
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from taxsort_common import (FORM_TOKEN_RE, TAXONOMY_FOLDERS, WORK_DIRNAME, ensure_work, is_within, load_json,
-                            name_quality, normalize_folder, now_iso, rel, resolve_paths, run, save_json,
-                            sha256_file, tool_available, warn)
+from taxsort_common import (FORM_TOKEN_RE, REPORT_FILES, SYSTEM_FILES, TAXONOMY_FOLDERS, WORK_DIRNAME,
+                            count_roots, ensure_work, is_within, load_json, name_quality, normalize_folder, now_iso,
+                            rel, resolve_paths, run, save_json, sha256_file, tool_available, warn)
 
 KINDS = {
     "pdf": {".pdf"},
@@ -31,7 +31,7 @@ KINDS = {
     "email": {".eml", ".msg"},
     "archive": {".zip", ".7z", ".rar", ".tar", ".gz", ".tgz"},
 }
-SKIP_FILES = {".ds_store", "thumbs.db", "desktop.ini", ".gitkeep"}
+SKIP_FILES = set(SYSTEM_FILES) | set(REPORT_FILES)  # SORTED.md / Summaries.md are reports written by the skills, never sorted
 
 
 def kind_of(ext: str) -> str:
@@ -67,6 +67,8 @@ def load_manifest_hashes(work: Path):
                 continue
             if rec.get("event") == "undo":
                 hashes.pop(rec.get("hash"), None)
+            elif rec.get("status") == "review":
+                continue  # parked for a person to decide, not sorted: a later run must classify it again
             elif rec.get("hash"):
                 hashes[rec["hash"]] = rec.get("dest")
     return hashes
@@ -88,10 +90,13 @@ def git_warning(inp: Path):
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("input", nargs="?", help="folder to sort (default: ./sorter/stage)")
+    ap.add_argument("input", nargs="?", help="folder to sort (default: ./sorter/stage, created if missing)")
     ap.add_argument("--out", help="output root (default: sorter/sorted for sorter/stage, else in place)")
     ap.add_argument("--work", help="work folder (default: <out>/%s)" % WORK_DIRNAME)
     ap.add_argument("--json", action="store_true", help="print inventory JSON to stdout instead of a summary")
+    ap.add_argument("--include-sorted", action="store_true",
+                    help="in-place mode: also inventory files already inside taxonomy folders (analysis of an "
+                         "already-organised folder, e.g. for the %s skill)" % "tax-document-summaries")
     args = ap.parse_args()
 
     paths = resolve_paths(args.input, args.out, args.work)
@@ -113,7 +118,8 @@ def main() -> int:
             if d.startswith(".") or p in skip_dirs:
                 continue
             # In-place mode: folders created by an earlier run are output, not input.
-            if paths["in_place"] and root_p.resolve() == inp.resolve() and normalize_folder(d) in taxonomy_norm:
+            if (paths["in_place"] and not args.include_sorted and root_p.resolve() == inp.resolve()
+                    and normalize_folder(d) in taxonomy_norm):
                 continue
             keep.append(d)
         dirs[:] = sorted(keep)
@@ -173,6 +179,7 @@ def main() -> int:
         if f["kind"] == "archive":
             warnings.append("archive (extract it into the inbox to sort its contents): %s" % f["rel"])
 
+    counts["on_disk"] = count_roots(inp, out, work)  # re-counted by apply_plan.py after moving: must not shrink
     inventory = {
         "generated": now_iso(),
         "input": str(inp), "out": str(out), "work": str(work), "in_place": paths["in_place"],
@@ -191,6 +198,9 @@ def main() -> int:
     print("  files       : %d  (%s)" % (counts["files"], ", ".join("%s %d" % kv for kv in sorted(counts["by_kind"].items())) or "none"))
     print("  filenames   : %s" % (", ".join("%s %d" % kv for kv in sorted(counts["by_name_quality"].items())) or "-"))
     print("  duplicates  : %d   already sorted earlier: %d   empty: %d" % (counts["duplicates"], counts["already_sorted"], counts["empty"]))
+    od = counts["on_disk"]
+    print("  on disk     : %d file(s) in total%s (apply_plan.py counts again after moving; the total must not change)" % (
+        od["total"], "" if od["inbox"] is None or od["sorted"] is None else " = inbox %d + sorted %d" % (od["inbox"], od["sorted"])))
     for w in warnings:
         print("  WARNING     : %s" % w)
     if files:

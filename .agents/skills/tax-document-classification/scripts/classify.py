@@ -10,7 +10,10 @@ Usage:
   python3 classify.py [INPUT] [--out OUT] [--work WORK] [--tax-year 2025]
                       [--property "Property 200=200 Oak St|200 OAK STREET"] ...
                       [--business "Nursing 1099=Travel Nurse Co|RN"] ...
-                      [--rename-all] [--group-by-entity] [--min-confidence 0.75]
+                      [--keep-descriptive] [--group-by-entity] [--min-confidence 0.75]
+
+Every classified file is renamed to "{Type} - {Entity} - {Date} ({original filename}).ext"; the filename's
+own words are scored as evidence next to the content (see reference/naming.md).
 """
 import argparse
 import math
@@ -23,9 +26,9 @@ from typing import Dict, List, Optional, Tuple
 
 sys.dont_write_bytecode = True  # keep the skill folder free of __pycache__
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from taxsort_common import (DOC_TYPES, IDENTITY, INFO_RETURNS, RETURNS_LAST, RETURNS_THIS, REVIEW_FOLDER,
-                            build_name, clean_entity, ensure_work, load_json, mask_pii, now_iso, resolve_paths,
-                            save_json, when_segment, write_plan)
+from taxsort_common import (DATE_TOKEN_RE, DOC_TYPES, FORM_TOKEN_RE, GENERIC_WORDS, IDENTITY, INFO_RETURNS,
+                            RETURNS_LAST, RETURNS_THIS, REVIEW_FOLDER, build_name, clean_entity, ensure_work,
+                            load_json, mask_pii, now_iso, resolve_paths, save_json, when_segment, write_plan)
 
 
 def C(pattern: str, weight: float):
@@ -201,6 +204,7 @@ RULES: List[Dict] = [
     {"type": "Unemployment Statement", "strong": [C(r"unemployment\s+(insurance|benefits|compensation)", 3), B(r"employment\s+development\s+department|\bedd\b|workforce\s+commission|department\s+of\s+labor", 2)],
      "weak": [C(r"benefit\s+payment|weekly\s+benefit|claim\s+(id|number)", 1.5)], "weak_cap": 3},
     {"type": "Rental Income Statement", "strong": [C(r"(owner|owner'?s)\s+(statement|report|disbursement|distribution)", 4), C(r"property\s+management", 3),
+                                                   C(r"(rent|rental)\s+income\s+(statement|report|summary|record|ledger)", 5),
                                                    C(r"(rent|rental)\s+(income|received|collected|roll)", 3)],
      "weak": [C(r"management\s+fee", 2.5), C(r"\btenants?\b", 2), C(r"security\s+deposit", 1.5), C(r"(late\s+fee|vacancy|leasing\s+fee|maintenance)", 1),
               C(r"\bunit\s+#?\s?\d", 0.5)], "weak_cap": 4},
@@ -261,7 +265,7 @@ RULES: List[Dict] = [
                                     C(r"\b(adp|paychex|gusto|workday|paylocity|paycom|rippling|trinet|justworks|intuit\s+payroll|quickbooks\s+payroll|ukg|ceridian|dayforce)\b", 2)],
      "weak": [C(r"pay\s+period", 1.5), C(r"pay\s+date", 1.5), C(r"gross\s+pay", 1.5), C(r"net\s+pay", 1.5), C(r"\bytd\b|year\s+to\s+date", 1),
               C(r"federal\s+withholding|fed\s+w/?h|federal\s+income\s+tax", 1), C(r"\bfica\b|social\s+security|medicare", 1), C(r"401\(?k\)?", 1), C(r"hours\s+worked|\brate\b", 0.5)], "weak_cap": 6},
-    {"type": "Profit and Loss", "strong": [C(r"profit\s+(and|&)\s+loss|\bp&l\b|income\s+statement", 5)],
+    {"type": "Profit and Loss", "strong": [C(r"profit\s+(and|&)\s+loss|\bp&l\b|(?<!rental )(?<!rent )income\s+statement", 5)],
      "weak": [C(r"(total\s+income|gross\s+profit|total\s+expenses|net\s+(income|profit|operating\s+income|loss)|cost\s+of\s+goods)", 1.5),
               C(r"(quickbooks|xero|freshbooks|wave\s+accounting|zoho\s+books)", 1)], "weak_cap": 5},
     {"type": "Mileage Log", "strong": [C(r"mileage\s+(log|report|summary|tracker)", 5), C(r"(odometer|business\s+miles|standard\s+mileage)", 3)],
@@ -579,6 +583,48 @@ def parse_labels(values: List[str]) -> Dict[str, List[str]]:
     return result
 
 
+FILENAME_WEIGHT = 1.0   # filename cue scores are scaled by this before being added to the content scores
+FILENAME_CAP = 5.0      # and capped: a precise filename counts like one strong content cue, never like a read document
+MONTH_WORDS = set("jan feb mar apr may jun jul aug sep sept oct nov dec january february march april june july august "
+                  "september october november december".split())
+
+
+def filename_text(name: str) -> str:
+    """Turn a filename into words the rules can read: 'RentalIncome_Dec2025-Property200.pdf'
+    -> 'Rental Income Dec 2025 Property 200'. Form tokens such as w2 or 1099nec are left intact."""
+    stem = Path(name).stem
+    s = re.sub(r"[_\-.+,;]+", " ", stem)
+    s = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", s)                 # camelCase
+    s = re.sub(r"(?<=[A-Za-z]{3})(?=\d)", " ", s)              # Dec2025 -> Dec 2025 (but w2, 1099nec stay)
+    s = re.sub(r"(?<=\d)(?=[A-Z][a-z]{2})", " ", s)            # 2025Statement -> 2025 Statement
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def filename_entity(name: str, doc_type: str) -> Optional[str]:
+    """Words in the filename that are not the document type, a form id, a date or filler: a likely payer /
+    vendor ('Chase 1099-INT 2025' -> 'Chase'). Returns None when nothing informative is left."""
+    stop = set(GENERIC_WORDS) | MONTH_WORDS | {
+        "bill", "bills", "statement", "statements", "receipt", "receipts", "invoice", "invoices", "income", "rental",
+        "rent", "payment", "payments", "record", "records", "signed", "scanned", "copy", "final", "letter", "notice",
+        "summary", "annual", "monthly", "quarterly", "year", "end", "yearend", "tax", "taxes", "return", "returns",
+        "form", "forms", "page", "pages", "part", "schedule", "property", "business", "personal", "home", "office",
+        "paid", "due", "confirmation", "report", "detail", "details", "info", "information", "doc", "document"}
+    for t in DOC_TYPES:
+        stop.update(w.lower() for w in re.findall(r"[A-Za-z]+", t))
+    stop.update(w.lower() for w in re.findall(r"[A-Za-z]+", doc_type or ""))
+    words = []
+    for tok in filename_text(name).split(" "):
+        if not tok or FORM_TOKEN_RE.match(tok) or re.fullmatch(r"\d+[a-z]*", tok, re.I) or DATE_TOKEN_RE.match(tok):
+            continue
+        if re.fullmatch(r"[A-Za-z][A-Za-z'&]*", tok) and tok.lower() not in stop and len(tok) >= 2:
+            words.append(tok)
+        elif re.fullmatch(r"[A-Za-z]+\d{1,4}", tok) and tok[:1].isalpha() and tok.lower() not in stop:
+            words.append(tok)  # 'Property200' style labels
+    if not words or len(words) > 4:
+        return None
+    return clean_entity(" ".join(words))
+
+
 def detect_suffix(text: str, filename: str) -> Optional[str]:
     if re.search(r"\bcorrected\b", filename, re.I) or re.search(r"\bCORRECTED\b(?!\s*\(?\s*if\s+checked)", text):
         return "CORRECTED"
@@ -591,7 +637,8 @@ def detect_suffix(text: str, filename: str) -> Optional[str]:
 # per-file classification
 # --------------------------------------------------------------------------
 
-def classify_file(f: Dict, rec: Optional[Dict], text: str, cfg: Dict, target_year: Optional[int]) -> Dict:
+def classify_file(f: Dict, rec: Optional[Dict], text: str, cfg: Dict, target_year: Optional[int],
+                  vision_log: Optional[Dict] = None) -> Dict:
     notes: List[str] = []
     filename = f["name"]
     hints = f.get("filename_hints", {})
@@ -599,13 +646,35 @@ def classify_file(f: Dict, rec: Optional[Dict], text: str, cfg: Dict, target_yea
     text_n = norm_text(raw)
     quality = rec["quality"] if rec else "none"
     needs_vision = bool(rec and rec.get("needs_vision"))
+    # Vision verdict for files the scripts could not read. "pending": the agent still has to open the page
+    # images (apply_plan.py refuses to run until then); "failed": the agent looked and could not identify it
+    # (recorded by edit_plan.py --vision-failed in <work>/vision.json, keyed by hash so it survives re-runs).
+    vision: Optional[str] = None
+    if needs_vision:
+        prior = (vision_log or {}).get(f["hash"]) or {}
+        vision = "failed" if prior.get("result") == "failed" else "pending"
 
     scores, reasons = score_rules(text_n)
-    # filename hints are weak evidence (never trust filenames alone)
+    content_top = max(scores.items(), key=lambda kv: kv[1]) if scores else (None, 0.0)
+    # The filename is evidence too: words such as "Rental Income", "Electric Bill" or "W2 Acme" are scored with
+    # the same rules as the content (scaled and capped), and form ids in the name add a little on their own.
+    # When the content is readable and disagrees, the content wins and the disagreement is noted.
+    fn_text = filename_text(filename)
+    fn_scores, fn_reasons = score_rules(fn_text)
+    fn_evidence: Dict[str, float] = {}
+    for dtype, s in fn_scores.items():
+        add = round(min(s * FILENAME_WEIGHT, FILENAME_CAP), 2)
+        fn_evidence[dtype] = fn_evidence.get(dtype, 0.0) + add
+        reasons.setdefault(dtype, []).append("filename: %s" % ", ".join(fn_reasons[dtype][:3]))
     for rx, dtype in FILENAME_FORM_HINTS:
         if rx.search(filename):
-            scores[dtype] = round(scores.get(dtype, 0.0) + 1.5, 2)
+            fn_evidence[dtype] = fn_evidence.get(dtype, 0.0) + 1.5
             reasons.setdefault(dtype, []).append("filename: %s" % filename)
+    for dtype, add in fn_evidence.items():
+        scores[dtype] = round(scores.get(dtype, 0.0) + add, 2)
+    fn_top = max(fn_evidence.items(), key=lambda kv: kv[1]) if fn_evidence else (None, 0.0)
+    if fn_top[0] and content_top[0] and fn_top[0] != content_top[0] and fn_top[1] >= 1.5 and content_top[1] >= 5:
+        notes.append("filename suggests %s; content reads as %s (content wins)" % (fn_top[0], content_top[0]))
     # consolidated brokerage packages
     detected_forms = [t for t, s in scores.items() if t in INFO_RETURNS and s >= 5]
     if len({"1099-B", "1099-DIV", "1099-INT", "1099-OID"} & set(detected_forms)) >= 2:
@@ -625,8 +694,19 @@ def classify_file(f: Dict, rec: Optional[Dict], text: str, cfg: Dict, target_yea
 
     category, style = DOC_TYPES.get(doc_type, (REVIEW_FOLDER, "none"))
     date, dates = extract_dates(text_n, hints)
+    if not date:
+        fn_date, fn_dates = extract_dates(fn_text, {})
+        if fn_date:
+            date, dates = fn_date, dates + [d for d in fn_dates if d not in dates]
+            notes.append("date taken from the filename")
     tax_year, ty_source = extract_tax_year(text_n, hints, date if style == "date" else None)
     issuer, issuer_candidates = extract_issuer(raw, doc_type)
+    fn_entity = filename_entity(filename, doc_type) if doc_type not in ("Unknown",) else None
+    if fn_entity and fn_entity.lower() not in {c.lower() for c in issuer_candidates}:
+        issuer_candidates = issuer_candidates + [fn_entity]
+    if not issuer and fn_entity and DOC_TYPES.get(doc_type, ("",))[0] != IDENTITY:
+        issuer = fn_entity
+        notes.append("payer/vendor taken from the filename")
     addresses = []
     for m in ADDRESS_RX.finditer(raw):
         a = re.sub(r"\s+", " ", m.group(0)).strip()
@@ -676,6 +756,8 @@ def classify_file(f: Dict, rec: Optional[Dict], text: str, cfg: Dict, target_yea
     if needs_vision:
         status = "review"
         notes.append(rec.get("vision_reason", "text unreadable"))
+        if vision == "failed":
+            notes.append("AI vision failed: %s" % (vision_log or {}).get(f["hash"], {}).get("reason", "could not identify"))
     if conf < cfg.get("min_confidence", 0.75):
         status = "review"
         notes.append("low confidence")
@@ -700,10 +782,16 @@ def classify_file(f: Dict, rec: Optional[Dict], text: str, cfg: Dict, target_yea
 
     suffix = detect_suffix(raw, filename)
     when = when_segment(style, tax_year, date)
-    rename = f["name_quality"] in ("generic", "hashed") or bool(cfg.get("rename_all"))
+    # Every classified file is renamed to the convention, with the original filename kept in parentheses, so
+    # the folder can be read at a glance and nothing about the old name is lost. --keep-descriptive limits the
+    # renaming to generic/hashed names. Files already in the convention and unidentified files keep their names.
+    if cfg.get("keep_descriptive"):
+        rename = f["name_quality"] in ("generic", "hashed")
+    else:
+        rename = f["name_quality"] != "convention"
     if doc_type == "Unknown":
         rename = False
-    dest_name = build_name(doc_type, entity, when, f["ext"], suffix) if rename else filename
+    dest_name = build_name(doc_type, entity, when, f["ext"], suffix, original=filename) if rename else filename
 
     if f.get("duplicate_of"):
         status = "duplicate"
@@ -718,7 +806,7 @@ def classify_file(f: Dict, rec: Optional[Dict], text: str, cfg: Dict, target_yea
         "doc_type": doc_type, "category": category, "subfolder": subfolder, "entity": entity, "issuer": issuer,
         "property": property_label, "business": business_label, "tax_year": tax_year, "tax_year_source": ty_source,
         "date": date, "when_style": style, "suffix": suffix, "name_quality": f["name_quality"], "rename": rename,
-        "dest_name": dest_name, "needs_vision": needs_vision, "page_images": (rec or {}).get("page_images", []),
+        "dest_name": dest_name, "needs_vision": needs_vision, "vision": vision, "page_images": (rec or {}).get("page_images", []),
         "method": (rec or {}).get("method", "none"), "quality": quality, "score": best,
         "reasons": reasons.get(doc_type, [])[:6], "alternatives": alternatives, "forms_detected": sorted(detected_forms),
         "issuer_candidates": issuer_candidates, "addresses": addresses, "dates": dates, "notes": notes, "excerpt": excerpt,
@@ -739,7 +827,10 @@ def main() -> int:
                     help='rental property label and keywords, e.g. "Property 200=200 Oak St|200 OAK STREET" (repeatable)')
     ap.add_argument("--business", action="append", default=[], metavar="LABEL=KW|KW",
                     help='self-employment activity label and keywords, e.g. "Nursing 1099=Travel Nurse Co" (repeatable)')
-    ap.add_argument("--rename-all", action="store_true", help="rename descriptive filenames too (default: only generic/hashed)")
+    ap.add_argument("--keep-descriptive", action="store_true",
+                    help="rename only generic/hashed filenames (default: rename every classified file; the original "
+                         "filename is always kept in parentheses)")
+    ap.add_argument("--rename-all", action="store_true", help=argparse.SUPPRESS)  # former opt-in; now the default
     ap.add_argument("--group-by-entity", action="store_true", help="create a subfolder per property/business label")
     ap.add_argument("--min-confidence", type=float, default=None, help="below this the item needs review (default 0.75)")
     ap.add_argument("--max-chars", type=int, default=12000, help="characters of text considered per file")
@@ -767,12 +858,15 @@ def main() -> int:
     if args.min_confidence is not None:
         cfg["min_confidence"] = args.min_confidence
     cfg.setdefault("min_confidence", 0.75)
+    if args.keep_descriptive:
+        cfg["keep_descriptive"] = True
     if args.rename_all:
-        cfg["rename_all"] = True
+        cfg["keep_descriptive"] = False
     if args.group_by_entity:
         cfg["group_by_entity"] = True
-    cfg.setdefault("rename_all", False)
+    cfg.setdefault("keep_descriptive", False)
     cfg.setdefault("group_by_entity", False)
+    cfg.pop("rename_all", None)
     save_json(work / "config.json", cfg)
 
     texts: Dict[str, str] = {}
@@ -786,8 +880,10 @@ def main() -> int:
             text = Path(rec["text_file"]).read_text(encoding="utf-8", errors="ignore")[: args.max_chars]
         texts[f["hash"]] = text
 
+    vision_log = load_json(work / "vision.json", {}) or {}
+
     # pass 1: provisional classification to infer the target tax year
-    provisional = [classify_file(f, extracted.get(f["hash"]), texts[f["hash"]], cfg, None) for f in inventory["files"]]
+    provisional = [classify_file(f, extracted.get(f["hash"]), texts[f["hash"]], cfg, None, vision_log) for f in inventory["files"]]
     target_year, ty_source = cfg.get("tax_year"), "given"
     if not target_year:
         years = [p["tax_year"] for p in provisional if p["doc_type"] in INFO_RETURNS and p["tax_year"]]
@@ -805,7 +901,7 @@ def main() -> int:
     # pass 2: final
     items = []
     for i, f in enumerate(inventory["files"], 1):
-        it = classify_file(f, extracted.get(f["hash"]), texts[f["hash"]], cfg, target_year)
+        it = classify_file(f, extracted.get(f["hash"]), texts[f["hash"]], cfg, target_year, vision_log)
         if target_year and it["tax_year"] and it["doc_type"] in INFO_RETURNS and it["tax_year"] != target_year:
             it["notes"].append("tax year %s differs from target %s" % (it["tax_year"], target_year))
             if it["status"] == "ready":
@@ -835,6 +931,19 @@ def main() -> int:
         for it in review:
             print("  %3d. %-40s guess %s / %s (%.2f) - %s" % (
                 it["index"], it["rel"][:40], it["category"], it["doc_type"], it["confidence"], "; ".join(it["notes"])[:120]))
+    pending = [it for it in items if it["status"] == "review" and it.get("vision") == "pending"]
+    if pending:
+        print("")
+        print("VISION PENDING (%d) - the scripts could not read these. Open the page images with the Read tool and" % len(pending))
+        print("identify each one yourself; apply_plan.py will not run until every one has a verdict:")
+        for it in pending:
+            print("  %3d. %s" % (it["index"], it["rel"]))
+            for img in it["page_images"][:6]:
+                print("       %s" % img)
+            if not it["page_images"]:
+                print("       (no page images: %s)" % "; ".join(it["notes"])[:100])
+        print("  identified : edit_plan.py --work \"%s\" --item N --set doc_type=\"...\" --set entity=\"...\" --status ready" % work)
+        print("  unreadable : edit_plan.py --work \"%s\" --item N --vision-failed \"what you saw (blurry, cropped, blank)\"" % work)
     print("")
     print("Read %s, fix items with edit_plan.py, then: python3 %s/apply_plan.py --work \"%s\" [--yes]" % (
         work / "plan.md", Path(__file__).resolve().parent, work))

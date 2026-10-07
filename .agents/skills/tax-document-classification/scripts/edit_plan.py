@@ -10,9 +10,16 @@ Examples:
   python3 edit_plan.py --work W --item 7 --set doc_type="Electric Bill" --set entity="Property 200" \
                        --set date=2026-07-01 --set category="Income - Rental" --status ready
   python3 edit_plan.py --work W --src IMG_2048 --set entity="Jane Doe" --status ready
-  python3 edit_plan.py --work W --item 3 --set dest_name="W-2 - Acme Corp - 2025 (spouse).pdf" --status ready
+  python3 edit_plan.py --work W --item 3 --set dest_name="W-2 - Acme Corp - 2025 - spouse.pdf" --status ready
+      # -> "W-2 - Acme Corp - 2025 - spouse (original.pdf).pdf": the original filename is always appended in parentheses
   python3 edit_plan.py --work W --item 9 --status skip
+  python3 edit_plan.py --work W --item 4 --vision-failed "blurry; ask for a re-photograph"   # looked at the image, cannot identify it
 Keys for --set: doc_type, category, subfolder, entity, tax_year, date, suffix, dest_name, rename, notes
+
+Vision verdicts: an item flagged needs_vision (the scripts could not read it) blocks apply_plan.py until you
+either identify it (--set doc_type=... --status ready) or record that you opened its page images and still
+could not tell what it is (--vision-failed REASON). Only the second kind ends up in _Needs Human Review.
+Failed verdicts are kept in <work>/vision.json by file hash so a re-run does not ask again.
 """
 import argparse
 import re
@@ -21,7 +28,8 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True  # keep the skill folder free of __pycache__
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from taxsort_common import DOC_TYPES, TAXONOMY_FOLDERS, build_name, die, load_json, normalize_folder, when_segment, write_plan
+from taxsort_common import (DOC_TYPES, TAXONOMY_FOLDERS, build_name, die, load_json, normalize_folder, now_iso,
+                            original_label, save_json, when_segment, write_plan)
 
 ALLOWED = {"doc_type", "category", "subfolder", "entity", "tax_year", "date", "suffix", "dest_name", "rename", "notes"}
 
@@ -46,6 +54,8 @@ def main() -> int:
     ap.add_argument("--src")
     ap.add_argument("--set", action="append", default=[], metavar="KEY=VALUE")
     ap.add_argument("--status", choices=["ready", "review", "skip"])
+    ap.add_argument("--vision-failed", metavar="REASON",
+                    help="you opened the page images of this needs_vision item and could not identify it; say what you saw")
     ap.add_argument("--list", action="store_true", help="print a compact list of all items")
     args = ap.parse_args()
 
@@ -56,13 +66,28 @@ def main() -> int:
 
     if args.list:
         for it in plan["items"]:
-            print("%3d %-9s %.2f %-28s %-34s %s -> %s" % (
-                it["index"], it["status"], it["confidence"], it["doc_type"][:28], it["category"][:34], it["rel"], it["dest_name"]))
+            print("%3d %-9s %.2f %-28s %-34s %s -> %s%s" % (
+                it["index"], it["status"], it["confidence"], it["doc_type"][:28], it["category"][:34], it["rel"], it["dest_name"],
+                ("  [vision %s]" % it["vision"]) if it.get("vision") else ""))
         return 0
     if args.item is None and not args.src:
         die("give --item N or --src SUBSTRING (or --list)")
 
     it = find_item(plan, args.item, args.src)
+    vision_log = load_json(work / "vision.json", {}) or {}
+    if args.vision_failed is not None:
+        reason = args.vision_failed.strip()
+        if not reason:
+            die("--vision-failed needs a reason: what did you see in the page images (blurry, cropped, blank, wrong side)?")
+        if args.status == "ready":
+            die("--vision-failed and --status ready contradict each other")
+        if not it.get("needs_vision") and it.get("vision") is None:
+            print("note: this item was readable by the scripts; recording the vision failure anyway")
+        it["vision"] = "failed"
+        it["status"] = "review"
+        it["notes"] = [n for n in it.get("notes", []) if not n.startswith("AI vision failed:")] + ["AI vision failed: %s" % reason]
+        vision_log[it["hash"]] = {"result": "failed", "reason": reason, "rel": it["rel"], "at": now_iso()}
+        save_json(work / "vision.json", vision_log)
     explicit_name = False
     explicit_rename = any(s.strip().startswith("rename=") for s in args.set)
     name_fields = {"doc_type", "entity", "date", "tax_year", "suffix"}
@@ -87,6 +112,13 @@ def main() -> int:
         elif key == "notes":
             it["notes"] = [value] if value else []
         elif key == "dest_name":
+            # the original filename is always kept in parentheses, even for a hand-written name
+            orig = original_label(Path(it["src"]).name)
+            if orig.lower() not in value.lower():
+                stem, dot, ext = value.rpartition(".")
+                if not dot or len(ext) > 5:
+                    stem, ext = value, Path(it["src"]).suffix.lstrip(".")
+                value = "%s (%s)%s" % (stem.rstrip(), orig, ("." + ext.lower()) if ext else "")
             it["dest_name"] = value
             it["rename"] = True
             explicit_name = True
@@ -108,13 +140,20 @@ def main() -> int:
             it[key] = value or None
 
     if args.status:
+        if args.status == "ready" and it.get("doc_type") in (None, "", "Unknown"):
+            die("item %d has no document type; identify it first (--set doc_type=\"...\") or record --vision-failed \"...\"" % it["index"])
         it["status"] = args.status
         if args.status == "ready":
             it["needs_vision"] = False
+            if it.get("vision"):
+                it["vision"] = "identified"
+            if vision_log.pop(it["hash"], None) is not None:  # identified after all: drop the old failure
+                save_json(work / "vision.json", vision_log)
     if not explicit_name:
         if it.get("rename", True) and it.get("doc_type") and it["doc_type"] != "Unknown":
             when = when_segment(it.get("when_style", "none"), it.get("tax_year"), it.get("date"))
-            it["dest_name"] = build_name(it["doc_type"], it.get("entity"), when, Path(it["src"]).suffix, it.get("suffix"))
+            it["dest_name"] = build_name(it["doc_type"], it.get("entity"), when, Path(it["src"]).suffix, it.get("suffix"),
+                                         original=Path(it["src"]).name)
             it["rename"] = True
         else:
             it["dest_name"] = Path(it["src"]).name

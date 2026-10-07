@@ -1,8 +1,10 @@
 # Recognising documents from their content
 
 `classify.py` scores these cues automatically from extracted text. Use the same cues when you read a page image
-yourself (`needs_vision`), and when deciding whether a low-confidence guess is right. Identify a document by its
-printed title, form number, OMB number and box labels, never by its filename.
+yourself (`needs_vision`: the text pipeline failed, so the agent reads the image), and when deciding whether a
+low-confidence guess is right. Identify a document by its printed title, form number, OMB number and box labels.
+The filename is supporting evidence (`classify.py` already scores its words and shows the resulting guess in
+`plan.md`): use it to know what to look for, and let what is printed on the page decide.
 
 ## Information returns
 
@@ -108,4 +110,6 @@ When OCR failed or you doubt the result, open the PNG and answer, in order: (1) 
 number; (2) who issued it (letterhead, payer block, logo); (3) which year or date is printed; (4) which address,
 account or property it refers to; (5) is this the filled-in form or a cover letter / instructions. Then set the
 item with `edit_plan.py --set doc_type=... --set entity=... --set tax_year=... / --set date=... --status ready`.
-If the image is too blurry or cropped to answer (1) and (2), leave it in review and ask the user for a better copy.
+If the image is too blurry or cropped to answer (1) and (2), record `edit_plan.py --item N --vision-failed "blurry;
+title and payer unreadable"` so the file goes to `_Needs Human Review`, and ask the user for a better copy.
+`apply_plan.py` will not run while a `needs_vision` item has neither verdict.

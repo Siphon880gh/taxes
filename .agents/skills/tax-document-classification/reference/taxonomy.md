@@ -4,14 +4,16 @@ The output root (`sorter/sorted/` by default) holds the folders below. The names
 reuses an existing folder whose name differs only by apostrophe style (`’` vs `'`), case or spacing, so a
 pre-existing `_Last year’s return` is used rather than duplicated.
 
-Ordering is deliberate: a leading underscore makes the identity and prior-return folders sort first in Finder,
-Explorer and `ls`; `zz_` pushes the two housekeeping folders to the bottom. Keep the prefixes when adding folders.
+Ordering is deliberate: a leading underscore makes the identity, prior-return and human-review folders sort first
+in Finder, Explorer and `ls`, so the files that still need a decision are always in view; `zz_` pushes the
+duplicates folder to the bottom. Keep the prefixes when adding folders.
 
 ## Folders
 
 | Folder | What goes in it | Typical documents |
 |---|---|---|
 | `_Last year's return` | Returns for years before the target tax year, IRS transcripts, prior-year e-file acceptance | Form 1040 (prior year), state return, Tax Return / Account / Wage & Income Transcript |
+| `_Needs Human Review` | Files neither the scripts nor the agent's own reading of the page images could classify, plus files whose question only the user can answer; original names kept | Scans the agent looked at and recorded `--vision-failed` for, unknown document types, bills with no property/business label, information returns with no payer, IRS notices. Filled by `apply_plan.py` on every run unless `--leave-review` |
 | `_Proof of identity` | Identity documents for the taxpayer, spouse and dependents | Driver license, passport, Social Security card, birth certificate, ITIN letter (CP565), IP PIN notice (CP01A) |
 | `_This year's return` | Drafts and filed copies for the target tax year | Form 1040 draft, state return, e-file acceptance |
 | `Credits` | Records that support a credit rather than a deduction | 1098-T, student account statements, childcare provider year-end statements, energy-improvement receipts, clean-vehicle purchase papers |
@@ -27,8 +29,13 @@ Explorer and `ls`; `zz_` pushes the two housekeeping folders to the bottom. Keep
 | `Records - Statements` | Bank, credit card and loan statements that are not tied to a property or business | Checking/savings statements, credit card statements, auto/personal loan statements |
 | `Regulations - Health Insurance` | ACA coverage forms and premium records | 1095-A, 1095-B, 1095-C, health insurance premium statements |
 | `Retirement & HSA` | Contribution-side records and HSA activity (Forms 8889 / 5329 / 8606 support) | 5498, 5498-SA, 1099-SA, IRA/HSA contribution confirmations |
-| `zz_Needs review` | Files the pipeline could not classify with confidence; original names kept | Only filled with `apply_plan.py --include-review` |
 | `zz_Duplicates` | Byte-identical copies of files already sorted; original names kept | Created automatically |
+
+Next to the folders, `apply_plan.py` keeps `SORTED.md` at the output root: the file-count check of the last run
+(before/after totals, every moved file re-hashed), the complete `original name → new location` map grouped by
+folder, and a table of all runs. It is regenerated on every run and never sorted itself. `Summaries.md` (written
+by the `tax-document-summaries` skill, by default in the inbox folder) is likewise skipped by `inventory.py` and
+excluded from the file counts.
 
 Optional subfolders: with `classify.py --group-by-entity` each property or business label becomes a subfolder
 (`Income - Rental/Property 200/`, `Income - Self-employment/Nursing 1099/`). The flat layout, with the label in
@@ -54,7 +61,22 @@ Applied by `classify.py` in this order; the result can always be overridden with
 7. **Information returns without a payer** (W-2, 1099-x, 1098-x, 1095-x, 5498-x, K-1) stay in review until the
    payer is known: the filename would be ambiguous (`W-2 - 2025.pdf`) when there are several.
 8. **Duplicates** (same SHA-256 as another inbox file or as a file sorted earlier) go to `zz_Duplicates`.
-9. **Confidence below 0.75**, unreadable text (`needs_vision`), unknown type or unknown tax year: review.
+9. **Confidence below 0.75**, text the scripts could not read (`needs_vision`), unknown type or unknown tax year:
+   review.
+
+Status `review` means a person has to decide. `apply_plan.py` moves those files into `_Needs Human Review` with
+their original names (the best guess stays in `plan.md`), and the report lists each one with the reason. The
+manifest records them with status `review`, not as sorted, so running the pipeline again with
+`<out>/_Needs Human Review` as the input and `--out <out>` classifies them afresh once labels or answers are
+available. `--leave-review` keeps them in the inbox instead.
+
+`needs_vision` items are the exception: they are `review` only as a placeholder. The flag means the text pipeline
+failed, and the agent must read the page images itself (AI vision) and record a verdict with `edit_plan.py`:
+`--status ready` with a `doc_type` when identified, or `--vision-failed "reason"` when the images cannot be read
+either. `plan.json` carries this as `vision: pending | identified | failed`; `apply_plan.py` refuses to run (dry
+run included) while any item is `pending`, so only `failed` ones ever reach `_Needs Human Review`. Failed verdicts
+are kept in `<work>/vision.json` by file hash, so a re-run on the parked folder does not ask again for the same
+bytes; a better scan has a new hash and is read afresh.
 
 ## Document types (`doc_type`) and default folders
 
@@ -77,7 +99,7 @@ The `doc_type` is the first segment of the filename. Use these spellings with `e
 | `_Last year's return` / `_This year's return` | `Form 1040 Return` Y, `State Tax Return` Y, `Tax Return Transcript` Y |
 | `_Proof of identity` | `Driver License` –, `Passport` –, `Social Security Card` –, `Birth Certificate` –, `IP PIN Notice` Y, `ITIN Letter` D |
 | `Records - Statements` | `Bank Statement` D, `Credit Card Statement` D, `Loan Statement` D |
-| review | `IRS Notice` D (decide which return it belongs to), `Unknown` |
+| `_Needs Human Review` | `IRS Notice` D (decide which return it belongs to), `Unknown` |
 
 Entity for identity documents is the person's name; the scripts never guess it, set it with
 `edit_plan.py --set entity="Jane Doe"`.

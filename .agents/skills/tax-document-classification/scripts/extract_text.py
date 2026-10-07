@@ -683,7 +683,8 @@ def main() -> int:
     vision = [r for r in recs if r["needs_vision"]]
     if vision:
         print("")
-        print("NEEDS VISION (%d) - open these images with the Read tool and classify them yourself:" % len(vision))
+        print("NEEDS VISION (%d) - the text pipeline failed on these. Open the images with the Read tool and classify them" % len(vision))
+        print("yourself; apply_plan.py will not run until each has a verdict (edit_plan.py --status ready or --vision-failed):")
         for r in vision:
             print("  - %s: %s" % (r["rel"], r["vision_reason"]))
             for img in r["page_images"][:6]:
