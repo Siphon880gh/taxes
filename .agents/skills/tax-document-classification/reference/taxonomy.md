@@ -109,6 +109,7 @@ Entity for identity documents is the person's name; the scripts never guess it, 
 - **1099-MISC**: box 1 rents belongs with the rental (label match routes it there); royalties or other income go to
   `Income - Other`.
 - **1098 for a rental** is a rental expense, not Schedule A: give the property label so it lands in `Income - Rental`.
+- **Rental property tax** lands in `Income - Rental`. The filename says bill or receipts, and names the property when there is more than one rental (see naming.md): `Rent-Income-Deduction-Home-Property-Tax-Bill` / `Rent-Income-Deduction-Home-Property-Tax-Receipts`, or `Rent-Income-200-Lake-Ave-Deduction-Home-Property-Tax-Bill` when another rental is in the same inbox. A personal-home property tax bill stays `Property Tax Bill` in `Deductions`.
 - **Health insurance premiums paid by a self-employed person** are still filed under `Regulations - Health Insurance`;
   mention the self-employed health insurance deduction in the report instead of moving the file.
 - **HSA**: 1099-SA is a distribution but lives with the other HSA paperwork in `Retirement & HSA` (Form 8889 needs

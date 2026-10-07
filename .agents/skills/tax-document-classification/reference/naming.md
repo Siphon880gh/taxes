@@ -26,13 +26,40 @@ extension is kept but lower-cased.
 | `Rental Income Statement Dec 2025.pdf` (unreadable scan) | `Income - Rental/Rental Income Statement - Property 200 - 2025-12 (Rental Income Statement Dec 2025.pdf).pdf` | type and month from the filename, property from the agent's reading of the image |
 | `document (3).docx` | `Deductions/Donation Receipt - Red Cross - 2025-12-15 (document (3).docx).docx` | 501(c)(3) and "no goods or services" language; letterhead |
 | `download.pdf` | `_Last year's return/Form 1040 Return - 2024 (download.pdf).pdf` | "U.S. Individual Income Tax Return 2024", year before target 2025 |
-| `from phone/statement.pdf` | `Income - Rental/Property Tax Bill - Property 200 - 2025-11-15 (statement.pdf).pdf` | parcel number + assessed value; address matched label |
+| `200-lake-ave-farmers-tax.pdf` | `Income - Rental/Rent-Income-Deduction-Home-Property-Tax-Bill (200-lake-ave-farmers-tax.pdf).pdf` | property-tax **bill** (assessment) for the only rental; street stays out of the name |
+| `200-lake-ave-boa-paid-tax.pdf` | `Income - Rental/Rent-Income-Deduction-Home-Property-Tax-Receipts (200-lake-ave-boa-paid-tax.pdf).pdf` | property-tax **receipts** (proof of payment) for that same rental |
+| `200-lake-ave-farmers-tax.pdf` (two rentals) | `Income - Rental/Rent-Income-200-Lake-Ave-Deduction-Home-Property-Tax-Bill (200-lake-ave-farmers-tax.pdf).pdf` | more than one rental: the property goes right after `Rent-Income-` |
 | `Chase 1099-INT 2025.pdf` | `Income - Investments/1099-INT - JPMorgan Chase Bank - 2025 (Chase 1099-INT 2025.pdf).pdf` | descriptive name renamed to the convention too; original kept |
 | `w2.pdf` (actually a 1099-INT) | `Income - Investments/1099-INT - Ally Bank - 2025 (w2.pdf).pdf` | content wins over the filename; the plan notes the disagreement |
 | `f1095a.pdf` | `Regulations - Health Insurance/1095-A - Marketplace LA - 2025 (f1095a.pdf).pdf` | marketplace identifier |
 | `Book1.xlsx` | `Income - Self-employment/Mileage Log - Nursing 1099 - 2025 (Book1.xlsx).xlsx` | business label matched |
 | `scan0001 copy.pdf` | `zz_Duplicates/scan0001 copy.pdf` | identical bytes to `scan0001.pdf`; name kept |
 | `IMG_2051.heic` (blurry photo) | `_Needs Human Review/IMG_2051.heic` | nothing could be read; original name kept so the person reviewing it can find it |
+
+## Rental property tax: bill vs receipts
+
+A property-tax bill and a property-tax receipt are different files. The bill is the assessment (amount owed,
+parcel or APN, assessed value, installments). The receipts are proof the tax was paid (bank payment, treasurer
+"paid" stamp, receipt). The filename says which one it is: `Bill` or `Receipts`.
+
+One rental property — leave the street out:
+
+```
+Rent-Income-Deduction-Home-Property-Tax-Bill (200-lake-ave-farmers-tax.pdf).pdf
+Rent-Income-Deduction-Home-Property-Tax-Receipts (200-lake-ave-boa-paid-tax.pdf).pdf
+```
+
+More than one rental property — put the property immediately after `Rent-Income-`, hyphenated title case
+(`200 Lake Ave` -> `200-Lake-Ave`). Bill and receipts each get that property:
+
+```
+Rent-Income-200-Lake-Ave-Deduction-Home-Property-Tax-Bill (200-lake-ave-farmers-tax.pdf).pdf
+Rent-Income-200-Lake-Ave-Deduction-Home-Property-Tax-Receipts (200-lake-ave-boa-paid-tax.pdf).pdf
+```
+
+The original filename stays in parentheses. These names are the rental property-tax names; set them with
+`edit_plan.py --set dest_name="..."`. A personal-home property tax bill, with no rental, stays
+`Property Tax Bill - {date} ({original}).ext` in `Deductions`.
 
 ## Which files get renamed
 

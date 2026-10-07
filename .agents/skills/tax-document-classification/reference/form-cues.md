@@ -80,7 +80,8 @@ Notes:
 | Phone | wireless/mobile plan, lines, Verizon Wireless, T-Mobile, AT&T… | same |
 | Insurance premium | "Declarations page", policy number, named insured, premium, landlord/dwelling/DP-3/HO-3/umbrella/renters; State Farm, Allstate, Steadily… | Income - Rental with label; landlord/dwelling wording means a rental |
 | HOA statement | Homeowners/Condominium Association, dues, assessments | Income - Rental |
-| Property tax bill | "Property tax", parcel/APN, assessed value, tax collector/treasurer/assessor, installments, millage | Deductions; Income - Rental with label |
+| Property tax bill | "Property tax", parcel/APN, assessed value, tax collector/treasurer/assessor, installments, millage, amount due. This is the assessment, not proof it was paid | Deductions for the personal home (`Property Tax Bill`). Income - Rental for a rental, named `Rent-Income-Deduction-Home-Property-Tax-Bill` (one rental) or `Rent-Income-200-Lake-Ave-Deduction-Home-Property-Tax-Bill` (more than one rental) |
+| Property tax receipts | paid stamp, "payment received", bank or card payment of the tax, receipt or confirmation, $0 balance after payment. A receipt is not the bill | Income - Rental, named `Rent-Income-Deduction-Home-Property-Tax-Receipts` (one rental) or `Rent-Income-200-Lake-Ave-Deduction-Home-Property-Tax-Receipts` (more than one rental). Same property as the bill, with `Receipts` in place of `Bill` |
 | Mortgage statement | "Mortgage statement", escrow, principal/interest, servicer name (Rocket, Mr. Cooper, PennyMac…) | Deductions; Income - Rental with label |
 | Closing disclosure / settlement statement | "Closing Disclosure", "Settlement Statement", HUD-1, cash to close, prorations | Income - Rental with label, else review |
 | Owner / property management statement | "Owner statement", management fee, rent received, tenant, security deposit | Income - Rental |

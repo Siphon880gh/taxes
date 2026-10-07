@@ -75,6 +75,26 @@ Donation Receipt - Red Cross - 2025-12-15 (document (3).docx).docx
 Form 1040 Return - 2024 (download.pdf).pdf
 ```
 
+Rental property tax keeps the original filename in parentheses, and the name itself says whether the page is
+the **bill** (assessment: amount owed, parcel, installments) or the **receipts** (proof it was paid: bank
+payment, treasurer paid stamp). One rental property:
+
+```
+Rent-Income-Deduction-Home-Property-Tax-Bill (200-lake-ave-farmers-tax.pdf).pdf
+Rent-Income-Deduction-Home-Property-Tax-Receipts (200-lake-ave-boa-paid-tax.pdf).pdf
+```
+
+More than one rental: put that property in the name, immediately after `Rent-Income-`, in hyphenated title
+case (`200 Lake Ave` -> `200-Lake-Ave`). Bill and receipts stay distinct:
+
+```
+Rent-Income-200-Lake-Ave-Deduction-Home-Property-Tax-Bill (200-lake-ave-farmers-tax.pdf).pdf
+Rent-Income-200-Lake-Ave-Deduction-Home-Property-Tax-Receipts (200-lake-ave-boa-paid-tax.pdf).pdf
+```
+
+Set these with `edit_plan.py --set dest_name="..."`. A personal-home property tax bill (no rental) stays
+`Property Tax Bill` in `Deductions`.
+
 Every classified file is renamed so a folder can be read at a glance, and the original filename is always kept
 in parentheses at the end, so nothing about the old name is lost and a search for `IMG_2048` still finds the
 file. Files that could not be identified keep their original names. `--keep-descriptive` limits renaming to
@@ -187,8 +207,10 @@ python3 "$SKILL_DIR/scripts/edit_plan.py" --work OUT/.tax-sorter --item 4 --visi
 ```
 
 `doc_type` values and their default folders are listed in [reference/taxonomy.md](reference/taxonomy.md); a
-free-form `doc_type` or `category` is allowed when nothing fits. Set `--set dest_name="..."` only when the
-convention cannot express the name; the original filename is appended in parentheses even then.
+free-form `doc_type` or `category` is allowed when nothing fits. Set `--set dest_name="..."` when the
+convention cannot express the name, and for every rental property-tax file (bill vs receipts, and the property
+when there is more than one rental — see the filename examples above). The original filename is appended in
+parentheses even then.
 
 **Step 7.** Show the user the plan as a before -> after list grouped by folder, including the items going to
 `_Needs Human Review` and why. Wait for approval unless the user already said to go ahead.
