@@ -67,6 +67,39 @@ function zoomThatFitsWidth(naturalWidth: number, available: number): number | nu
   return Math.max(0.05, Math.floor(((available - 24) / naturalWidth) * 1000) / 1000);
 }
 
+/** Gap under the lowest node, matching the space between ranks. */
+const bottomNodePadding = 48;
+
+function padBelowBottomNode(svg: SVGSVGElement) {
+  const svgMatrix = svg.getScreenCTM();
+  if (!svgMatrix) return;
+  const toSvg = svgMatrix.inverse();
+  const point = svg.createSVGPoint();
+  let bottom = Number.NEGATIVE_INFINITY;
+  svg.querySelectorAll("g.node").forEach((node) => {
+    if (!(node instanceof SVGGraphicsElement)) return;
+    const matrix = node.getScreenCTM();
+    if (!matrix) return;
+    try {
+      const box = node.getBBox();
+      for (const [x, y] of [
+        [box.x, box.y + box.height],
+        [box.x + box.width, box.y + box.height],
+      ] as const) {
+        point.x = x;
+        point.y = y;
+        bottom = Math.max(bottom, point.matrixTransform(matrix).matrixTransform(toSvg).y);
+      }
+    } catch {
+      // A node that is not in the document yet has no box.
+    }
+  });
+  const viewBox = svg.viewBox.baseVal;
+  if (!Number.isFinite(bottom) || viewBox.height <= 0) return;
+  const shortfall = bottom + bottomNodePadding - (viewBox.y + viewBox.height);
+  if (shortfall > 0) viewBox.height += shortfall;
+}
+
 function applyCommentCues(svg: Element, known: Set<string>, commented: Set<string>, show: boolean) {
   svg.querySelectorAll("g.node").forEach((node) => {
     const id = matchNodeId(node.id, known);
@@ -324,6 +357,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
         const drawn = hostRef.current.querySelector("svg");
         fitSvgRef.current = drawn instanceof SVGSVGElement ? drawn : null;
         if (drawn) {
+          padBelowBottomNode(drawn);
           const viewBox = drawn.viewBox.baseVal;
           if (viewBox.width > 0 && viewBox.height > 0) {
             drawn.setAttribute("width", String(viewBox.width));
