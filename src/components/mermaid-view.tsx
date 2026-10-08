@@ -60,6 +60,16 @@ function matchNodeId(elementId: string, known: Set<string>): string | null {
 
 const lensZooms = [1, 1.5, 2, 3, 4, 6];
 
+const boundedZoomMin = 0.05;
+const boundedZoomMax = 2;
+/** Past the chart bound, still stopped so a long gesture cannot build an endless canvas. */
+const freeZoomMin = 0.02;
+const freeZoomMax = 16;
+
+function clampZoom(value: number, free: boolean) {
+  return Math.min(free ? freeZoomMax : boundedZoomMax, Math.max(free ? freeZoomMin : boundedZoomMin, value));
+}
+
 function zoomThatFitsWidth(naturalWidth: number, available: number): number | null {
   if (!available || !naturalWidth) return null;
   // A short chart already fits. Leave it at 100% instead of stretching a few nodes.
@@ -164,6 +174,9 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
   const pendingScroll = useRef<{ left: number; top: number } | null>(null);
   const revealLowestOnFit = useRef(false);
   const [fitReveal, setFitReveal] = useState(0);
+  const [freeFrame, setFreeFrame] = useState(false);
+  const freeFrameRef = useRef(false);
+  const applyZoomRef = useRef<(next: number, point: { x: number; y: number } | null, free: boolean) => void>(() => {});
   const panRef = useRef<{
     pointerId: number;
     startX: number;
@@ -179,12 +192,41 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
   const skipPageScroll = useRef(false);
   zoomRef.current = zoom;
 
+  applyZoomRef.current = (next, point, free) => {
+    const viewport = viewportRef.current;
+    if (!viewport || next === zoomRef.current) return;
+    if (free && point) {
+      const rect = viewport.getBoundingClientRect();
+      const pointerX = point.x - rect.left;
+      const pointerY = point.y - rect.top;
+      const left = pendingScroll.current?.left ?? viewport.scrollLeft;
+      const top = pendingScroll.current?.top ?? viewport.scrollTop;
+      const zoomLevel = zoomRef.current || 1;
+      const oldPadX = freeFrameRef.current ? viewport.clientWidth : 0;
+      const oldPadY = freeFrameRef.current ? viewport.clientHeight : 0;
+      const chartX = (left + pointerX - oldPadX) / zoomLevel;
+      const chartY = (top + pointerY - oldPadY) / zoomLevel;
+      pendingScroll.current = {
+        left: Math.max(0, viewport.clientWidth + chartX * next - pointerX),
+        top: Math.max(0, viewport.clientHeight + chartY * next - pointerY),
+      };
+      freeFrameRef.current = true;
+      setFreeFrame(true);
+    }
+    zoomRef.current = next;
+    setZoom(next);
+  };
+
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
     let cancelled = false;
     pendingFit.current = true;
     fitSvgRef.current = null;
+    if (freeFrameRef.current) {
+      freeFrameRef.current = false;
+      setFreeFrame(false);
+    }
 
     const measure = () => {
       try {
@@ -310,6 +352,11 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
         fitFocusRef.current = null;
         fitAnsweredRef.current = null;
         if (!focus?.length || !fitNodes(focus, "width")) {
+          if (freeFrameRef.current) {
+            freeFrameRef.current = false;
+            setFreeFrame(false);
+          }
+          pendingScroll.current = null;
           revealLowestOnFit.current = true;
           if (fittedZoom === zoomRef.current) {
             setFitReveal((tick) => tick + 1);
@@ -450,11 +497,9 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
       let delta = Math.abs(event.deltaY) >= Math.abs(event.deltaX) ? event.deltaY : event.deltaX;
       if (event.deltaMode === WheelEvent.DOM_DELTA_LINE) delta *= 16;
       else if (event.deltaMode === WheelEvent.DOM_DELTA_PAGE) delta *= 400;
-      const next = Math.min(2, Math.max(0.05, zoomRef.current * Math.exp(-delta / 160)));
-      if (next !== zoomRef.current) {
-        zoomRef.current = next;
-        setZoom(next);
-      }
+      const free = meta && shift;
+      const next = clampZoom(zoomRef.current * Math.exp(-delta / 160), free);
+      applyZoomRef.current(next, free ? { x: event.clientX, y: event.clientY } : null, free);
     };
     viewport.addEventListener("wheel", onWheel, { passive: false });
     const onClick = () => {
@@ -557,9 +602,13 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
     const zoomH = availableH > inset ? (availableH - inset) / (maxY - minY) : zoomW;
     // Automatic framing keeps the row as wide as the viewport. Fitting the old, short
     // viewport height letterboxes a wide rank and shrinks the new nodes.
-    const next = Math.min(2, Math.max(0.05, mode === "width" ? zoomW : Math.min(zoomW, zoomH)));
+    const next = clampZoom(mode === "width" ? zoomW : Math.min(zoomW, zoomH), false);
     const left = minX * next - Math.max(0, (availableW - (maxX - minX) * next) / 2);
     const top = minY * next - Math.max(0, (availableH - (maxY - minY) * next) / 2);
+    if (freeFrameRef.current) {
+      freeFrameRef.current = false;
+      setFreeFrame(false);
+    }
     pendingScroll.current = { left: Math.max(0, left), top: Math.max(0, top) };
     if (next === zoomRef.current) {
       viewport.scrollLeft = pendingScroll.current.left;
@@ -619,6 +668,11 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
     const naturalWidth = viewBox && viewBox.width > 0 ? viewBox.width : box.width;
     const nextZoom = zoomThatFitsWidth(naturalWidth, viewportRef.current?.clientWidth ?? 0);
     if (nextZoom == null) return;
+    if (freeFrameRef.current) {
+      freeFrameRef.current = false;
+      setFreeFrame(false);
+    }
+    pendingScroll.current = null;
     revealLowestOnFit.current = true;
     if (nextZoom === zoomRef.current) {
       setFitReveal((tick) => tick + 1);
@@ -673,12 +727,9 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
       }
     }
     if (pan.zooming) {
-      // Up increases zoom, down decreases it. Same floor as fit and same ceiling as the zoom-in button.
-      const next = Math.min(2, Math.max(0.05, pan.startZoom * Math.exp(-dy / 160)));
-      if (next !== zoomRef.current) {
-        zoomRef.current = next;
-        setZoom(next);
-      }
+      // Up increases zoom, down decreases it. Command-Shift is not held to the chart bound.
+      const next = clampZoom(pan.startZoom * Math.exp(-dy / 160), true);
+      applyZoomRef.current(next, { x: pan.startX, y: pan.startY }, true);
       return;
     }
     viewport.scrollLeft = pan.scrollLeft - dx;
@@ -781,9 +832,20 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
     return () => window.removeEventListener("keydown", onKey);
   }, [fitNoteOpen]);
 
+  function nudgeZoom(delta: number) {
+    const current = zoomRef.current;
+    const outside = current > boundedZoomMax || current < boundedZoomMin;
+    const next = outside
+      ? clampZoom(current + delta, true)
+      : Math.min(boundedZoomMax, Math.max(delta < 0 ? 0.35 : boundedZoomMin, current + delta));
+    if (next === current) return;
+    zoomRef.current = next;
+    setZoom(next);
+  }
+
   useShortcut("comments-cues", "c", "Comments", 0, () => setShowCommentCues((current) => !current), shortcutsEnabled);
-  useShortcut("zoom-out", "-", "Zoom out", 0, () => setZoom((current) => Math.max(0.35, current - 0.15)), shortcutsEnabled);
-  useShortcut("zoom-in", "+", "Zoom in", 0, () => setZoom((current) => Math.min(2, current + 0.15)), shortcutsEnabled);
+  useShortcut("zoom-out", "-", "Zoom out", 0, () => nudgeZoom(-0.15), shortcutsEnabled);
+  useShortcut("zoom-in", "+", "Zoom in", 0, () => nudgeZoom(0.15), shortcutsEnabled);
   useShortcut("fit-zoom", "f", "Fit zoom", 0, fitZoom, shortcutsEnabled);
   useShortcut("fit-current", "t", "Fit current", 2, fitCurrent, shortcutsEnabled && Boolean(selectedId));
   useShortcut("level-nodes", "l", "Level's nodes", 0, onToggleLevel, shortcutsEnabled);
@@ -803,7 +865,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
       <span className="chart-toolbar-divider" aria-hidden="true" />
       <div className="flex flex-wrap items-center justify-end gap-2" role="group" aria-label="Chart zoom controls">
         <ShortcutTip label="-" index={0}>
-          <button type="button" className="btn-secondary" onClick={() => setZoom((current) => Math.max(0.35, current - 0.15))} aria-label="Zoom out">
+          <button type="button" className="btn-secondary" onClick={() => nudgeZoom(-0.15)} aria-label="Zoom out">
             <ShortcutText text="-" index={0} />
           </button>
         </ShortcutTip>
@@ -811,7 +873,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
           {Math.round(zoom * 100)}%
         </output>
         <ShortcutTip label="+" index={0}>
-          <button type="button" className="btn-secondary" onClick={() => setZoom((current) => Math.min(2, current + 0.15))} aria-label="Zoom in">
+          <button type="button" className="btn-secondary" onClick={() => nudgeZoom(0.15)} aria-label="Zoom in">
             <ShortcutText text="+" index={0} />
           </button>
         </ShortcutTip>
@@ -858,7 +920,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
           style={viewportMaxHeight ? { maxHeight: viewportMaxHeight } : undefined}
           tabIndex={0}
           role="region"
-          aria-label="Decision chart. Drag to pan. With Command and Shift held, drag up to zoom in and down to zoom out. Hold Command or Shift and scroll to zoom. Arrow keys scroll."
+          aria-label="Decision chart. Drag to pan. Hold Command and Shift, then scroll or drag, to zoom to any area. Hold Command or Shift and scroll to zoom within the chart. Arrow keys scroll."
           onPointerDown={onViewportPointerDown}
           onMouseDown={onViewportMouseDown}
           onPointerMove={onViewportPointerMove}
@@ -871,11 +933,27 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
           }}
           onDragStart={(event) => event.preventDefault()}
         >
-          <div className="relative" style={{ width: "max-content", minWidth: "100%", height: box.height * zoom }}>
+          <div
+            className="relative"
+            style={
+              freeFrame
+                ? {
+                    width: box.width * zoom + (viewportRef.current?.clientWidth ?? 0) * 2,
+                    height: box.height * zoom + (viewportRef.current?.clientHeight ?? 0) * 2,
+                  }
+                : { width: "max-content", minWidth: "100%", height: box.height * zoom }
+            }
+          >
             <div
               ref={canvasRef}
               className="relative"
-              style={{ width: box.width ? box.width * zoom : "100%", height: box.height * zoom, marginInline: "auto" }}
+              style={{
+                width: box.width ? box.width * zoom : "100%",
+                height: box.height * zoom,
+                marginLeft: freeFrame ? viewportRef.current?.clientWidth ?? 0 : "auto",
+                marginRight: freeFrame ? viewportRef.current?.clientWidth ?? 0 : "auto",
+                marginTop: freeFrame ? viewportRef.current?.clientHeight ?? 0 : 0,
+              }}
             >
             <div
               className="relative origin-top-left"

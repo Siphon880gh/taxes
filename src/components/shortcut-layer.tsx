@@ -22,8 +22,9 @@ const legacyShortcuts: { keys: string[]; label: string }[] = [
   { keys: ["Esc"], label: "Close dialog" },
   { keys: ["↑", "↓"], label: "Resize the bottom panel" },
   { keys: ["Arrows"], label: "Scroll the chart" },
-  { keys: ["⌘ or Shift", "scroll"], label: "Zoom the chart" },
-  { keys: ["⌘", "Shift", "drag"], label: "Zoom the chart" },
+  { keys: ["⌘ or Shift", "scroll"], label: "Zoom within bounds" },
+  { keys: ["⌘", "Shift", "scroll"], label: "Zoom to any area" },
+  { keys: ["⌘", "Shift", "drag"], label: "Zoom to any area" },
 ];
 
 function isTypingTarget(target: EventTarget | null): boolean {
