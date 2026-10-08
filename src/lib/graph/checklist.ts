@@ -80,15 +80,16 @@ export function buildChecklist(session: Session): ChecklistItem[] {
       certainty: "verify",
     });
   }
-  if (has(session, "check_hobby")) {
+  if (has(session, "check_hobby") || has(session, "note_se_profit") || has(session, "flag_se_loss")) {
     items.push({
       id: "sch-c-loss",
       form: "Schedule C (Form 1040) and Form 5213",
-      line: "31",
-      summary:
-        "Schedule C line 31 is a loss. Verify the profit-motive facts the filing notes use (profit in 3 of 5 years, 2 of 7 for horse activities) and whether Form 5213 was filed for a new activity. Line 31 still flows to Schedule 1 line 3. This chart does not decide hobby versus business.",
-      certainty: lineCertainty,
-      source: citations.scheduleC_2025,
+      summary: has(session, "check_hobby")
+        ? "This activity is described as a hobby. The income is still reported, and the related expenses are not deductible. The IRS defines a legitimate business (not a hobby) as an activity that makes a profit in at least 3 of 5 consecutive years (2 of 7 for horse breeding, training, or racing). A new activity can postpone that test with Form 5213. This chart does not make the classification."
+        : has(session, "flag_se_loss")
+          ? "Whether this startup or freelance activity is a hobby or a business is unknown. Neither the income nor the expense deduction is assumed. The IRS defines a legitimate business (not a hobby) as an activity that makes a profit in at least 3 of 5 consecutive years (2 of 7 for horse breeding, training, or racing)."
+          : "This activity is treated as a business, so the expenses stay deductible. The IRS defines a legitimate business (not a hobby) as an activity that makes a profit in at least 3 of 5 consecutive years (2 of 7 for horse breeding, training, or racing). A startup that has not reached that yet: verify Form 5213 if the return postpones the determination.",
+      certainty: "verify",
     });
   }
   if (has(session, "check_de_minimis")) {

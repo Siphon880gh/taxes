@@ -305,12 +305,14 @@ test("the study notes' cross-checks open IRS records, Schedule C screens, carryf
   assert.equal(session.revealed.includes("se_records"), true);
   session = applyAnswer(session, "se_records", "yes");
   session = applyAnswer(session, "se_workers", "yes");
-  session = applyAnswer(session, "se_loss", "loss");
+  session = applyAnswer(session, "se_loss", "hobby");
   session = applyAnswer(session, "se_de_minimis", "yes");
   session = applyAnswer(session, "se_resale", "checked");
   const seChart = mermaidSource(session, chartView(session).groups.map((group) => group.id));
   assert.match(seChart, /mileage log/);
   assert.match(seChart, /W-2 or a 1099-NEC/);
+  assert.match(seChart, /report the income, and do not deduct the related expenses/);
+  assert.match(seChart, /The IRS defines a legitimate business \(not a hobby\) as an activity that makes a profit in at least 3 of 5 consecutive years/);
   assert.match(seChart, /Form 5213/);
   assert.match(seChart, /de minimis safe harbor election statement/);
   assert.match(seChart, /1099-NEC box 2 is checked/);

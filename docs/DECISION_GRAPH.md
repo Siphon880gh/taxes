@@ -53,10 +53,10 @@ flowchart TD
   check_se_workers["Verify that each worker paid USD 600 or more received a W-2 or a 1099-NEC, that a Form W-9 is on file for each contractor, and that the Schedule C questions about Forms 1099 were answered. The Schedule C line letters are not named in the filing notes, so they stay flagged."]
   note_se_workers_no["No worker was paid USD 600 or more by this business"]
   flag_se_workers["Payments to workers unknown — verify whether a W-2 or 1099-NEC had to be issued"]
-  se_loss["Does this Schedule C show a loss on line 31?"]
-  check_hobby["Schedule C line 31 is a loss. Verify the profit-motive facts the filing notes use (profit in 3 of 5 years) and whether Form 5213 was filed for a new activity. Line 31 still flows to Schedule 1 line 3. This chart does not decide hobby versus business."]
-  note_se_profit["Schedule C shows a profit on this path. The hobby-loss rule is not opened."]
-  flag_se_loss["Whether Schedule C line 31 is a loss is unknown — the hobby-loss rule and Form 5213 are not assumed"]
+  se_loss["Hobby, or a business? A startup or freelance side activity is the one to ask about."]
+  check_hobby["Classified as a hobby: report the income, and do not deduct the related expenses. The IRS defines a legitimate business (not a hobby) as an activity that makes a profit in at least 3 of 5 consecutive years (2 of 7 for horse breeding, training, or racing). A new activity can postpone that test with Form 5213. This chart does not make the classification."]
+  note_se_profit["Treated as a business, so the expenses stay deductible. The IRS defines a legitimate business (not a hobby) as an activity that makes a profit in at least 3 of 5 consecutive years (2 of 7 for horse breeding, training, or racing). A startup or freelance activity that has not reached that yet: verify Form 5213 if the return postpones the determination."]
+  flag_se_loss["Whether this startup or freelance activity is a hobby or a business is unknown. The income is not assumed, and the expense deduction is not assumed."]
   se_de_minimis["Items under USD 2,500 each expensed under the de minimis safe harbor?"]
   check_de_minimis["Verify the de minimis safe harbor election statement is attached, naming the taxpayer, the Schedule C or E it covers, the tax year, and the USD 2,500 per-item limit (USD 5,000 only with audited financials and a written policy). Not an instruction to expense or capitalize anything."]
   note_de_minimis_no["No de minimis safe harbor election on this path"]
@@ -302,9 +302,9 @@ flowchart TD
   se_workers -->|"Yes"| se_loss
   se_workers -->|"No"| note_se_workers_no
   se_workers -->|"Unknown"| flag_se_workers
-  se_loss -->|"Loss"| check_hobby
-  se_loss -->|"Loss"| se_de_minimis
-  se_loss -->|"Profit"| note_se_profit
+  se_loss -->|"Hobby"| check_hobby
+  se_loss -->|"Hobby"| se_de_minimis
+  se_loss -->|"Business"| note_se_profit
   se_loss -->|"Unknown"| flag_se_loss
   se_de_minimis -->|"Yes"| check_de_minimis
   se_de_minimis -->|"Yes"| se_resale
@@ -625,7 +625,7 @@ The filing notes say the prior return tells the preparer how much capital loss i
 
 ### Self-employment
 
-Self-employment asks whether the work is a sole proprietorship or an entity, how many activities there are, and what they are called. It then asks whether Form 8995 or Form 8995-A is on that activity, whether Schedule C line 25 has a work-from-home share, or both. Every QBI answer continues to the Schedule C screens the filing notes' audit triggers call for: vehicle, meal, and home-office records; workers paid $600 or more (W-2, W-9, 1099-NEC); a loss on line 31 and the hobby-loss rule with Form 5213; the de minimis safe harbor election statement; and 1099-NEC box 2 for resale relationships. Nursing and coding are names a case study can supply. They are not built into a blank start. A separate Schedule C is the 2025 instruction for each business. Schedule C and Schedule SE flow onto Form 1040. Schedule 2 and Schedule SE line 7 are named in the filing notes and stay flagged, as are the Schedule C expense lines the notes do not number.
+Self-employment asks whether the work is a sole proprietorship or an entity, how many activities there are, and what they are called. It then asks whether Form 8995 or Form 8995-A is on that activity, whether Schedule C line 25 has a work-from-home share, or both. Every QBI answer continues to the Schedule C screens the filing notes' audit triggers call for: vehicle, meal, and home-office records; workers paid $600 or more (W-2, W-9, 1099-NEC); whether a startup or freelance activity is a hobby, in which case the income is still reported and the expenses are not deductible. The IRS defines a legitimate business (not a hobby) as an activity that makes a profit in at least 3 of 5 consecutive years (2 of 7 for horses). Form 5213 is for a new activity; the de minimis safe harbor election statement; and 1099-NEC box 2 for resale relationships. Nursing and coding are names a case study can supply. They are not built into a blank start. A separate Schedule C is the 2025 instruction for each business. Schedule C and Schedule SE flow onto Form 1040. Schedule 2 and Schedule SE line 7 are named in the filing notes and stay flagged, as are the Schedule C expense lines the notes do not number.
 
 #### Self-employment (`se`)
 
@@ -705,7 +705,7 @@ Flows onto `form_1040`.
 
 Does this activity claim qualified business income, a work-from-home share, or both?
 
-Form 8995 is the simpler form in the filing notes. Form 8995-A is for higher income, more than one business, or a specified service trade. The notes' 2024 taxable-income cutoffs are not applied here. Line 5 is where the notes show the 20% deduction. A work-from-home share of utilities is Schedule C line 25. Confirm both lines on the form. Every answer continues to the Schedule C screens the notes' audit triggers call for: vehicle, meals, and home-office records; workers paid $600 or more; a loss on line 31; the de minimis safe harbor; and 1099-NEC box 2.
+Form 8995 is the simpler form in the filing notes. Form 8995-A is for higher income, more than one business, or a specified service trade. The notes' 2024 taxable-income cutoffs are not applied here. Line 5 is where the notes show the 20% deduction. A work-from-home share of utilities is Schedule C line 25. Confirm both lines on the form. Every answer continues to the Schedule C screens the notes' audit triggers call for: vehicle, meals, and home-office records; workers paid $600 or more; whether a startup or freelance activity is a hobby under the hobby-loss rule; the de minimis safe harbor; and 1099-NEC box 2.
 
 - **Both** → `check_se_both`, `se_records`
 - **Qualified business income only** → `check_8995`, `se_records`
@@ -803,33 +803,33 @@ Payments to workers unknown — verify whether a W-2 or 1099-NEC had to be issue
 
 No payment to a worker is assumed.
 
-#### Schedule C loss (`se_loss`)
+#### Hobby or business (`se_loss`)
 
-Does this Schedule C show a net loss on line 31?
+Would this activity be classified as a hobby rather than a business? Ask this for a startup or a freelance side activity.
 
-The filing notes' hobby-loss trigger: to deduct losses, the activity has to be a business, which the notes describe as a profit in 3 of 5 years (2 of 7 for horse-related activities). Form 5213 is the election the notes name for an activity that is just starting out. A loss is a cross-check here, not a conclusion.
+If the IRS classifies the activity as a hobby, the income is still reported, and the related expenses are not deductible. The IRS defines a legitimate business (not a hobby) as an activity that makes a profit in at least 3 of 5 consecutive years (2 of 7 for horse breeding, training, or racing). Form 5213 is the election the filing notes name for an activity that is just starting out. This chart does not make the classification.
 
-- **Yes, a net loss** → `check_hobby`, `se_de_minimis`
-- **No, a profit or zero** → `note_se_profit`, `se_de_minimis`
+- **Yes — a hobby, not a business** → `check_hobby`, `se_de_minimis`
+- **No — a business run for profit** → `note_se_profit`, `se_de_minimis`
 - **I don't know** → `flag_se_loss`, `se_de_minimis`
 
-#### Hobby-loss rule and Form 5213 (`check_hobby`)
+#### Hobby loss rule (`check_hobby`)
 
-Schedule C line 31 is a loss. Verify the profit-motive facts the filing notes use (profit in 3 of 5 years) and whether Form 5213 was filed for a new activity. Line 31 still flows to Schedule 1 line 3. This chart does not decide hobby versus business.
+Classified as a hobby: report the income, and do not deduct the related expenses. The IRS defines a legitimate business (not a hobby) as an activity that makes a profit in at least 3 of 5 consecutive years (2 of 7 for horse breeding, training, or racing). A new activity can postpone that test with Form 5213. This chart does not make the classification.
 
-Form 5213 is named in the notes' audit-trigger list for an activity that is starting out. Repeated losses on a Schedule C are the pattern the notes say draws scrutiny.
+A hobby does not use the Schedule C expense lines. The income is still reported. The IRS defines a legitimate business (not a hobby) as an activity that makes a profit in at least 3 of 5 consecutive years (2 of 7 for horse breeding, training, or racing). Form 5213 is the election the filing notes name when an activity is just starting out and the profit years are not there yet.
 
-#### Schedule C profit (`note_se_profit`)
+#### Treated as a business (`note_se_profit`)
 
-Schedule C shows a profit on this path. The hobby-loss rule is not opened.
+Treated as a business, so the expenses stay deductible. The IRS defines a legitimate business (not a hobby) as an activity that makes a profit in at least 3 of 5 consecutive years (2 of 7 for horse breeding, training, or racing). A startup or freelance activity that has not reached that yet: verify Form 5213 if the return postpones the determination.
 
-Line 31 flows to Schedule 1 line 3 and Schedule SE line 2.
+Line 31 still flows to Schedule 1 line 3 and Schedule SE line 2 while the activity is a business. This answer does not decide the classification.
 
-#### Schedule C result unknown (`flag_se_loss`)
+#### Hobby or business unknown (`flag_se_loss`)
 
-Whether Schedule C line 31 is a loss is unknown — the hobby-loss rule and Form 5213 are not assumed
+Whether this startup or freelance activity is a hobby or a business is unknown. The income is not assumed, and the expense deduction is not assumed.
 
-No profit or loss is assumed.
+The IRS defines a legitimate business (not a hobby) as an activity that makes a profit in at least 3 of 5 consecutive years (2 of 7 for horse breeding, training, or racing). That definition is not applied here, and Form 5213 is not assumed.
 
 #### De minimis safe harbor (`se_de_minimis`)
 
