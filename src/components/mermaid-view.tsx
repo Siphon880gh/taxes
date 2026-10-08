@@ -162,6 +162,8 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
   const fitAnsweredRef = useRef<string | null>(null);
   const pulseTimer = useRef<number | null>(null);
   const pendingScroll = useRef<{ left: number; top: number } | null>(null);
+  const revealLowestOnFit = useRef(false);
+  const [fitReveal, setFitReveal] = useState(0);
   const panRef = useRef<{
     pointerId: number;
     startX: number;
@@ -308,8 +310,13 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
         fitFocusRef.current = null;
         fitAnsweredRef.current = null;
         if (!focus?.length || !fitNodes(focus, "width")) {
-          zoomRef.current = fittedZoom;
-          setZoom(fittedZoom);
+          revealLowestOnFit.current = true;
+          if (fittedZoom === zoomRef.current) {
+            setFitReveal((tick) => tick + 1);
+          } else {
+            zoomRef.current = fittedZoom;
+            setZoom(fittedZoom);
+          }
         }
         pulseAnswered(answered);
       }
@@ -568,11 +575,15 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
   useLayoutEffect(() => {
     const viewport = viewportRef.current;
     const scroll = pendingScroll.current;
-    if (!viewport || !scroll) return;
-    pendingScroll.current = null;
-    viewport.scrollLeft = scroll.left;
-    viewport.scrollTop = scroll.top;
-  }, [zoom]);
+    if (viewport && scroll) {
+      pendingScroll.current = null;
+      viewport.scrollLeft = scroll.left;
+      viewport.scrollTop = scroll.top;
+    }
+    if (!revealLowestOnFit.current || !viewport) return;
+    revealLowestOnFit.current = false;
+    viewport.scrollTop = Math.max(0, viewport.scrollHeight - viewport.clientHeight);
+  }, [zoom, fitReveal]);
 
   function pulseAnswered(id: string | null) {
     if (pulseTimer.current != null) window.clearTimeout(pulseTimer.current);
@@ -608,6 +619,11 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
     const naturalWidth = viewBox && viewBox.width > 0 ? viewBox.width : box.width;
     const nextZoom = zoomThatFitsWidth(naturalWidth, viewportRef.current?.clientWidth ?? 0);
     if (nextZoom == null) return;
+    revealLowestOnFit.current = true;
+    if (nextZoom === zoomRef.current) {
+      setFitReveal((tick) => tick + 1);
+      return;
+    }
     zoomRef.current = nextZoom;
     setZoom(nextZoom);
   }
