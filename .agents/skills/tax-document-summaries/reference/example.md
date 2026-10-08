@@ -39,12 +39,12 @@ Below is the information for my rental property for the 2025 tax year.
 ### Property and Rental Information
 
 **Property owner:** Me  
-**Property address:** 2021 Eastlake Ave, Los Angeles, CA 90031  
-**Rental unit:** 2021 1/2 Eastlake Ave, Los Angeles, CA 90031
+**Property address:** 200 Lake Ave, Los Angeles, CA 90031  
+**Rental unit:** 200 Lake Ave, Los Angeles, CA 90031
 
 They are on the same lot/land.
 
-I own the property at 2021 Eastlake Ave and collect the rent from the tenants at 2021 1/2 Eastlake Ave. The property is paid off, so there is **no mortgage or mortgage interest**.
+I own the property at 200 Lake Ave and collect the rent from the tenants at 200 Lake Ave. The property is paid off, so there is **no mortgage or mortgage interest**.
 
 The same tenants have rented the unit since **July 2019**.
 
@@ -106,7 +106,7 @@ The water bill covers both the tenants and the personal-use portion of the prope
 
 #### Property Tax Paid for the Tenant/Rental Portion
 
-The property tax bill for 2021 Eastlake Ave also covers the rental unit at 2021 1/2 Eastlake Ave.
+The property tax bill for 200 Lake Ave also covers the rental unit at 200 Lake Ave.
 
 - Total 2025 property tax paid: **$2,140.70**
 - Rental portion based on square footage: **27%**
