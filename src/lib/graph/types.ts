@@ -15,6 +15,7 @@ export type NodeKind = "question" | "check";
 export type SectionId =
   | "start"
   | "income"
+  | "records"
   | "se"
   | "payments"
   | "rental"

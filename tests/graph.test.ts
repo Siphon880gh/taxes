@@ -256,8 +256,8 @@ test("selecting Single groups a fan-out of more than 7 topics by section", () =>
   assert.equal(session.revealed.includes("crypto"), true);
   const chart = mermaidSource(session);
   assert.match(chart, /group_filing_status_invest\[/);
-  assert.match(chart, /Interest, capital gains, and digital assets<br\/>3 topics/);
-  assert.match(chart, /Other income, credits, and payments<br\/>12 topics/);
+  assert.match(chart, /Interest, capital gains, and digital assets<br\/>4 topics/);
+  assert.match(chart, /Other income, credits, and payments<br\/>13 topics/);
   assert.match(chart, /Standard deduction and itemizing<br\/>5 topics/);
   assert.doesNotMatch(chart, /\n  interest\[/);
   assert.doesNotMatch(chart, /\n  dependents\[/);
@@ -272,7 +272,93 @@ test("selecting Single groups a fan-out of more than 7 topics by section", () =>
   assert.match(opened, /\n  capgain\[/);
   assert.match(opened, /\n  crypto\[/);
   assert.match(opened, /group_filing_status_invest --> interest/);
+  assert.match(opened, /\n  foreign\[/);
   assert.doesNotMatch(opened, /\n  dependents\[/);
+});
+
+test("the study notes' cross-checks open IRS records, Schedule C screens, carryforwards, Schedule A, and the renter's credit", () => {
+  let session = applyAnswer(blankSession(), "filing_status", "single");
+  for (const id of ["foreign", "ip_pin"]) {
+    assert.equal(session.revealed.includes(id), true, id);
+  }
+  assert.equal(session.revealed.includes("info_returns"), false);
+
+  session = applyAnswer(session, "w2", "no");
+  assert.equal(session.revealed.includes("info_returns"), true);
+  session = applyAnswer(session, "info_returns", "not_compared");
+  assert.equal(session.revealed.includes("flag_info_returns"), true);
+  assert.equal(session.revealed.includes("prior_return"), true);
+  assert.deepEqual(
+    (getNode("info_returns").links ?? []).map((link) => link.href),
+    ["https://www.irs.gov/your-account", "https://sa.www4.irs.gov/ola/information_return"],
+  );
+  session = applyAnswer(session, "prior_return", "compared");
+  assert.match(mermaidSource(session), /Compare this return's forms with last year's list/);
+  assert.match(mermaidSource(session), /Form 1040 line 26/);
+
+  session = applyAnswer(session, "se", "yes");
+  session = applyAnswer(session, "se_entity", "sole");
+  session = applyAnswer(session, "se_count", "one");
+  session = applyAnswer(session, "se_names", "named", "coding");
+  assert.equal(session.revealed.includes("se_records"), false);
+  session = applyAnswer(session, "se_screen", "no");
+  assert.equal(session.revealed.includes("se_records"), true);
+  session = applyAnswer(session, "se_records", "yes");
+  session = applyAnswer(session, "se_workers", "yes");
+  session = applyAnswer(session, "se_loss", "loss");
+  session = applyAnswer(session, "se_de_minimis", "yes");
+  session = applyAnswer(session, "se_resale", "checked");
+  const seChart = mermaidSource(session, chartView(session).groups.map((group) => group.id));
+  assert.match(seChart, /mileage log/);
+  assert.match(seChart, /W-2 or a 1099-NEC/);
+  assert.match(seChart, /Form 5213/);
+  assert.match(seChart, /de minimis safe harbor election statement/);
+  assert.match(seChart, /1099-NEC box 2 is checked/);
+  assert.match(getNode("schedule_c").help ?? "", /line A is the type of work/);
+  assert.match(getNode("schedule_c").help ?? "", /Form 8300/);
+
+  session = applyAnswer(session, "capgain", "yes");
+  assert.equal(session.revealed.includes("capgain_loss"), true);
+  session = applyAnswer(session, "capgain_loss", "yes");
+  session = applyAnswer(session, "foreign", "both");
+  session = applyAnswer(session, "ip_pin", "yes");
+  session = applyAnswer(session, "deduction_choice", "itemized");
+  assert.equal(session.revealed.includes("check_sch_a"), true);
+  session = applyAnswer(session, "jurisdiction", "california");
+  assert.equal(session.revealed.includes("ca_renter"), true);
+  session = applyAnswer(session, "ca_renter", "rented");
+  const chart = mermaidSource(session, chartView(session).groups.map((group) => group.id));
+  assert.match(chart, /Capital Loss Carryforward Worksheet/);
+  assert.match(chart, /FinCEN Form 114/);
+  assert.match(chart, /Form 8938/);
+  assert.match(chart, /six-digit IP PIN/);
+  assert.match(chart, /Form 8283/);
+  assert.match(chart, /line 5e/);
+  assert.match(chart, /California renter's credit/);
+  assert.match(getNode("age_blind").help ?? "", /Form 1040-SR/);
+  assert.match(getNode("check_depr").help ?? "", /27\.5 years/);
+  assert.match(getNode("check_records_problem").chart, /Form 3115/);
+  assert.match(getNode("schedule_e").help ?? "", /line 1b/);
+
+  const checklist = buildChecklist(session);
+  const forms = checklist.map((item) => item.form).join("\n");
+  for (const form of [
+    "Returned Documents",
+    "Last year's return",
+    "Forms W-2, W-9, and 1099-NEC",
+    "Form 5213",
+    "De minimis safe harbor election statement",
+    "Form 1099-NEC",
+    "Capital Loss Carryforward Worksheet",
+    "FinCEN Form 114",
+    "Form 1040 e-file signature",
+    "Form 8283",
+    "California Form 540",
+  ]) {
+    assert.match(forms, new RegExp(form.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), form);
+  }
+  assert.ok(checklist.every((item) => item.certainty === "verify" || item.source), "every sourced item carries a citation");
+  assert.ok(levelCounts(chartView(session)).every((count) => count <= 7));
 });
 
 function levelCounts(view: ReturnType<typeof chartView>): number[] {

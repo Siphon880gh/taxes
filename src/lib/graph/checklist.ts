@@ -51,6 +51,64 @@ export function buildChecklist(session: Session): ChecklistItem[] {
       certainty: lineCertainty,
       source: citations.scheduleC_2025,
     });
+    items.push({
+      id: "sch-c-header",
+      form: "Schedule C (Form 1040)",
+      line: "A, C, and D — confirm on the form",
+      summary:
+        "The filing notes fill the header: line A is the type of work (their example is UNCLASSIFIED ESTABLISHMENTS UNABLE TO CLASSIFY, code 999000 on line B), line C is the business name and may be blank for a freelancer, and line D is the EIN, left blank when the SSN is the taxpayer ID. The notes' audit hot spots add Form 8300 for a business that receives more than $10,000 in cash.",
+      certainty: "verify",
+    });
+  }
+  if (has(session, "check_se_records")) {
+    items.push({
+      id: "sch-c-records",
+      form: "Schedule C (Form 1040)",
+      line: "Vehicle, meals, and home office — lines flagged",
+      summary:
+        "Verify the mileage log (business miles only, with the notes' daily log columns), the meal records (who, what, why), and exclusive-and-regular use of a home office. The filing notes do not number these Schedule C lines, so they stay flagged. Receipts, not bank statements, back the amounts.",
+      certainty: "verify",
+    });
+  }
+  if (has(session, "check_se_workers")) {
+    items.push({
+      id: "sch-c-workers",
+      form: "Forms W-2, W-9, and 1099-NEC",
+      line: "Schedule C Forms 1099 questions — line letters flagged",
+      summary:
+        "A worker was paid $600 or more. Verify a W-2 (employee, W-4 on file) or a 1099-NEC (contractor, W-9 collected) was issued, and that the Schedule C questions about Forms 1099 were answered. The line letters are not named in the filing notes.",
+      certainty: "verify",
+    });
+  }
+  if (has(session, "check_hobby")) {
+    items.push({
+      id: "sch-c-loss",
+      form: "Schedule C (Form 1040) and Form 5213",
+      line: "31",
+      summary:
+        "Schedule C line 31 is a loss. Verify the profit-motive facts the filing notes use (profit in 3 of 5 years, 2 of 7 for horse activities) and whether Form 5213 was filed for a new activity. Line 31 still flows to Schedule 1 line 3. This chart does not decide hobby versus business.",
+      certainty: lineCertainty,
+      source: citations.scheduleC_2025,
+    });
+  }
+  if (has(session, "check_de_minimis")) {
+    items.push({
+      id: "de-minimis",
+      form: "De minimis safe harbor election statement",
+      summary:
+        "Verify the signed election statement under Treas. Reg. § 1.263(a)-1(f) is attached: taxpayer, the Schedule C or E it covers, the tax year, and the $2,500 per-item limit ($5,000 only with audited financials and a written policy). Items that were capitalized instead belong on Form 4562.",
+      certainty: "verify",
+    });
+  }
+  if (has(session, "check_resale")) {
+    items.push({
+      id: "1099nec-box2",
+      form: "Form 1099-NEC",
+      line: "Box 2",
+      summary:
+        "Box 2 (direct sales of $5,000 or more of consumer products for resale) is checked. Verify that resale income and any inventory cost on Schedule C match the products received. The filing notes say the IRS watches these relationships for unreported sales and inventory write-offs.",
+      certainty: "verify",
+    });
   }
   if (has(session, "schedule_se")) {
     items.push({
@@ -89,7 +147,7 @@ export function buildChecklist(session: Session): ChecklistItem[] {
       line: "5 — confirm on the form",
       summary: has(session, "flag_qbi")
         ? "Qualified business income is unknown. Form 8995 is not assumed, and the 20% deduction is not computed."
-        : "Verify Form 8995 or Form 8995-A. The filing notes show the 20% deduction, subject to limits, on line 5. Confirm that line. The notes' 2024 income cutoffs are not applied.",
+        : "Verify Form 8995 or Form 8995-A. The filing notes show the 20% deduction, subject to limits, on line 5. Confirm that line. The notes enter the business name (or Unclassified Establishments Unable to Classify) and the SSN as the taxpayer identification number for a sole proprietor; an EIN is used only for a pass-through entity on a K-1. The notes' 2024 income cutoffs are not applied.",
       certainty: "verify",
     });
   }
@@ -156,6 +214,14 @@ export function buildChecklist(session: Session): ChecklistItem[] {
       form: "Schedule E (Form 1040)",
       line: "21 — confirm on the form",
       summary: "The filing notes name line 21 for net rental income or loss. Confirm that line on the form. It is not in the stored 2025 line list.",
+      certainty: "verify",
+    });
+    items.push({
+      id: "sch-e-1b",
+      form: "Schedule E (Form 1040)",
+      line: "1a and 1b — confirm on the form",
+      summary:
+        "The filing notes fill Part I line 1a with the property address and line 1b with the type-of-property code (their example is 2 for a multi-family residence, confirmed on the county assessor's property search). Confirm both on the form.",
       certainty: "verify",
     });
   }
@@ -264,9 +330,18 @@ export function buildChecklist(session: Session): ChecklistItem[] {
       form: "Schedule E (Form 1040) and Form 4562",
       line: "18",
       summary:
-        "Verify depreciation on line 18 and whether a carry-forward worksheet matches the prior year. Form 4562 is attached for the 2025 reasons in the Schedule E instructions, not automatically. The start year is not assumed.",
+        "Verify depreciation on line 18 and whether a carry-forward worksheet matches the prior year. Form 4562 is attached for the 2025 reasons in the Schedule E instructions, not automatically. The filing notes describe the Form 4562 entries as 27.5-year residential rental property (39 commercial), mid-month convention, straight-line method, with the placed-in-service date on page 2, and a basis of the building or improvement assessed value in the year the rental started times the rental share. The start year is not assumed.",
       certainty: "verify",
       source: citations.scheduleE_2025,
+    });
+  }
+  if (has(session, "check_records_problem")) {
+    items.push({
+      id: "form-3115",
+      form: "Form 3115",
+      summary:
+        "The carry-forward schedule is missing or inconsistent. If depreciation was never taken in earlier years, the filing notes call it allowed or allowable and name Form 3115 (change in accounting method) to catch up on the skipped years. This chart does not prepare that form and does not change the quote.",
+      certainty: "verify",
     });
   }
   if (has(session, "check_sch_b")) {
@@ -285,6 +360,37 @@ export function buildChecklist(session: Session): ChecklistItem[] {
       form: "Form 8949 and Schedule D",
       summary:
         "Verify Form 1099-B, Form 8949, and Schedule D, including a capital-loss carryforward. The filing notes put the net gain or loss on Form 1040 line 7. Confirm line 7 on the form. Do not start those forms from this chart.",
+      certainty: "verify",
+    });
+  }
+  if (has(session, "check_capital_loss") || has(session, "flag_capital_loss")) {
+    items.push({
+      id: "capital-loss",
+      form: "Schedule D (Form 1040) Part III and the Capital Loss Carryforward Worksheet",
+      line: "Form 1040 line 7 — confirm on the form",
+      summary: has(session, "flag_capital_loss")
+        ? "Whether there is a net capital loss or a carryforward is unknown. Nothing is assumed; last year's return is where the carryforward comes from."
+        : "Verify Schedule D Part III, the Capital Loss Carryforward Worksheet in the Schedule D instructions, and Form 1040 line 7. The filing notes cap the loss against other income at $3,000 a year ($1,500 married filing separately) and carry the rest forward; confirm those figures. The carryforward comes from last year's return.",
+      certainty: "verify",
+    });
+  }
+  if (has(session, "check_foreign")) {
+    items.push({
+      id: "foreign-accounts",
+      form: "Schedule B (Form 1040), FinCEN Form 114, and Form 8938",
+      line: "Schedule B foreign-account question",
+      summary:
+        "Verify the Schedule B foreign-account question, FinCEN Form 114 if the accounts exceeded $10,000 in total, and Form 8938 if foreign assets exceeded $50,000. The dollar figures are from the filing notes; confirm them. A foreign account or trust is a 2025 Schedule B trigger regardless of the $1,500 test.",
+      certainty: "verify",
+      source: citations.scheduleB_2025,
+    });
+  }
+  if (has(session, "check_foreign_income")) {
+    items.push({
+      id: "foreign-income",
+      form: "Foreign income — form flagged",
+      summary:
+        "Foreign income is on this path. The filing notes handle it on a FreeTaxUSA Misc screen and do not name the form, so it stays flagged. Verify the prepared return reports it.",
       certainty: "verify",
     });
   }
@@ -330,9 +436,20 @@ export function buildChecklist(session: Session): ChecklistItem[] {
       form: "Form 1040",
       line: "26",
       summary:
-        "Verify estimated tax payments. The 2025 Schedule E instructions refer to Form 1040 line 26 for an estimated-tax amount. Read that line on the form you have open.",
+        "Verify estimated tax payments on Form 1040 line 26, which the filing notes label estimated tax payments and amount applied from prior year return. Gather the IRS payment confirmations with the amounts and dates (April, June, September, January) and any overpayment applied from last year. The 2025 Schedule E instructions also refer to line 26 for an estimated-tax amount. Read that line on the form you have open.",
       certainty: lineCertainty,
       source: citations.scheduleE_2025,
+    });
+  }
+  if (has(session, "check_sch_a")) {
+    items.push({
+      id: "sch-a",
+      form: "Schedule A (Form 1040), Form 1098, and Form 8283",
+      line: "5e; other lines flagged",
+      summary:
+        "Itemized return. Verify Form 1098 for home mortgage interest, the 2025 line 5e state-and-local-tax cap ($40,000, or $20,000 married filing separately, before the modified-AGI phase-down), receipts from registered 501(c)(3)s for charitable gifts, and Form 8283 for noncash donations over $500 (filing notes). The Schedule A total is the Form 1040 line 12e figure. Not a recommendation to itemize.",
+      certainty: "verify",
+      source: citations.scheduleA_2025,
     });
   }
   if (has(session, "check_dependents")) {
@@ -458,6 +575,51 @@ export function buildChecklist(session: Session): ChecklistItem[] {
       form: "California return",
       summary:
         "California kept a state health-coverage rule. Verify the state return's coverage questions. This chart does not compute a penalty.",
+    },
+    {
+      id: "ca-renter",
+      when: "check_ca_renter",
+      form: "California Form 540",
+      line: "Renter's credit — line flagged",
+      summary:
+        "Verify the California renter's credit and that the return says the rented property was not exempt from property tax. The Form 540 line is not named in the filing notes. This chart does not compute the credit.",
+    },
+    {
+      id: "info-returns",
+      when: "check_info_returns",
+      form: "IRS account — Returned Documents (information returns)",
+      summary:
+        "Information returns were compared. Verify each W-2, 1099-NEC, 1099-K, 1099-INT, 1099-DIV, 1099-B, 1099-G, and 1095-A on the IRS account is on the return in the exact amount shown. Not an instruction to add income.",
+    },
+    {
+      id: "info-returns-open",
+      when: "flag_info_returns",
+      form: "IRS account — Returned Documents (information returns)",
+      summary:
+        "The return was not compared with the information returns on the IRS account. The filing notes say a mismatch with what employers, banks, and platforms already sent is an easy audit flag. Compare them before filing.",
+    },
+    {
+      id: "prior-return",
+      when: "check_prior_return",
+      form: "Last year's return",
+      line: "Form 1040 line 26 (amount applied from prior year) — confirm on the form",
+      summary:
+        "Compare this return's forms with last year's list and verify the carryforwards: the Schedule D capital-loss carryforward, the Schedule E depreciation schedule, and any prior-year overpayment applied on Form 1040 line 26. A form that dropped off is a question to ask, not a finding.",
+    },
+    {
+      id: "prior-return-open",
+      when: "flag_prior_return",
+      form: "Last year's return",
+      summary:
+        "Last year's return was not available. The filing notes say it tells the preparer how much capital loss is still available and whether the depreciation schedule carries forward. The form list and the carryforwards stay unverified.",
+    },
+    {
+      id: "ip-pin",
+      when: "check_ip_pin",
+      form: "Form 1040 e-file signature",
+      line: "IP PIN entry — flagged",
+      summary:
+        "Verify the current-year six-digit Identity Protection PIN is entered for each person who has one. The filing notes say it is valid for one calendar year and that a California PIN is separate. The entry spot is not named in the notes.",
     },
   ];
   for (const item of flaggedForms) {

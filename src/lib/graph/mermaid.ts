@@ -69,6 +69,7 @@ export const NODE_GROUP_THRESHOLD = 7;
 const sectionTitle: Record<SectionId, string> = {
   start: "Year and filing status",
   income: "W-2 wages",
+  records: "IRS records and last year's return",
   se: "Self-employment",
   payments: "Payment apps and Form 1099-K",
   rental: "Rental real estate",
