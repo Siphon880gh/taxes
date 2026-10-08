@@ -11,7 +11,7 @@ function requireEndpoint() {
   return ENDPOINT;
 }
 
-type StagedFile = { path: string; bytes: number };
+type StagedFile = { path: string; bytes: number; category?: string };
 
 type Status = {
   ok: boolean;
@@ -24,6 +24,24 @@ type Status = {
 
 export const SUMMARIES_SKILL_NOTE =
   "Open this codebase in Cursor and invoke the skill tax-document-summaries to create summaries (for example, a Rental Income and Deductions Summary) to help a tax professional quickly see the numbers and get an idea what forms are needed.";
+
+function categoryOf(file: StagedFile) {
+  if (typeof file.category === "string") return file.category;
+  const slash = file.path.lastIndexOf("/");
+  return slash === -1 ? "" : file.path.slice(0, slash);
+}
+
+function documentsInCategory(category: string, staged: StagedFile[]) {
+  return staged.filter((file) => {
+    const current = categoryOf(file);
+    return current === category || current.startsWith(`${category}/`);
+  }).length;
+}
+
+function categoryIsEmpty(category: string, staged: StagedFile[], folders: string[]) {
+  if (documentsInCategory(category, staged) > 0) return false;
+  return !folders.some((folder) => folder.startsWith(`${category}/`));
+}
 
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -48,6 +66,9 @@ export function DocumentSorter({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [editingPath, setEditingPath] = useState<string | null>(null);
+  const [picked, setPicked] = useState("");
+  const [newCategory, setNewCategory] = useState("");
 
   const refresh = useCallback(async () => {
     setError(null);
@@ -58,7 +79,12 @@ export function DocumentSorter({
         setError(body.error || "Could not list the staging directory.");
         return;
       }
-      setFiles(body.files ?? []);
+      setFiles(
+        (body.files ?? []).map((file) => ({
+          ...file,
+          category: typeof file.category === "string" ? file.category : categoryOf(file),
+        })),
+      );
       setCategories(body.categories ?? []);
       const suggest = body.summaries !== true && body.folders === true;
       setSuggestSummaries(suggest);
@@ -119,7 +145,7 @@ export function DocumentSorter({
   }
 
   async function place(filePath: string, category: string) {
-    if (!category) return;
+    if (!category) return false;
     setBusy(true);
     setError(null);
     try {
@@ -131,12 +157,57 @@ export function DocumentSorter({
       const body = (await response.json()) as { ok?: boolean; error?: string };
       if (!response.ok || !body.ok) throw new Error(body.error || "Could not place that file.");
       await refresh();
+      return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not place that file.");
+      return false;
     } finally {
       setBusy(false);
     }
   }
+
+  async function removeCategory(category: string) {
+    if (!categoryIsEmpty(category, files, categories)) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const payload = new FormData();
+      payload.append("action", "remove");
+      payload.append("category", category);
+      const response = await fetch(requireEndpoint(), { method: "POST", body: payload });
+      const body = (await response.json()) as { ok?: boolean; error?: string };
+      if (!response.ok || !body.ok) throw new Error(body.error || "Could not remove that category.");
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not remove that category.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function openCategory(file: StagedFile) {
+    setEditingPath(file.path);
+    setPicked(categoryOf(file));
+    setNewCategory("");
+    setError(null);
+  }
+
+  function closeCategory() {
+    setEditingPath(null);
+    setPicked("");
+    setNewCategory("");
+  }
+
+  const editing = files.find((file) => file.path === editingPath) ?? null;
+
+  useEffect(() => {
+    if (!editing) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeCategory();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [editing]);
 
   return (
     <>
@@ -147,6 +218,7 @@ export function DocumentSorter({
         <p>Open this codebase in Cursor and invoke the skill tax-document-classification.</p>
         {suggestSummaries ? <p>{SUMMARIES_SKILL_NOTE}</p> : null}
         <p>You can upload a zip or tar. Its folder structure and category structure are kept.</p>
+        <p>The folder a document is in is its category.</p>
         <details className="sorter-why">
           <summary>Why do I need my own AI harness?</summary>
           <p>
@@ -210,34 +282,134 @@ export function DocumentSorter({
         <p className="mt-3 text-stone-700">Nothing is staged.</p>
       ) : (
         <ul className="sorter-list">
-          {files.map((file) => (
-            <li key={file.path} className="sorter-card">
-              <p className="break-all font-medium text-stone-900">{file.path}</p>
-              <p className="text-xs uppercase tracking-wide text-stone-500">{formatBytes(file.bytes)}</p>
-              <label className="mt-2 flex flex-col gap-1 text-sm text-stone-700">
-                Place in
-                <select
-                  className="sorter-select"
-                  defaultValue=""
-                  disabled={busy}
-                  onChange={(event) => {
-                    const category = event.target.value;
-                    event.target.value = "";
-                    void place(file.path, category);
-                  }}
-                >
-                  <option value="">Choose a category</option>
-                  {categories.map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </li>
-          ))}
+          {files.map((file) => {
+            const category = categoryOf(file);
+            return (
+              <li key={file.path} className="sorter-card">
+                <p className="break-all font-medium text-stone-900">{file.path}</p>
+                <p className="text-xs uppercase tracking-wide text-stone-500">{formatBytes(file.bytes)}</p>
+                <p className="mt-2 text-sm text-stone-700">Category: {category || "None"}</p>
+                <button type="button" className="btn-secondary mt-2" disabled={busy} onClick={() => openCategory(file)}>
+                  {category ? "Change category" : "Assign category"}
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
+      {categories.length > 0 ? (
+        <section className="sorter-categories" aria-labelledby="sorter-categories-heading">
+          <h3 id="sorter-categories-heading" className="font-medium text-stone-900">
+            Categories
+          </h3>
+          <p className="text-sm text-stone-600">A category can be removed after every document has been moved out of its folder.</p>
+          <ul className="sorter-category-list">
+            {categories.map((category) => {
+              const count = documentsInCategory(category, files);
+              const removable = categoryIsEmpty(category, files, categories);
+              return (
+                <li key={category} className="sorter-category">
+                  <p className="min-w-0 break-all text-stone-900">{category}</p>
+                  <p className="text-sm text-stone-600">
+                    {count} {count === 1 ? "document" : "documents"}
+                  </p>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    disabled={busy || !removable}
+                    title={removable ? "Remove this empty category" : "Move every document out of this category before removing it."}
+                    onClick={() => void removeCategory(category)}
+                  >
+                    Remove
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
+      {editing ? (
+        <div className="modal-backdrop" role="presentation" onClick={closeCategory}>
+          <div
+            className="modal-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="category-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 id="category-title" className="font-display text-2xl text-stone-900">
+              {categoryOf(editing) ? "Change category" : "Assign category"}
+            </h2>
+            <p className="mt-3 break-all text-stone-800">{editing.path}</p>
+            <p className="mt-2 text-stone-700">Current category: {categoryOf(editing) || "None"}</p>
+            <form
+              className="mt-4 flex flex-col gap-3"
+              onSubmit={(event) => {
+                event.preventDefault();
+                const category = newCategory.trim() || picked;
+                if (!category) {
+                  setError("Choose a category, or type a new one.");
+                  return;
+                }
+                if (category === categoryOf(editing)) {
+                  closeCategory();
+                  return;
+                }
+                void place(editing.path, category).then((ok) => {
+                  if (ok) closeCategory();
+                });
+              }}
+            >
+              {categories.length > 0 ? (
+                <fieldset className="flex flex-col gap-2">
+                  <legend className="text-sm font-medium text-stone-800">Existing category</legend>
+                  {categories.map((category) => (
+                    <label key={category} className="flex items-center gap-2 text-stone-800">
+                      <input
+                        type="radio"
+                        name="existing-category"
+                        value={category}
+                        checked={newCategory.trim() === "" && picked === category}
+                        onChange={() => {
+                          setPicked(category);
+                          setNewCategory("");
+                        }}
+                      />
+                      <span className="break-all">{category}</span>
+                    </label>
+                  ))}
+                </fieldset>
+              ) : null}
+              <label className="flex flex-col gap-1 text-sm text-stone-800">
+                New category
+                <input
+                  className="sorter-select"
+                  value={newCategory}
+                  disabled={busy}
+                  onChange={(event) => {
+                    setNewCategory(event.target.value);
+                    setPicked("");
+                  }}
+                />
+              </label>
+              <p className="text-sm text-stone-600">A new name creates a folder and moves this document into it.</p>
+              {error ? (
+                <p className="text-sm text-rust" role="alert">
+                  {error}
+                </p>
+              ) : null}
+              <div className="flex gap-2">
+                <button type="submit" className="btn-primary" disabled={busy}>
+                  Update category
+                </button>
+                <button type="button" className="btn-secondary" disabled={busy} onClick={closeCategory}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }

@@ -6,15 +6,29 @@ declare(strict_types=1);
 const MAX_UPLOAD_BYTES = 64 * 1024 * 1024;
 const MAX_EXTRACT_BYTES = 256 * 1024 * 1024;
 
-const CATEGORIES = [
-    "_Last year\u{2019}s return",
-    "_Proof of identity",
-    "Deductions",
-    "Income - Investments",
-    "Income - Rental",
-    "Income - Self-employment",
-    "Regulations - Health Insurance",
-];
+if (!function_exists("str_contains")) {
+    function str_contains(string $haystack, string $needle): bool
+    {
+        return $needle === "" || strpos($haystack, $needle) !== false;
+    }
+}
+
+if (!function_exists("str_starts_with")) {
+    function str_starts_with(string $haystack, string $needle): bool
+    {
+        return $needle === "" || strncmp($haystack, $needle, strlen($needle)) === 0;
+    }
+}
+
+if (!function_exists("str_ends_with")) {
+    function str_ends_with(string $haystack, string $needle): bool
+    {
+        if ($needle === "") {
+            return true;
+        }
+        return substr($haystack, -strlen($needle)) === $needle;
+    }
+}
 
 $stage = __DIR__ . "/stage";
 
@@ -385,9 +399,12 @@ function list_stage(string $stage): array
             if (!is_file($abs)) {
                 continue;
             }
+            $path = substr(str_replace("\\", "/", $abs), strlen($root) + 1);
+            $parent = dirname($path);
             $files[] = [
-                "path" => substr(str_replace("\\", "/", $abs), strlen($root) + 1),
+                "path" => $path,
                 "bytes" => filesize($abs) ?: 0,
+                "category" => $parent === "." ? "" : $parent,
             ];
         }
     };
@@ -442,37 +459,103 @@ function status_payload(string $stage): array
         "ok" => true,
         "root" => "sorter/stage",
         "files" => list_stage($stage),
-        "categories" => CATEGORIES,
+        "categories" => list_categories($stage),
         "summaries" => is_file($stage . "/Summaries.md"),
         "folders" => document_folders_present($stage),
     ];
 }
 
-function place_file(string $rel, string $category, string $stage): array
+function sanitize_category(string $category): string
 {
-    if (!in_array($category, CATEGORIES, true)) {
-        fail("unknown category");
+    $category = trim(str_replace(["\0", "\\"], ["", "/"], $category));
+    if ($category === "" || str_starts_with($category, "/")) {
+        fail("bad category");
     }
+    $clean = [];
+    foreach (explode("/", $category) as $part) {
+        if ($part === "" || $part === "." || $part === ".." || $part[0] === ".") {
+            fail("bad category");
+        }
+        $clean[] = $part;
+    }
+    return implode("/", $clean);
+}
+
+function list_categories(string $stage): array
+{
+    $found = [];
+    if (!is_dir($stage)) {
+        return $found;
+    }
+    $root = rtrim(str_replace("\\", "/", (string) realpath($stage)), "/");
+    $walk = function (string $dir) use (&$walk, &$found, $root): void {
+        foreach (scandir($dir) ?: [] as $name) {
+            if ($name === "." || $name === ".." || $name === "" || $name[0] === ".") {
+                continue;
+            }
+            $abs = $dir . "/" . $name;
+            if (is_link($abs) || !is_dir($abs)) {
+                continue;
+            }
+            $found[] = substr(str_replace("\\", "/", $abs), strlen($root) + 1);
+            $walk($abs);
+        }
+    };
+    $walk($root);
+    sort($found);
+    return $found;
+}
+
+function stage_file(string $rel, string $stage): string
+{
     if ($rel === "" || str_contains($rel, "\0") || str_starts_with($rel, "/") || str_starts_with($rel, "\\")) {
         fail("bad path");
     }
-    $source = normalize_under($stage, $stage . "/" . $rel);
+    return normalize_under($stage, $stage . "/" . $rel);
+}
+
+function place_file(string $rel, string $category, string $stage): array
+{
+    $category = sanitize_category($category);
+    $source = stage_file($rel, $stage);
     if (!file_exists($source)) {
         fail("staged file not found", 404);
     }
     if (is_link($source) || !is_file($source)) {
         fail("only a staged file can be placed");
     }
-    $sorter = dirname($stage);
-    $categoryDir = normalize_under($sorter, $sorter . "/" . $category);
+    $categoryDir = normalize_under($stage, $stage . "/" . $category);
+    if (is_link($categoryDir)) {
+        fail("bad category");
+    }
     ensure_dir($categoryDir);
+    $root = rtrim(str_replace("\\", "/", (string) realpath($stage)), "/");
+    $sourceNorm = str_replace("\\", "/", $source);
+    if (dirname($sourceNorm) === str_replace("\\", "/", $categoryDir)) {
+        return ["path" => substr($sourceNorm, strlen($root) + 1), "category" => $category];
+    }
     $dest = unique_path($categoryDir, basename($source));
     if (!rename($source, $dest)) {
         fail("could not place that file", 500);
     }
     chmod($dest, 0644);
-    $root = rtrim(str_replace("\\", "/", (string) realpath($sorter)), "/");
-    return ["path" => substr(str_replace("\\", "/", $dest), strlen($root) + 1)];
+    return ["path" => substr(str_replace("\\", "/", $dest), strlen($root) + 1), "category" => $category];
+}
+
+function remove_category(string $category, string $stage): void
+{
+    $category = sanitize_category($category);
+    $dir = normalize_under($stage, $stage . "/" . $category);
+    if (is_link($dir) || !is_dir($dir)) {
+        fail("category not found", 404);
+    }
+    $left = array_values(array_diff(scandir($dir) ?: [], [".", ".."]));
+    if ($left !== []) {
+        fail("Move every document out of this category before removing it.");
+    }
+    if (!rmdir($dir)) {
+        fail("could not remove that category", 500);
+    }
 }
 
 function uploads_of(array $files): array
@@ -518,6 +601,10 @@ try {
     if ($action === "place") {
         $result = place_file((string) ($_POST["path"] ?? ""), (string) ($_POST["category"] ?? ""), $stage);
         respond(200, ["ok" => true] + $result);
+    }
+    if ($action === "remove") {
+        remove_category((string) ($_POST["category"] ?? ""), $stage);
+        respond(200, ["ok" => true]);
     }
     if ($action === "upload") {
         $uploads = uploads_of($_FILES["file"] ?? []);

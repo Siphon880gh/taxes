@@ -1124,6 +1124,34 @@ button.question-dock-tile {
   font-size: 0.95rem;
 }
 
+.sorter-categories {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-top: 1rem;
+}
+
+.sorter-category-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.sorter-category {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.75rem;
+  border: 1px solid #d6d3d1;
+  border-radius: 0.5rem;
+  background: #fffdf8;
+  padding: 0.55rem 0.75rem;
+}
+
+.sorter-category .btn-secondary:disabled {
+  opacity: 0.45;
+}
+
 @media (min-width: 720px) {
   .sorter-list {
     grid-template-columns: 1fr 1fr;

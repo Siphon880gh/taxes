@@ -103,36 +103,66 @@ with tarfile.open(sys.argv[1], "w:gz") as tf:
 
   const status = await (await fetch(base)).json();
   assert.equal(status.files.some((file) => file.path === "notes/readme.txt"), true);
+  assert.equal(status.files.find((file) => file.path === "notes/readme.txt").category, "notes");
+  assert.equal(status.categories.includes("Income - Rental"), true);
+  assert.equal(status.categories.includes("Income - Rental/Property 200"), true);
+  assert.equal(status.categories.includes("notes"), true);
   assert.equal(status.folders, true);
   assert.equal(status.summaries, false);
   fs.writeFileSync(path.join(sorterDir, "stage", "Summaries.md"), "# Tax year\n");
   const withSummary = await (await fetch(base)).json();
   assert.equal(withSummary.summaries, true);
   assert.equal(withSummary.folders, true);
+  const blocked = await fetch(base, {
+    method: "POST",
+    body: form("remove", { category: "notes" }),
+  });
+  const blockedBody = await blocked.json();
+  assert.equal(blockedBody.ok, false);
+  assert.match(blockedBody.error, /Move every document out/);
+  assert.equal(fs.existsSync(path.join(sorterDir, "stage", "notes")), true);
+
   const placed = await fetch(base, {
     method: "POST",
-    body: form("place", { path: "notes/readme.txt", category: "Deductions" }),
+    body: form("place", { path: "notes/readme.txt", category: "Medical" }),
   });
   const placedBody = await placed.json();
   assert.equal(placedBody.ok, true);
-  assert.equal(placedBody.path, "Deductions/readme.txt");
-  assert.equal(fs.existsSync(path.join(sorterDir, "Deductions", "readme.txt")), true);
+  assert.equal(placedBody.path, "Medical/readme.txt");
+  assert.equal(placedBody.category, "Medical");
+  assert.equal(fs.existsSync(path.join(sorterDir, "stage", "Medical", "readme.txt")), true);
+  assert.equal(fs.existsSync(path.join(sorterDir, "stage", "notes", "readme.txt")), false);
+
+  const removed = await fetch(base, {
+    method: "POST",
+    body: form("remove", { category: "notes" }),
+  });
+  const removedBody = await removed.json();
+  assert.equal(removedBody.ok, true);
+  assert.equal(fs.existsSync(path.join(sorterDir, "stage", "notes")), false);
 
   const escaped = await fetch(base, {
     method: "POST",
-    body: form("place", { path: "../api.php", category: "Deductions" }),
+    body: form("place", { path: "../api.php", category: "Medical" }),
   });
   const escapedBody = await escaped.json();
   assert.equal(escapedBody.ok, false);
+
+  const badCategory = await fetch(base, {
+    method: "POST",
+    body: form("place", { path: "Medical/readme.txt", category: "../outside" }),
+  });
+  const badCategoryBody = await badCategory.json();
+  assert.equal(badCategoryBody.ok, false);
+  assert.equal(fs.existsSync(path.join(sorterDir, "outside")), false);
 
   const stageDir = path.join(sorterDir, "stage");
   fs.renameSync(stageDir, path.join(tmp, "parked-stage"));
   fs.mkdirSync(stageDir);
   const placedCategory = await (await fetch(base)).json();
-  assert.equal(placedCategory.folders, true);
+  assert.equal(placedCategory.folders, false);
   assert.equal(placedCategory.summaries, false);
 
-  fs.rmSync(path.join(sorterDir, "Deductions"), { recursive: true, force: true });
   const cleared = await (await fetch(base)).json();
   assert.equal(cleared.folders, false);
   assert.equal(cleared.summaries, false);
