@@ -70,6 +70,7 @@ export function PromptBuilder({
               Explanation about <span className="prompt-chip">{node.title}</span>
             </p>
             <p className="mt-2 text-stone-800">{explanation}</p>
+            <WhyNotAutomatic />
             <p className="mt-4 text-sm font-medium text-stone-700">Dynamic Prompt Preview</p>
             <pre className="prompt-preview mt-2">{prompt}</pre>
             <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -123,6 +124,40 @@ export function PromptBuilder({
         </div>
       </div>
     </div>
+  );
+}
+
+export function WhyNotAutomatic() {
+  return (
+    <details className="why-not-auto">
+      <summary className="why-not-auto__summary">
+        <span className="why-not-auto__icon" aria-hidden="true">i</span>
+        Why is this not automatic
+      </summary>
+      <div className="why-not-auto__body">
+        <p>
+          Weng provides this service for free and cannot cover the ongoing cost of AI tokens. That&apos;s why this Prompt Builder is designed to let users supply their own AI processing resources rather than having the app pay for them. This is also why AI processing isn&apos;t integrated directly into the app for a more seamless experience.
+        </p>
+        <p>There are several ways to accomplish this:</p>
+        <ol>
+          <li>
+            <strong>Copy the generated prompt into ChatGPT or Claude:</strong> Users can use their existing AI subscriptions to process the prompt.
+          </li>
+          <li>
+            <strong>Copy the generated prompt into an AI harness like Cursor or Claude Code:</strong> Users can leverage their own AI coding environments and available token allowances.
+          </li>
+          <li>
+            <strong>Provide their own API key:</strong> The app could process prompts directly using the user&apos;s API key, with usage billed to the user. However, this requires trusting that the app does not store, log, or copy the key. This is generally easier to verify with a locally running application or a Chrome extension, although neither is inherently secure without reviewing how it handles credentials.
+          </li>
+        </ol>
+        <p>
+          <strong>For now, letting you use your own AI tools is the most practical approach.</strong> It keeps the service free while allowing you to use AI resources you already have access to. This app uses the method best suited to its particular workflow.
+        </p>
+        <p>
+          If the service eventually becomes commercial and can sustain the cost of AI tokens, AI processing could be integrated directly into the app for a more seamless experience.
+        </p>
+      </div>
+    </details>
   );
 }
 
