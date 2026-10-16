@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { MermaidView } from "@/components/mermaid-view";
 import { DocumentSorter, SUMMARIES_SKILL_NOTE } from "@/components/document-sorter";
+import { OwedAuditPanel } from "@/components/owed-audit-panel";
 import { PromptBuilder } from "@/components/prompt-builder";
 import { pickShortcutLetter, ShortcutLayer, ShortcutText, ShortcutTip, useShortcut } from "@/components/shortcut-layer";
 import { decodeNumbers, encodeNumbers, numberEntryError, suggestionText } from "@/lib/graph/allocate";
@@ -214,12 +215,13 @@ export function CheckerApp() {
   const [importError, setImportError] = useState<string | null>(null);
   const importInput = useRef<HTMLInputElement>(null);
   const [modalId, setModalId] = useState<string | null>(null);
-  const [frameMode, setFrameMode] = useState<"checklist" | "costs" | "sorter">("checklist");
+  const [frameMode, setFrameMode] = useState<"checklist" | "costs" | "sorter" | "audit">("checklist");
   const [sorterReminder, setSorterReminder] = useState(false);
   const [suggestSummaries, setSuggestSummaries] = useState(false);
   const [chartToolsNode, setChartToolsNode] = useState<HTMLDivElement | null>(null);
   const [purposeOpen, setPurposeOpen] = useState(false);
   const [promptOpen, setPromptOpen] = useState(false);
+  const [owedDialog, setOwedDialog] = useState(false);
   const [levelExpanded, setLevelExpanded] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
   const [topCollapsed, setTopCollapsed] = useState(false);
@@ -266,7 +268,7 @@ export function CheckerApp() {
     setChecklistOpen(true);
   }
 
-  function showFrame(mode: "checklist" | "costs" | "sorter") {
+  function showFrame(mode: "checklist" | "costs" | "sorter" | "audit") {
     setFrameMode(mode);
     if (!dockCollapsed) openChecklist();
   }
@@ -389,15 +391,16 @@ export function CheckerApp() {
   }, []);
 
   useEffect(() => {
-    if (!modalId && !purposeOpen && !promptOpen) return;
+    if (!modalId && !purposeOpen && !promptOpen && !owedDialog) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") setModalId(null);
       if (event.key === "Escape") setPurposeOpen(false);
       if (event.key === "Escape") setPromptOpen(false);
+      if (event.key === "Escape") setOwedDialog(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [modalId, purposeOpen, promptOpen]);
+  }, [modalId, purposeOpen, promptOpen, owedDialog]);
 
   const nodeTips = useMemo(
     () =>
@@ -552,7 +555,7 @@ export function CheckerApp() {
     setLevelExpanded(false);
   }
 
-  const dialogOpen = Boolean(promptOpen || purposeOpen || modalId);
+  const dialogOpen = Boolean(promptOpen || purposeOpen || modalId || owedDialog);
   const pageKeys = !dialogOpen;
   const dockShowsExpand = dockCollapsed;
   const checklistShowsExpand = !checklistOpen && !dockShowsExpand;
@@ -778,6 +781,9 @@ export function CheckerApp() {
             <button type="button" aria-pressed={frameMode === "sorter"} onClick={() => showFrame("sorter")}>
               Document Sorter
             </button>
+            <button type="button" aria-pressed={frameMode === "audit"} onClick={() => showFrame("audit")}>
+              Return & Owe Audit
+            </button>
           </div>
           <button
             type="button"
@@ -877,16 +883,18 @@ export function CheckerApp() {
                     </ul>
                   )}
                 </>
-              ) : (
+              ) : frameMode === "sorter" ? (
                 <DocumentSorter
                   onUploaded={() => setSorterReminder(true)}
                   onSuggestSummaries={setSuggestSummaries}
                 />
+              ) : (
+                <OwedAuditPanel onDialog={setOwedDialog} />
               )}
             </div>
           ) : (
             <button type="button" className="question-dock-tile" onClick={openChecklist}>
-              <p id="check-heading" className="truncate font-medium text-stone-900">{frameMode === "costs" ? "Tax Pro Costs" : frameMode === "sorter" ? "Document Sorter" : checklistTitle(session)}</p>
+              <p id="check-heading" className="truncate font-medium text-stone-900">{frameMode === "costs" ? "Tax Pro Costs" : frameMode === "sorter" ? "Document Sorter" : frameMode === "audit" ? "Return & Owe Audit" : checklistTitle(session)}</p>
             </button>
           )}
         </section>

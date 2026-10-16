@@ -113,6 +113,17 @@ with tarfile.open(sys.argv[1], "w:gz") as tf:
   const withSummary = await (await fetch(base)).json();
   assert.equal(withSummary.summaries, true);
   assert.equal(withSummary.folders, true);
+  assert.deepEqual(withSummary.owedAudits, []);
+  fs.mkdirSync(path.join(sorterDir, "stage", "Tax Year"), { recursive: true });
+  fs.writeFileSync(path.join(sorterDir, "stage", "Tax Year", "Owed Audit.md"), "# Owed\n\n**$4**\n");
+  const withAudit = await (await fetch(base)).json();
+  assert.deepEqual(withAudit.owedAudits, ["Tax Year/Owed Audit.md"]);
+  assert.equal(withAudit.files.some((file) => file.path.endsWith("Owed Audit.md")), false);
+  const opened = await (await fetch(`${base}?owed=${encodeURIComponent("Tax Year/Owed Audit.md")}`)).json();
+  assert.equal(opened.ok, true);
+  assert.match(opened.markdown, /\$4/);
+  const refused = await (await fetch(`${base}?owed=${encodeURIComponent("notes/readme.txt")}`)).json();
+  assert.equal(refused.ok, false);
   const blocked = await fetch(base, {
     method: "POST",
     body: form("remove", { category: "notes" }),

@@ -400,6 +400,9 @@ function list_stage(string $stage): array
                 continue;
             }
             $path = substr(str_replace("\\", "/", $abs), strlen($root) + 1);
+            if (basename($path) === "Owed Audit.md") {
+                continue;
+            }
             $parent = dirname($path);
             $files[] = [
                 "path" => $path,
@@ -453,6 +456,57 @@ function document_folders_present(string $stage): bool
     return false;
 }
 
+function owed_audit_paths(string $stage): array
+{
+    $found = [];
+    if (!is_dir($stage)) {
+        return $found;
+    }
+    $root = rtrim(str_replace("\\", "/", (string) realpath($stage)), "/");
+    $walk = function (string $dir) use (&$walk, &$found, $root): void {
+        foreach (scandir($dir) ?: [] as $name) {
+            if ($name === "." || $name === ".." || $name === "" || $name[0] === ".") {
+                continue;
+            }
+            $abs = $dir . "/" . $name;
+            if (is_link($abs)) {
+                continue;
+            }
+            if (is_dir($abs)) {
+                $walk($abs);
+                continue;
+            }
+            if ($name === "Owed Audit.md" && is_file($abs)) {
+                $found[] = substr(str_replace("\\", "/", $abs), strlen($root) + 1);
+            }
+        }
+    };
+    $walk($root);
+    sort($found);
+    return $found;
+}
+
+function read_owed_audit(string $rel, string $stage): array
+{
+    $rel = str_replace("\\", "/", $rel);
+    if (basename($rel) !== "Owed Audit.md") {
+        fail("only Owed Audit.md can be opened");
+    }
+    $abs = stage_file($rel, $stage);
+    if (is_link($abs) || !is_file($abs)) {
+        fail("Owed Audit.md was not found", 404);
+    }
+    $markdown = file_get_contents($abs);
+    if ($markdown === false) {
+        fail("could not read Owed Audit.md", 500);
+    }
+    $root = rtrim(str_replace("\\", "/", (string) realpath($stage)), "/");
+    return [
+        "path" => substr(str_replace("\\", "/", $abs), strlen($root) + 1),
+        "markdown" => $markdown,
+    ];
+}
+
 function status_payload(string $stage): array
 {
     return [
@@ -462,6 +516,7 @@ function status_payload(string $stage): array
         "categories" => list_categories($stage),
         "summaries" => is_file($stage . "/Summaries.md"),
         "folders" => document_folders_present($stage),
+        "owedAudits" => owed_audit_paths($stage),
     ];
 }
 
@@ -589,6 +644,10 @@ try {
     ensure_dir($stage);
     $method = $_SERVER["REQUEST_METHOD"] ?? "GET";
     if ($method === "GET") {
+        if (isset($_GET["owed"])) {
+            $result = read_owed_audit((string) $_GET["owed"], $stage);
+            respond(200, ["ok" => true] + $result);
+        }
         respond(200, status_payload($stage));
     }
     if ($method !== "POST") {

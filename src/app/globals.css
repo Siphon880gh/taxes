@@ -261,6 +261,12 @@ body {
   padding: 1.25rem;
 }
 
+@media (min-width: 640px) {
+  .modal-backdrop {
+    align-items: center;
+  }
+}
+
 .sidebar-backdrop {
   position: fixed;
   inset: 0;
@@ -280,10 +286,85 @@ body {
   box-shadow: -12px 0 30px rgb(28 25 23 / 0.12);
 }
 
-@media (min-width: 640px) {
-  .modal-backdrop {
-    align-items: center;
-  }
+.owed-audit-backdrop {
+  z-index: 50;
+  align-items: stretch;
+  padding: 0.75rem;
+}
+
+.owed-audit-modal {
+  width: min(72rem, 100%);
+  height: calc(100vh - 1.5rem);
+  max-height: none;
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.owed-audit-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #d6d3d1;
+}
+
+.owed-audit-md {
+  overflow: auto;
+  padding: 1.25rem 1.5rem 2.5rem;
+  color: #1c1917;
+  line-height: 1.5;
+}
+
+.owed-audit-md h1 {
+  font-size: 1.75rem;
+  line-height: 1.2;
+}
+
+.owed-audit-md h2 {
+  margin-top: 1.75rem;
+  font-size: 1.25rem;
+  line-height: 1.3;
+}
+
+.owed-audit-md p,
+.owed-audit-md ul,
+.owed-audit-md table {
+  margin-top: 0.75rem;
+}
+
+.owed-audit-md ul {
+  padding-left: 1.25rem;
+  list-style: disc;
+}
+
+.owed-audit-md table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.owed-audit-md th,
+.owed-audit-md td {
+  border-bottom: 1px solid #d6d3d1;
+  padding: 0.4rem 0.55rem;
+  vertical-align: top;
+  text-align: left;
+}
+
+.owed-audit-md th:last-child,
+.owed-audit-md td:last-child {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.owed-audit-md a {
+  color: #9a3412;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .mermaid-host svg {
@@ -496,6 +577,12 @@ body {
 
 .checklist-frame .question-dock-tile {
   padding-inline: 22rem 5.5rem;
+}
+
+@media (min-width: 720px) {
+  .checklist-frame .question-dock-tile {
+    padding-inline: 28rem 5.5rem;
+  }
 }
 
 .question-dock {
