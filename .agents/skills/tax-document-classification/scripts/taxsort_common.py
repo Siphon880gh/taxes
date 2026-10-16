@@ -19,9 +19,16 @@ WORK_DIRNAME = ".tax-sorter"
 DEFAULT_INPUT = os.path.join("sorter", "stage")
 SORTED_FILENAME = "SORTED.md"  # written at the output root by apply_plan.py: original -> new map + file-count check
 SUMMARIES_FILENAME = "Summaries.md"  # written by the tax-document-summaries skill; never sorted or counted as a document
+OWED_AUDIT_FILENAME = "Owed Audit.md"  # written by the tax-return-owed-audit skill; never sorted or counted as a document
 SUMMARIES_SKILL = "tax-document-summaries"
 SYSTEM_FILES = {".ds_store", "thumbs.db", "desktop.ini", ".gitkeep", ".htaccess"}
-REPORT_FILES = {SORTED_FILENAME.lower(), SUMMARIES_FILENAME.lower()}
+REPORT_FILES = {SORTED_FILENAME.lower(), SUMMARIES_FILENAME.lower(), OWED_AUDIT_FILENAME.lower()}
+
+
+def is_report_name(name: str) -> bool:
+    """Skill reports are not tax documents. Also skip an older balance-check filename."""
+    low = name.lower()
+    return low in REPORT_FILES or low.endswith(" balance check.md")
 
 RETURNS_LAST = "_Last year's return"
 REVIEW_FOLDER = "_Needs Human Review"
@@ -663,7 +670,7 @@ def count_files(root: Path, work: Path, out: Path) -> int:
         d = Path(dirpath)
         dirnames[:] = [x for x in dirnames if (d / x).resolve() != work_r]
         for name in filenames:
-            if name.lower() in SYSTEM_FILES or name.lower() in REPORT_FILES or name.startswith("~$"):
+            if name.lower() in SYSTEM_FILES or is_report_name(name) or name.startswith("~$"):
                 continue
             if (d / name).is_file():
                 n += 1

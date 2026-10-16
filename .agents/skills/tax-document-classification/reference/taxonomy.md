@@ -34,8 +34,9 @@ duplicates folder to the bottom. Keep the prefixes when adding folders.
 Next to the folders, `apply_plan.py` keeps `SORTED.md` at the output root: the file-count check of the last run
 (before/after totals, every moved file re-hashed), the complete `original name → new location` map grouped by
 folder, and a table of all runs. It is regenerated on every run and never sorted itself. `Summaries.md` (written
-by the `tax-document-summaries` skill, by default in the inbox folder) is likewise skipped by `inventory.py` and
-excluded from the file counts.
+by the `tax-document-summaries` skill, by default in the inbox folder) and `Owed Audit.md` (written by the
+`tax-return-owed-audit` skill; a file whose name ends in `balance check.md` is the same kind of report) are
+likewise skipped by `inventory.py` and excluded from the file counts.
 
 Optional subfolders: with `classify.py --group-by-entity` each property or business label becomes a subfolder
 (`Income - Rental/Property 200/`, `Income - Self-employment/Nursing 1099/`). The flat layout, with the label in

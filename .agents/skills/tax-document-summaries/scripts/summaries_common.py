@@ -19,12 +19,19 @@ HERE = Path(__file__).resolve().parent
 SIBLING_SCRIPTS = HERE.parent.parent / "tax-document-classification" / "scripts"
 SUMMARIES_FILENAME = "Summaries.md"
 SORTED_FILENAME = "SORTED.md"
+OWED_AUDIT_FILENAME = "Owed Audit.md"
 WORK_DIRNAME = ".tax-sorter"
 WORK_SUBDIR = "summaries"
 DEFAULT_FOLDER = os.path.join("sorter", "stage")
 STAGE_NAMES = {"stage", "inbox", "staging"}
 SYSTEM_FILES = {".ds_store", "thumbs.db", "desktop.ini", ".gitkeep", ".htaccess"}
-REPORT_FILES = {SUMMARIES_FILENAME.lower(), SORTED_FILENAME.lower()}
+REPORT_FILES = {SUMMARIES_FILENAME.lower(), SORTED_FILENAME.lower(), OWED_AUDIT_FILENAME.lower()}
+
+
+def is_report_name(name: str) -> bool:
+    """Skill reports are not source documents. Also skip an older balance-check filename."""
+    low = name.lower()
+    return low in REPORT_FILES or low.endswith(" balance check.md")
 
 PLACEHOLDER_RE = re.compile(r"\[(NEEDED|VERIFY|TODO|TBD|CONFIRM)(?::\s*[^\]]*)?\]", re.I)
 SSN_RE = re.compile(r"\b\d{3}-\d{2}-\d{4}\b")
@@ -543,7 +550,7 @@ def iter_documents(roots: List[Path], work: Path):
             d = Path(dirpath)
             dirnames[:] = sorted(x for x in dirnames if (d / x).resolve() != work_r and not x.startswith("."))
             for name in sorted(filenames):
-                if name.startswith(".") or name.startswith("~$") or name.lower() in SYSTEM_FILES or name.lower() in REPORT_FILES:
+                if name.startswith(".") or name.startswith("~$") or name.lower() in SYSTEM_FILES or is_report_name(name):
                     continue
                 p = d / name
                 if not p.is_file():

@@ -18,7 +18,7 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True  # keep the skill folder free of __pycache__
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from taxsort_common import (FORM_TOKEN_RE, REPORT_FILES, SYSTEM_FILES, TAXONOMY_FOLDERS, WORK_DIRNAME,
+from taxsort_common import (FORM_TOKEN_RE, SYSTEM_FILES, TAXONOMY_FOLDERS, WORK_DIRNAME, is_report_name,
                             count_roots, ensure_work, is_within, load_json, name_quality, normalize_folder, now_iso,
                             rel, resolve_paths, run, save_json, sha256_file, tool_available, warn)
 
@@ -31,7 +31,7 @@ KINDS = {
     "email": {".eml", ".msg"},
     "archive": {".zip", ".7z", ".rar", ".tar", ".gz", ".tgz"},
 }
-SKIP_FILES = set(SYSTEM_FILES) | set(REPORT_FILES)  # SORTED.md / Summaries.md are reports written by the skills, never sorted
+SKIP_FILES = set(SYSTEM_FILES)  # skill reports are skipped by is_report_name, never sorted
 
 
 def kind_of(ext: str) -> str:
@@ -124,7 +124,7 @@ def main() -> int:
             keep.append(d)
         dirs[:] = sorted(keep)
         for name in sorted(names):
-            if name.startswith(".") or name.lower() in SKIP_FILES or name.startswith("~$"):
+            if name.startswith(".") or name.lower() in SKIP_FILES or is_report_name(name) or name.startswith("~$"):
                 continue
             p = root_p / name
             if not p.is_file():
