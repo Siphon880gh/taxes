@@ -216,6 +216,7 @@ export function CheckerApp() {
   const importInput = useRef<HTMLInputElement>(null);
   const [modalId, setModalId] = useState<string | null>(null);
   const [frameMode, setFrameMode] = useState<"checklist" | "costs" | "sorter" | "audit">("checklist");
+  const [walkthroughOpen, setWalkthroughOpen] = useState(false);
   const [sorterReminder, setSorterReminder] = useState(false);
   const [suggestSummaries, setSuggestSummaries] = useState(false);
   const [chartToolsNode, setChartToolsNode] = useState<HTMLDivElement | null>(null);
@@ -837,6 +838,29 @@ export function CheckerApp() {
                 </>
               ) : frameMode === "costs" ? (
                 <>
+                  <div className="walkthrough-open">
+                    <button
+                      type="button"
+                      aria-expanded={walkthroughOpen}
+                      aria-controls="freetaxusa-walkthrough"
+                      onClick={() => setWalkthroughOpen((open) => !open)}
+                    >
+                      {walkthroughOpen ? "Hide FreeTaxUSA Walkthrough" : "FreeTaxUSA Walkthrough"}
+                    </button>
+                    {walkthroughOpen ? (
+                      <div id="freetaxusa-walkthrough" className="walkthrough-body" role="region" aria-label="FreeTaxUSA Walkthrough">
+                        <p>
+                          After you upload the files and they are sorted, open this codebase in Cursor and invoke the skill freetaxusa-walkthrough.
+                        </p>
+                        <p>
+                          The Cursor harness can open a browser tab inside Cursor and read the FreeTaxUSA screen while you fill the forms. It tells you what to do next, gives you the numbers you need, and names the file each number comes from.
+                        </p>
+                        <p>
+                          It asks you when that step is done, or watches the screen for when you have done it.
+                        </p>
+                      </div>
+                    ) : null}
+                  </div>
                   <h2 id="check-heading" className="font-display text-2xl text-stone-900">
                     Tax Pro Costs
                   </h2>
