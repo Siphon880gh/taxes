@@ -7,6 +7,12 @@ description: Use when the user wants to fill a FreeTaxUSA return from sorted tax
 
 The user types. You read the FreeTaxUSA screen in a browser tab inside Cursor and say what to enter next. Every number names the file it came from.
 
+Before anything else, remind the user that this part is already done:
+
+> You have already uploaded or placed your documents, sorted them with `tax-document-classification`, and summarized them with `tax-document-summaries`. This walkthrough uses those sorted files and `Summaries.md`.
+
+Say that reminder even when they opened the walkthrough from Tax Pro Costs. Do not send them back through those two skills as if the work were still waiting.
+
 Open https://www.freetaxusa.com in the Cursor IDE browser. Do not use an external browser. Snapshot the page before each instruction.
 
 ## When this is the wrong skill
@@ -27,6 +33,7 @@ The user signs in. Do not ask for a password, SSN, bank account, routing number,
 ## One screen at a time
 
 ```
+- [ ] Remind the user the documents are already uploaded or placed, sorted, and summarized
 - [ ] Snapshot the current screen
 - [ ] Match its heading and fields to Summaries.md, then to the source file
 - [ ] Say what to do, the number, and the file
@@ -64,6 +71,7 @@ Stop on the screen that would file, pay, or sell an add-on. Say the return is re
 
 | Mistake | What to do instead |
 | --- | --- |
+| Start the browser without the reminder | First say the documents are already uploaded or placed, sorted with `tax-document-classification`, and summarized with `tax-document-summaries` |
 | Type the 1099-NEC income again on Schedule C | Link the 1099-NEC already entered |
 | Invent a number the folder does not contain | Say the file is missing |
 | Mark the step done after giving the instruction | Wait for the user, or for the screen to change |
