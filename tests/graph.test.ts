@@ -83,12 +83,20 @@ test("Weng 2025 opens Schedule C, Schedule E, and Form 1040 without inventing th
   assert.match(cost.quoteNote ?? "", /Nothing is added or subtracted/);
   assert.match(cost.framing ?? "", /rented since 2019/);
   assert.match(cost.framing ?? "", /doesn't change the price/);
+  const ftu = cost.rows.find((row) => row.id === "freetaxusa");
+  assert.equal(ftu?.amountLabel, "$0 + $15.99");
+  assert.equal(ftu?.unverified, false);
+  assert.match(ftu?.note ?? "", /Deluxe Support \$7\.99/);
+  assert.match(ftu?.note ?? "", /Pro Support \$64\.99/);
+  assert.match(ftu?.note ?? "", /Audit Defense \$19\.99/);
+  assert.match(ftu?.note ?? "", /not added/);
   const turbo = cost.rows.find((row) => row.id === "tt-premium");
   assert.equal(turbo?.amountLabel, "$139");
   assert.equal(turbo?.unverified, false);
   const block = cost.rows.find((row) => row.id === "hrb");
   assert.equal(block?.unverified, true);
   assert.match(block?.amountLabel ?? "", /unverified/i);
+  assert.match(block?.note ?? "", /October 16, 2026/);
   const nsa = cost.rows.find((row) => row.id === "nsa");
   assert.match(nsa?.note ?? "", /\$754/);
   assert.match(nsa?.note ?? "", /\$867/);
@@ -186,6 +194,7 @@ test("the joint W-2 and crypto illustration is a different path", () => {
   assert.equal(session.revealed.includes("check_capgain"), true);
   assert.notEqual(session.caseStudyId, "weng-2025");
   assert.equal(costReport(session).direction, "none");
+  assert.equal(costReport(session).rows.find((row) => row.id === "freetaxusa")?.amountLabel, "$0 + $15.99");
   assert.equal(costReport(session).rows.find((row) => row.id === "tt-premium")?.amountLabel, "$139");
 });
 

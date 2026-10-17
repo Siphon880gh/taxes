@@ -2186,7 +2186,7 @@ Form 1099-K for tax year 2025: a third party settlement organization is not requ
 
 ## Preparation prices
 
-The cost panel shows a TurboTax published tier for the complexity on the path, an H&R Block tier description with the dollar amount unverified, desktop TurboTax list prices that are not added to the estimate, and 2023 NSA national averages. An arithmetic sum of NSA pieces is not a surveyed package price, not a 2025 price, and not a Louisiana or Los Angeles price.
+The cost panel shows FreeTaxUSA's published federal and state prices, a TurboTax published tier for the complexity on the path, an H&R Block tier description with the dollar amount unverified, desktop TurboTax list prices that are not added to the estimate, and 2023 NSA national averages. An arithmetic sum of NSA pieces is not a surveyed package price, not a 2025 price, and not a Louisiana or Los Angeles price.
 
 On the Weng 2025 case the independent-firm quote is $975. That number is a preparation quote, not rent, not an expense, and not income. The records note beside it:
 
@@ -2194,7 +2194,7 @@ The age of the depreciation schedule itself doesn't change the price. What matte
 
 The depreciation-records answer is unknown, so the comparison stays at the $975 quote. Nothing is added or subtracted.
 
-H&R Block's online dollar price was not in the HTML retrieved October 3, 2026, so the panel says the price is unverified. TurboTax Do It Yourself Premium is $139 federal for a path with Schedule C or Schedule E. The online state add-on was not a fixed published dollar, so it is not added. The state is unknown, so no state price is applied to the quote.
+FreeTaxUSA's pricing page retrieved October 16, 2026 lists federal filing at $0 for every situation, including rental property, investments, and self-employment, and a state return at $15.99. Optional Deluxe Support $7.99, Pro Support $64.99, and Audit Defense $19.99 are not added. H&R Block's online dollar price was not in the HTML retrieved October 3, 2026 or October 16, 2026, so the panel says the price is unverified. TurboTax Do It Yourself Premium is $139 federal for a path with Schedule C or Schedule E. The online state add-on was not a fixed published dollar, so it is not added. The state is unknown, so no state price is applied to the quote.
 
 ## Case studies
 
@@ -2443,5 +2443,6 @@ Retrieved October 3, 2026, unless a page itself carries another date.
 - TurboTax Do It Yourself Deluxe online, 2025–2026 (Tax year 2025 (product year 2025–2026)): https://turbotax.intuit.com/personal-taxes/online/deluxe.jsp
 - TurboTax Free Edition, 2025–2026 (Tax year 2025 (product year 2025–2026)): https://turbotax.intuit.com/personal-taxes/online/free-edition.jsp
 - TurboTax Desktop pricing, 2025–2026 (Tax year 2025 (product year 2025–2026)): https://turbotax.intuit.com/desktop-pricing/
-- H&R Block online tax filing product descriptions (Pages retrieved October 3, 2026): https://www.hrblock.com/online-tax-filing/
+- H&R Block online tax filing product descriptions (Pages retrieved October 3 and October 16, 2026): https://www.hrblock.com/online-tax-filing/
+- FreeTaxUSA upfront pricing (Tax year 2025 (pricing page retrieved October 16, 2026)): https://www.freetaxusa.com/pricing/
 - National Society of Accountants, 2023 Income and Fees report (Survey year 2023 (report © 2024)): https://img1.wsimg.com/blobby/go/a15c5ffb-9439-4993-b38e-4acbf6145e32/2023%2BComplete%2BIncome%2Band%2BFees%2BReport.pdf

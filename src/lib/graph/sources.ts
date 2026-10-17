@@ -153,9 +153,16 @@ export const citations = {
   hrblock_online: {
     title: "H&R Block online tax filing product descriptions",
     url: "https://www.hrblock.com/online-tax-filing/",
-    yearLabel: "Pages retrieved October 3, 2026",
+    yearLabel: "Pages retrieved October 3 and October 16, 2026",
     citation:
-      "H&R Block online filing and tax-center pages retrieved October 3, 2026 name Free Online, Deluxe (itemized deductions), Premium (rental income, investments, cryptocurrency), and Self-Employed (Premium features plus business expenses). Dollar amounts were not in the retrieved HTML, so no H&R Block price is used. Downloadable-software pages list an additional state program at $39.95 for some desktop editions; that figure is not used as the online price.",
+      "H&R Block online filing and tax-center pages retrieved October 3, 2026, and the online filing page again on October 16, 2026, name Free Online, Deluxe (itemized deductions), Premium (rental income, investments, cryptocurrency), and Self-Employed (Premium features plus business expenses). The October 16 page says “+ per state filed” and still prints no dollar amount for any online tier, so no H&R Block price is used. Downloadable-software pages retrieved October 3, 2026 list an additional state program at $39.95 for some desktop editions; that figure is not used as the online price.",
+  } satisfies Citation,
+  freetaxusa_pricing: {
+    title: "FreeTaxUSA upfront pricing",
+    url: "https://www.freetaxusa.com/pricing/",
+    yearLabel: "Tax year 2025 (pricing page retrieved October 16, 2026)",
+    citation:
+      "FreeTaxUSA pricing page retrieved October 16, 2026, 2025 returns table. Federal tax returns are free for every situation listed, including investments, rental property, and self-employment. A state tax return is $15.99. An amended tax return is $16.98. Optional products on the same page: Deluxe Support $7.99, Pro Support $64.99, Audit Defense $19.99. Basic support is free. Prior-year state returns are listed at $17.99 and are not the current-year price.",
   } satisfies Citation,
   nsa_2023: {
     title: "National Society of Accountants, 2023 Income and Fees report",

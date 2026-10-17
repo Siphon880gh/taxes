@@ -51,6 +51,17 @@ export function costReport(session: Session): CostReport {
   const rows: PriceRow[] = [];
 
   if (session.revealed.length > 1) {
+    rows.push({
+      id: "freetaxusa",
+      vendor: "FreeTaxUSA",
+      label: "Federal return, plus one state return",
+      amountLabel: "$0 + $15.99",
+      yearLabel: citations.freetaxusa_pricing.yearLabel,
+      unverified: false,
+      note: "Published prices retrieved October 16, 2026. Federal filing is $0 for every situation on the pricing page, including wages, itemized deductions, investments, rental property, and self-employment, so the forms reached on this path do not change it. A state return is $15.99. Optional products on the same page are not added: Deluxe Support $7.99, Pro Support $64.99, and Audit Defense $19.99. An amended return is listed at $16.98, or included with Deluxe or Pro Support.",
+      citation: citations.freetaxusa_pricing,
+    });
+
     if (needsPremium) {
       rows.push({
         id: "tt-premium",
@@ -116,10 +127,10 @@ export function costReport(session: Session): CostReport {
       yearLabel: citations.hrblock_online.yearLabel,
       unverified: true,
       note: tags.includes("Schedule C")
-        ? "H&R Block's pages describe Self-Employed as including Premium features plus business income. That is the tier description that matches Schedule C. The dollar price was not in the HTML retrieved October 3, 2026, so none is shown."
+        ? "H&R Block's pages describe Self-Employed as including Premium features plus business income. That is the tier description that matches Schedule C. The dollar price was not in the HTML retrieved October 3, 2026, and the same page retrieved October 16, 2026 still prints no dollar amount, so none is shown."
         : tags.includes("Schedule E") || tags.includes("investments")
-          ? "H&R Block's pages describe Premium as covering rental income and investments. That is the tier description that matches this path. The dollar price was not in the HTML retrieved October 3, 2026, so none is shown."
-          : "H&R Block's pages describe Free Online, Deluxe for itemized deductions, Premium for rental and investments, and Self-Employed for business income. Dollar prices were not in the HTML retrieved October 3, 2026, so none is shown.",
+          ? "H&R Block's pages describe Premium as covering rental income and investments. That is the tier description that matches this path. The dollar price was not in the HTML retrieved October 3, 2026, and the same page retrieved October 16, 2026 still prints no dollar amount, so none is shown."
+          : "H&R Block's pages describe Free Online, Deluxe for itemized deductions, Premium for rental and investments, and Self-Employed for business income. Dollar prices were not in the HTML retrieved October 3, 2026, and the same page retrieved October 16, 2026 still prints no dollar amount, so none is shown.",
       citation: citations.hrblock_online,
     });
 
