@@ -26,6 +26,7 @@ import {
   nodePrompt,
   openQuestions,
   importSession,
+  parseQuoteAmount,
   instanceScope,
   readAnswer,
   readComment,
@@ -35,6 +36,7 @@ import {
   repeatableNodes,
   selectInstance,
   setNodeComment,
+  setQuote,
   tips,
   visibleCommentNodeIds,
 } from "@/lib/graph";
@@ -217,6 +219,7 @@ export function CheckerApp() {
   const [modalId, setModalId] = useState<string | null>(null);
   const [frameMode, setFrameMode] = useState<"checklist" | "costs" | "sorter" | "audit">("checklist");
   const [walkthroughOpen, setWalkthroughOpen] = useState(false);
+  const [quoteDraft, setQuoteDraft] = useState<string | null>(null);
   const [sorterReminder, setSorterReminder] = useState(false);
   const [suggestSummaries, setSuggestSummaries] = useState(false);
   const [chartToolsNode, setChartToolsNode] = useState<HTMLDivElement | null>(null);
@@ -865,8 +868,56 @@ export function CheckerApp() {
                     Tax Pro Costs
                   </h2>
                   <p className="mt-2 text-sm text-stone-600">
-                    Published prices for preparing a return of this shape. These are not tax figures and not a quote unless a case study loaded one.
+                    Published prices for preparing a return of this shape. These are not tax figures and not a quote unless you enter one below or a case study loaded one.
                   </p>
+                  <fieldset className="quote-entry">
+                    <legend>Your preparation quote</legend>
+                    <label htmlFor="quote-preparer">
+                      Preparer or firm
+                      <input
+                        id="quote-preparer"
+                        type="text"
+                        value={session.quotePreparer ?? ""}
+                        placeholder="Who quoted this return"
+                        onChange={(event) => {
+                          const name = event.target.value;
+                          setSession((current) => setQuote(current, current.quote, name));
+                        }}
+                      />
+                    </label>
+                    <label htmlFor="quote-amount">
+                      Quote in dollars
+                      <input
+                        id="quote-amount"
+                        type="text"
+                        inputMode="decimal"
+                        value={quoteDraft ?? (session.quote == null ? "" : String(session.quote))}
+                        placeholder="$975"
+                        aria-invalid={quoteDraft != null && quoteDraft.trim() !== "" && parseQuoteAmount(quoteDraft) == null}
+                        onChange={(event) => {
+                          const text = event.target.value;
+                          setQuoteDraft(text);
+                          setSession((current) => setQuote(current, parseQuoteAmount(text), current.quotePreparer));
+                        }}
+                        onBlur={() => setQuoteDraft(null)}
+                      />
+                    </label>
+                    {session.quote != null || session.quotePreparer ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setQuoteDraft(null);
+                          setSession((current) => setQuote(current, null, null));
+                        }}
+                      >
+                        Clear quote
+                      </button>
+                    ) : null}
+                    {quoteDraft != null && quoteDraft.trim() !== "" && parseQuoteAmount(quoteDraft) == null ? (
+                      <p className="text-rust" role="alert">Enter a dollar amount such as 975 or $1,250.</p>
+                    ) : null}
+                    <p>Saved with the chart session. Export the session to keep it.</p>
+                  </fieldset>
                   <p className="mt-2 text-sm text-stone-800" role="note">
                     This is only for the forms and schedules reached so far, not a price for a finished return.
                   </p>

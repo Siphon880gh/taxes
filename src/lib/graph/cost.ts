@@ -194,7 +194,7 @@ export function costReport(session: Session): CostReport {
     }
     rows.unshift({
       id: "quote",
-      vendor: "Independent firm quote",
+      vendor: session.quotePreparer?.trim() ? `Quote from ${session.quotePreparer.trim()}` : "Independent firm quote",
       label: "Quote for this situation",
       amountLabel: `$${session.quote.toLocaleString("en-US")}`,
       yearLabel:

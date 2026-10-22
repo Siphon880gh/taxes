@@ -13,7 +13,9 @@ import {
   setNodeComment,
   visibleCommentNodeIds,
   importSession,
+  parseQuoteAmount,
   sessionToJson,
+  setQuote,
 } from "../src/lib/graph/session";
 import { applyCase, caseStudies } from "../src/lib/graph/cases";
 import { buildChecklist } from "../src/lib/graph/checklist";
@@ -576,4 +578,42 @@ test("filing notes open the forms and lines that were not already on the chart",
 test("case studies are labeled as examples and there is more than one", () => {
   assert.ok(caseStudies.length >= 2);
   assert.match(caseStudies.map((item) => item.summary).join(" "), /not tax advice|illustration/i);
+});
+
+test("an entered quote is parsed, named, priced, and kept through answers and a session file", () => {
+  assert.equal(parseQuoteAmount("$1,250"), 1250);
+  assert.equal(parseQuoteAmount(" 975.50 "), 975.5);
+  assert.equal(parseQuoteAmount(""), null);
+  assert.equal(parseQuoteAmount("-5"), null);
+  assert.equal(parseQuoteAmount("abc"), null);
+  assert.equal(parseQuoteAmount("12.345"), null);
+
+  let session = applyAnswer(blankSession(), "filing_status", "single");
+  assert.equal(session.quotePreparer, null);
+  session = setQuote(session, 850, "Main Street CPA");
+  assert.equal(session.quote, 850);
+  assert.equal(session.quotePreparer, "Main Street CPA");
+  session = applyAnswer(session, "se", "yes");
+  session = addInstance(session, "se");
+  session = selectInstance(session, "se", 0);
+  assert.equal(session.quote, 850);
+  assert.equal(session.quotePreparer, "Main Street CPA");
+
+  const cost = costReport(session);
+  assert.equal(cost.rows[0]?.id, "quote");
+  assert.equal(cost.rows[0]?.vendor, "Quote from Main Street CPA");
+  assert.equal(cost.rows[0]?.amountLabel, "$850");
+  assert.match(cost.quoteNote ?? "", /\$850/);
+
+  const restored = importSession(sessionToJson(session));
+  assert.equal(restored.quote, 850);
+  assert.equal(restored.quotePreparer, "Main Street CPA");
+  assert.throws(() => importSession(JSON.stringify({ answers: {}, quotePreparer: 5 })), /not a chart session/);
+
+  const cleared = setQuote(session, null, "  ");
+  assert.equal(cleared.quote, null);
+  assert.equal(cleared.quotePreparer, null);
+  assert.equal(costReport(cleared).rows.some((row) => row.id === "quote"), false);
+  assert.equal(costReport(setQuote(session, 900, null)).rows[0]?.vendor, "Independent firm quote");
+  assert.equal(applyCase("weng-2025").quotePreparer, null);
 });

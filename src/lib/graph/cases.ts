@@ -59,5 +59,5 @@ export const caseStudies: CaseStudy[] = [
 export function applyCase(id: string): Session {
   const study = caseStudies.find((item) => item.id === id);
   if (!study) throw new Error(`Unknown case study: ${id}`);
-  return rebuild(study.answers, study.quote, study.id, study.instances);
+  return rebuild(study.answers, study.quote, study.id, study.instances, {}, {}, {}, {}, study.quotePreparer ?? null);
 }

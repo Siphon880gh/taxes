@@ -12,6 +12,7 @@ export {
   assertGraphIntact,
   blankSession,
   openQuestions,
+  parseQuoteAmount,
   rebuild,
   activeInstanceName,
   instanceScope,
@@ -25,6 +26,7 @@ export {
   renameInstance,
   repeatableNodes,
   selectInstance,
+  setQuote,
 } from "./session";
 export { citations } from "./sources";
 export { edgeTips, tips } from "./tips";

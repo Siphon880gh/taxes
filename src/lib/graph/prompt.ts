@@ -71,12 +71,12 @@ export function nodePrompt(session: Session, node: GraphNode): string {
       2,
     ),
     "",
-    "To replace the whole chart instead, return a session object and nothing else. Keys: answers, instances, instanceAnswers, activeInstance, comments, instanceComments, quote, caseStudyId.",
+    "To replace the whole chart instead, return a session object and nothing else. Keys: answers, instances, instanceAnswers, activeInstance, comments, instanceComments, quote, quotePreparer, caseStudyId.",
     "answers maps a node id to { \"answerId\", \"text?\" }.",
     "instances maps a repeatable node id to an array of record names.",
     "instanceAnswers maps a scope, \"se\" or \"rental\", to keys \"index:nodeId\".",
     "activeInstance maps a scope to the index currently on the chart.",
-    "comments maps a node id to a note for a box that is not inside a business or rental. instanceComments maps a scope, \"se\" or \"rental\", to keys \"index:nodeId\". quote is a number or null. caseStudyId is a string or null.",
+    "comments maps a node id to a note for a box that is not inside a business or rental. instanceComments maps a scope, \"se\" or \"rental\", to keys \"index:nodeId\". quote is a number or null. quotePreparer is the firm or preparer name for that quote, or null. caseStudyId is a string or null.",
   ].join("\n");
 }
 

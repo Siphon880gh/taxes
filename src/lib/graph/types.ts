@@ -83,6 +83,8 @@ export type Session = {
   instanceAnswers: Record<string, Record<string, StoredAnswer>>;
   revealed: string[];
   quote: number | null;
+  /** Who gave the preparation quote, such as a firm or preparer name. */
+  quotePreparer: string | null;
   caseStudyId: string | null;
   /** Notes on boxes that are not inside a business or rental. Empty comments are omitted. */
   comments: Record<string, string>;
@@ -124,6 +126,7 @@ export type CaseStudy = {
   title: string;
   summary: string;
   quote: number | null;
+  quotePreparer?: string | null;
   answers: Record<string, StoredAnswer>;
   instances?: Record<string, string[]>;
 };

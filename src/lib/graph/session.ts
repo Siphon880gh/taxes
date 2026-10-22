@@ -58,6 +58,7 @@ export function rebuild(
   activeInstance: Record<string, number> = {},
   comments: Record<string, string> = {},
   instanceComments: Record<string, Record<string, string>> = {},
+  quotePreparer: string | null = null,
 ): Session {
   const revealed: string[] = [];
   const used: Record<string, StoredAnswer> = {};
@@ -86,7 +87,7 @@ export function rebuild(
 
   visit("year");
   const notes = adoptScopedComments(comments, instanceComments, activeInstance);
-  return { answers: used, instances, instanceAnswers: scoped, activeInstance, revealed, quote, caseStudyId, comments: notes.comments, instanceComments: notes.instanceComments };
+  return { answers: used, instances, instanceAnswers: scoped, activeInstance, revealed, quote, quotePreparer, caseStudyId, comments: notes.comments, instanceComments: notes.instanceComments };
 }
 
 function adoptScopedComments(
@@ -132,17 +133,17 @@ export function applyAnswer(
       ? { ...session.instances, [nodeId]: [defaultInstanceName(nodeId, 1)] }
       : session.instances;
   if (!scope) {
-    return rebuild({ ...session.answers, [nodeId]: stored }, session.quote, session.caseStudyId, instances, session.instanceAnswers, session.activeInstance, session.comments, session.instanceComments);
+    return rebuild({ ...session.answers, [nodeId]: stored }, session.quote, session.caseStudyId, instances, session.instanceAnswers, session.activeInstance, session.comments, session.instanceComments, session.quotePreparer);
   }
   const index = session.activeInstance[scope] ?? 0;
   const bucket = { ...(session.instanceAnswers[scope] ?? {}), [answerKey(index, nodeId)]: stored };
-  return rebuild(session.answers, session.quote, session.caseStudyId, instances, { ...session.instanceAnswers, [scope]: bucket }, session.activeInstance, session.comments, session.instanceComments);
+  return rebuild(session.answers, session.quote, session.caseStudyId, instances, { ...session.instanceAnswers, [scope]: bucket }, session.activeInstance, session.comments, session.instanceComments, session.quotePreparer);
 }
 
 export function selectInstance(session: Session, scope: string, index: number): Session {
   const names = session.instances[scope] ?? [];
   if (!Number.isInteger(index) || index < 0 || index >= names.length) return session;
-  return rebuild(session.answers, session.quote, session.caseStudyId, session.instances, session.instanceAnswers, { ...session.activeInstance, [scope]: index }, session.comments, session.instanceComments);
+  return rebuild(session.answers, session.quote, session.caseStudyId, session.instances, session.instanceAnswers, { ...session.activeInstance, [scope]: index }, session.comments, session.instanceComments, session.quotePreparer);
 }
 
 export function readAnswer(session: Session, nodeId: string): StoredAnswer | undefined {
@@ -172,6 +173,7 @@ export function addInstance(session: Session, nodeId: string): Session {
     { ...session.activeInstance, [nodeId]: nextIndex },
     session.comments,
     session.instanceComments,
+    session.quotePreparer,
   );
 }
 
@@ -221,6 +223,7 @@ export function removeInstance(session: Session, nodeId: string, index: number):
     { ...session.activeInstance, [nodeId]: nextActive },
     session.comments,
     instanceComments,
+    session.quotePreparer,
   );
 }
 
@@ -263,6 +266,20 @@ export function setNodeComment(session: Session, nodeId: string, text: string): 
   const comments = { ...session.comments };
   delete comments[nodeId];
   return { ...session, comments, instanceComments: { ...session.instanceComments, [scope]: bucket } };
+}
+
+/** Read a typed dollar amount such as "$1,250" or "975.50". Blank, negative, or non-numeric text is no quote. */
+export function parseQuoteAmount(text: string): number | null {
+  const cleaned = text.replace(/[$,\s]/g, "");
+  if (!cleaned || !/^\d+(\.\d{0,2})?$/.test(cleaned)) return null;
+  const amount = Number(cleaned);
+  return Number.isFinite(amount) ? amount : null;
+}
+
+/** Set or clear the preparation quote. A blank preparer name is stored as null. */
+export function setQuote(session: Session, amount: number | null, preparer: string | null): Session {
+  const quote = amount != null && Number.isFinite(amount) && amount >= 0 ? amount : null;
+  return { ...session, quote, quotePreparer: preparer?.trim() ? preparer : null };
 }
 
 export function answerOf(session: Session, nodeId: string): string | undefined {
@@ -336,6 +353,7 @@ export function sessionFile(session: Session) {
     comments: session.comments,
     instanceComments: session.instanceComments,
     quote: session.quote,
+    quotePreparer: session.quotePreparer,
     caseStudyId: session.caseStudyId,
   };
 }
@@ -406,12 +424,16 @@ export function importSession(json: string): Session {
   if (quote !== null && (typeof quote !== "number" || !Number.isFinite(quote))) {
     throw new Error("That file is not a chart session.");
   }
+  const quotePreparer = parsed.quotePreparer === undefined ? null : parsed.quotePreparer;
+  if (quotePreparer !== null && typeof quotePreparer !== "string") {
+    throw new Error("That file is not a chart session.");
+  }
   const caseStudyId = parsed.caseStudyId === undefined ? null : parsed.caseStudyId;
   if (caseStudyId !== null && typeof caseStudyId !== "string") {
     throw new Error("That file is not a chart session.");
   }
   try {
-    return rebuild(answers, quote, caseStudyId, instances, instanceAnswers, activeInstance, comments, instanceComments);
+    return rebuild(answers, quote, caseStudyId, instances, instanceAnswers, activeInstance, comments, instanceComments, quotePreparer);
   } catch {
     throw new Error("That file does not match this chart.");
   }
