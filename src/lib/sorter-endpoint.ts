@@ -33,7 +33,13 @@ export function resolveSorterEndpoint(location: PageLocation, configured: string
     } catch {
       return { ok: false, message: `SERVER_URL_UPLOAD_API_PHP in .env is not a URL: ${configured}` };
     }
-    const unreachableLocalhost = isLocalHost(url.hostname) && !isLocalHost(location.hostname);
+    const pageIsLocal = isLocalHost(location.hostname);
+    if (isLocalHost(url.hostname) && pageIsLocal && url.hostname !== location.hostname) {
+      // localhost and 127.0.0.1 are different sites to the browser, so the SameSite=Strict session cookie
+      // would not be sent. Call PHP under the same loopback name as the page.
+      url.hostname = location.hostname;
+    }
+    const unreachableLocalhost = isLocalHost(url.hostname) && !pageIsLocal;
     if (!unreachableLocalhost) return { ok: true, url: url.toString() };
   }
   const marker = page.pathname.lastIndexOf("/out/");

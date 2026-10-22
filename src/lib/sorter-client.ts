@@ -44,8 +44,9 @@ async function handshake(base: string, fetcher: Fetch): Promise<string> {
   return body.csrf;
 }
 
-function token(base: string, fetcher: Fetch, fresh: boolean): Promise<string> {
-  if (fresh) tokens.delete(base);
+function token(base: string, fetcher: Fetch, stale?: Promise<string>): Promise<string> {
+  // Drop the token only if it is still the one that was refused, so parallel retries share one new handshake.
+  if (stale && tokens.get(base) === stale) tokens.delete(base);
   let pending = tokens.get(base);
   if (!pending) {
     pending = handshake(base, fetcher);
@@ -58,13 +59,16 @@ function token(base: string, fetcher: Fetch, fresh: boolean): Promise<string> {
 /** fetch() for sorter/api.php. Network failures still throw TypeError, so unreachableMessage() applies. */
 export async function sorterFetch(url: string, init: RequestInit = {}, fetcher: Fetch = fetch): Promise<Response> {
   const base = baseOf(url);
+  let refused: Promise<string> | undefined;
   for (let attempt = 0; ; attempt += 1) {
-    const csrf = await token(base, fetcher, attempt > 0);
+    const pending = token(base, fetcher, refused);
+    const csrf = await pending;
     const headers = new Headers(init.headers);
     headers.set(APP_HEADER, "1");
     if ((init.method ?? "GET").toUpperCase() === "POST") headers.set(CSRF_HEADER, csrf);
     const response = await fetcher(url, { ...init, headers, credentials: credentialsFor(url, pageOrigin()), cache: "no-store" });
     if (response.status !== 403 || attempt > 0) return response;
+    refused = pending;
   }
 }
 

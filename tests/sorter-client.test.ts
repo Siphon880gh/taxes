@@ -50,6 +50,21 @@ test("an expired session (403) gets one fresh handshake and one retry", async ()
   assert.equal(always.n.shakes, 2);
 });
 
+test("parallel calls that hit an expired session share one new handshake", async () => {
+  resetSorterSessions();
+  let expired = true;
+  const { fetcher, n } = fakeServer((call) => {
+    if (call.url.endsWith("?action=handshake")) {
+      if (n.shakes > 1) expired = false;
+      return json(200, { ok: true, csrf: `tok${n.shakes}` });
+    }
+    return expired ? json(403, { ok: false, error: "forbidden" }) : json(200, { ok: true });
+  });
+  const results = await Promise.all([sorterFetch(API, {}, fetcher), sorterFetch(`${API}?owed=a.md`, {}, fetcher)]);
+  assert.deepEqual(results.map((r) => r.status), [200, 200]);
+  assert.equal(n.shakes, 2, "one initial handshake, one shared retry handshake");
+});
+
 test("a refused handshake explains the allowlist; network errors still throw TypeError", async () => {
   resetSorterSessions();
   const refused = fakeServer(() => json(403, { ok: false, error: "forbidden" }));

@@ -24,7 +24,16 @@ test("the live site calls the api.php next to out/, even when the build carries 
 });
 
 test("locally the configured URL or the sibling sorter/api.php is used", () => {
-  assert.deepEqual(resolveSorterEndpoint({ hostname: "127.0.0.1", href: "http://127.0.0.1:43123/" }, LOCAL_URL), { ok: true, url: LOCAL_URL });
+  assert.deepEqual(resolveSorterEndpoint({ hostname: "localhost", href: "http://localhost:43123/" }, LOCAL_URL), { ok: true, url: LOCAL_URL });
+  // 127.0.0.1 and localhost are different sites for the session cookie: keep the page's loopback name.
+  assert.deepEqual(
+    resolveSorterEndpoint({ hostname: "127.0.0.1", href: "http://127.0.0.1:43123/" }, LOCAL_URL),
+    { ok: true, url: "http://127.0.0.1:8888/weng/app/taxes/sorter/api.php" },
+  );
+  assert.deepEqual(
+    resolveSorterEndpoint({ hostname: "localhost", href: "http://localhost:43123/" }, "http://127.0.0.1:8888/x/sorter/api.php"),
+    { ok: true, url: "http://localhost:8888/x/sorter/api.php" },
+  );
   assert.deepEqual(
     resolveSorterEndpoint({ hostname: "localhost", href: "http://localhost:8888/weng/app/taxes/out/index.html" }, ""),
     { ok: true, url: LOCAL_URL },
