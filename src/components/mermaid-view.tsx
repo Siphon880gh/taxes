@@ -176,6 +176,12 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
   const [fitReveal, setFitReveal] = useState(0);
   const [freeFrame, setFreeFrame] = useState(false);
   const freeFrameRef = useRef(false);
+  // Effects that outlive a render (Mermaid draws asynchronously, observers fire later) call these
+  // through refs so they always reach the current render's version without re-running the effect.
+  const fitNodesRef = useRef(fitNodes);
+  fitNodesRef.current = fitNodes;
+  const pulseAnsweredRef = useRef(pulseAnswered);
+  pulseAnsweredRef.current = pulseAnswered;
   const applyZoomRef = useRef<(next: number, point: { x: number; y: number } | null, free: boolean) => void>(() => {});
   const panRef = useRef<{
     pointerId: number;
@@ -351,7 +357,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
         const answered = fitAnsweredRef.current;
         fitFocusRef.current = null;
         fitAnsweredRef.current = null;
-        if (!focus?.length || !fitNodes(focus, "width")) {
+        if (!focus?.length || !fitNodesRef.current(focus, "width")) {
           if (freeFrameRef.current) {
             freeFrameRef.current = false;
             setFreeFrame(false);
@@ -365,7 +371,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
             setZoom(fittedZoom);
           }
         }
-        pulseAnswered(answered);
+        pulseAnsweredRef.current(answered);
       }
       const zoomForFrame = fittedZoom ?? scale;
       const dock = document.querySelector(".bottom-frames");
@@ -656,8 +662,8 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
     fitFocusRef.current = fitFocus.ids;
     fitAnsweredRef.current = fitFocus.answeredId;
     if (!pendingFit.current) {
-      fitNodes(fitFocus.ids, "width");
-      pulseAnswered(fitFocus.answeredId);
+      fitNodesRef.current(fitFocus.ids, "width");
+      pulseAnsweredRef.current(fitFocus.answeredId);
       fitAnsweredRef.current = null;
     }
   }, [fitFocus]);
