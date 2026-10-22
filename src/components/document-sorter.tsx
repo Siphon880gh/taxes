@@ -70,15 +70,9 @@ export function DocumentSorter({
   const [picked, setPicked] = useState("");
   const [newCategory, setNewCategory] = useState("");
 
-  const [localOnly, setLocalOnly] = useState<string | null>(null);
-
   const refresh = useCallback(async () => {
     setError(null);
     const endpoint = sorterEndpoint();
-    if (!endpoint.ok && endpoint.reason === "remote") {
-      setLocalOnly(endpoint.message);
-      return;
-    }
     if (!endpoint.ok) {
       setError(endpoint.message);
       return;
@@ -227,11 +221,6 @@ export function DocumentSorter({
       <h2 id="check-heading" className="font-display text-2xl text-stone-900">
         Document Sorter
       </h2>
-      {localOnly ? (
-        <p className="local-only-note" role="status">
-          {localOnly}
-        </p>
-      ) : null}
       <div className="sorter-note" role="note">
         <p>Open this codebase in Cursor and invoke the skill tax-document-classification.</p>
         {suggestSummaries ? <p>{SUMMARIES_SKILL_NOTE}</p> : null}
@@ -239,8 +228,6 @@ export function DocumentSorter({
         <p>The folder a document is in is its category.</p>
         <WhyNotAutomatic />
       </div>
-      {localOnly ? null : (
-      <>
       <div
         className={over ? "sorter-drop is-over" : "sorter-drop"}
         onDragEnter={(event) => {
@@ -335,8 +322,6 @@ export function DocumentSorter({
           </ul>
         </section>
       ) : null}
-      </>
-      )}
       {editing ? (
         <div className="modal-backdrop" role="presentation" onClick={closeCategory}>
           <div

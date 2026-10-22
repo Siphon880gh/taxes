@@ -1405,17 +1405,6 @@ button.question-dock-tile {
   }
 }
 
-/* Sorter and audit tabs opened on a non-local host. */
-.local-only-note {
-  margin-top: 0.75rem;
-  border: 1px solid #d6c7a1;
-  border-radius: 0.5rem;
-  background: #fbf6e9;
-  padding: 0.6rem 0.8rem;
-  font-size: 0.875rem;
-  color: #3f3a2e;
-}
-
 /* Keyboard focus on a chart box (each g.node is a focusable button). */
 .mermaid-host g.node:focus {
   outline: none;

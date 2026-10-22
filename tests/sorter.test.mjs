@@ -145,9 +145,10 @@ with tarfile.open(sys.argv[1], "w:gz") as tf:
   assert.equal(fs.existsSync(path.join(sorterDir, "stage", "Medical", "readme.txt")), true);
   assert.equal(fs.existsSync(path.join(sorterDir, "stage", "notes", "readme.txt")), false);
 
+  // Hybrid deploy: the endpoint answers any host, including requests that came through a proxy.
   const proxied = await fetch(base, { headers: { "X-Forwarded-For": "203.0.113.9" } });
-  assert.equal(proxied.status, 403);
-  assert.match((await proxied.json()).error, /only runs on this computer/);
+  assert.equal(proxied.status, 200);
+  assert.equal((await proxied.json()).ok, true);
 
   const removed = await fetch(base, {
     method: "POST",

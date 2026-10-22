@@ -24,7 +24,6 @@ export function OwedAuditPanel({ onDialog }: { onDialog?: (open: boolean) => voi
   const [error, setError] = useState<string | null>(null);
   const [opening, setOpening] = useState<string | null>(null);
   const [reading, setReading] = useState<{ path: string; markdown: string } | null>(null);
-  const [localOnly, setLocalOnly] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   useDialogFocus(reading != null, dialogRef);
 
@@ -36,8 +35,7 @@ export function OwedAuditPanel({ onDialog }: { onDialog?: (open: boolean) => voi
   const refresh = useCallback(async () => {
     const endpoint = sorterEndpoint();
     if (!endpoint.ok) {
-      if (endpoint.reason === "remote") setLocalOnly(endpoint.message);
-      else setError(endpoint.message);
+      setError(endpoint.message);
       setChecked(true);
       return;
     }
@@ -102,11 +100,6 @@ export function OwedAuditPanel({ onDialog }: { onDialog?: (open: boolean) => voi
       <p className="mt-2 text-sm text-stone-800">
         The skill writes Owed Audit.md in the folder that holds those documents. Federal and state stay separate. Next year&apos;s estimated-tax vouchers are not this year&apos;s balance.
       </p>
-      {localOnly ? (
-        <p className="local-only-note mt-3" role="status">
-          {localOnly}
-        </p>
-      ) : null}
       {checked && paths.length > 0 ? (
         <ul className="mt-4 flex flex-col gap-2">
           {paths.map((path) => (
@@ -128,7 +121,7 @@ export function OwedAuditPanel({ onDialog }: { onDialog?: (open: boolean) => voi
           ))}
         </ul>
       ) : null}
-      {checked && paths.length === 0 && !error && !localOnly ? (
+      {checked && paths.length === 0 && !error ? (
         <p className="mt-4 text-sm text-stone-600">No Owed Audit.md is in sorter/stage yet.</p>
       ) : null}
       {error ? (
@@ -136,11 +129,9 @@ export function OwedAuditPanel({ onDialog }: { onDialog?: (open: boolean) => voi
           {error}
         </p>
       ) : null}
-      {localOnly ? null : (
-        <button type="button" className="btn-secondary mt-3" onClick={() => void refresh()}>
-          Refresh
-        </button>
-      )}
+      <button type="button" className="btn-secondary mt-3" onClick={() => void refresh()}>
+        Refresh
+      </button>
       {reading && typeof document !== "undefined"
         ? createPortal(
             <div className="modal-backdrop owed-audit-backdrop" role="presentation" onClick={close}>

@@ -34,28 +34,29 @@ The return year offers 2025 and 2026, the two years with figures loaded and sour
 
 ## Deploy
 
-The public site is a static build. `npm run build` writes it to `out/`, and the build rewrites asset paths so the same `out/` works at `/weng/app/taxes/out/` on localhost and at `/app/taxes/out/` on the web host.
+The site is a hybrid: a static build plus one PHP endpoint, served side by side from the same PHP host.
 
-**Upload only these** to `<host>/app/taxes/`:
+- `npm run build` writes the static app to `out/`. The build rewrites asset paths so the same `out/` works at `/weng/app/taxes/out/` on localhost and at `/app/taxes/out/` on the web host. It also copies `public/sorter/` into `out/sorter/`, so `out/sorter/api.php` ships with the build, as before.
+- `sorter/api.php` is the document sorter's endpoint. It reads and writes `sorter/stage/` beside itself, and it is open: no login and no localhost check.
 
-- the contents of `out/`, into `<host>/app/taxes/out/`
-- `index.html` from the repo root, which only redirects to `out/` (optional)
+On the web host the layout is:
 
-**Never upload** anything else from this folder, and especially not:
+```
+<host>/app/taxes/index.html         redirects to out/ (optional)
+<host>/app/taxes/out/               the static build
+<host>/app/taxes/sorter/api.php     the endpoint the Document Sorter and Return & Owe Audit tabs call
+<host>/app/taxes/sorter/stage/      the staged documents api.php lists, places, and removes
+```
 
-- `sorter/` — the document sorter's PHP endpoint and `sorter/stage/` / `sorter/sorted/`, which hold real tax documents, `Summaries.md`, and `Owed Audit.md`
-- `.env` and `.env.*`
-- `context/`, `.agents/`, `src/`, `scripts/`, `tests/`, `docs/`, `node_modules/`, `.next/`, `.git/`
+The tabs find the endpoint in the browser (`src/lib/sorter-endpoint.ts`): `SERVER_URL_UPLOAD_API_PHP` from `.env` if it is set and reachable from the page, otherwise `sorter/api.php` next to the `out/` folder the page was served from. So on `https://wengindustries.com/app/taxes/out/` they call `https://wengindustries.com/app/taxes/sorter/api.php`, and a localhost URL in `.env` is used only on this computer. Keep `sorter/api.php` and `public/sorter/api.php` identical.
 
-The Document Sorter and Return & Owe Audit tabs work only when the app runs on your own computer. On any other host they say so and make no requests. As a backstop, `sorter/api.php` refuses (403) any request that does not come from `127.0.0.1` or `::1`, or that came through a proxy. `sorter/.htaccess` and the root `.htaccess` deny the same paths on Apache hosts that honor `.htaccess`. Do not count on either: upload `out/` only.
-
-There is no deploy script in this repo. If you sync with an FTP or SFTP client, point it at `out/`, not at this folder.
+There is no deploy script in this repo. The tax documents in `sorter/stage/` are served only through `api.php` to anyone who can reach that URL.
 
 ## Sort documents with the AI skills
 
 Before you walk the chart, you can drop W-2s, 1099s, receipts, bills, and scans into the **Document Sorter** tab, or straight into `sorter/stage/`.
 
-The tab uploads and places files through PHP. Copy [`.env.sample`](.env.sample) to `.env` and set `SERVER_URL_UPLOAD_API_PHP` to the URL where PHP serves [`sorter/api.php`](sorter/api.php). Restart `npm run dev` after changing `.env`. That setting is used only by `npm run dev`: a built `out/` opened on this computer finds `../sorter/api.php` next to itself, and the build never carries a localhost URL. On any other host the Document Sorter and Return & Owe Audit tabs show "Available when running locally" and make no requests. Putting files directly in `sorter/stage/` does not need that endpoint.
+The tab uploads and places files through PHP. Copy [`.env.sample`](.env.sample) to `.env` and set `SERVER_URL_UPLOAD_API_PHP` to the URL where PHP serves [`sorter/api.php`](sorter/api.php). Restart `npm run dev` after changing `.env`. The value is inlined by `npm run dev` and `npm run build`. A built `out/` on another host skips a localhost value and calls `../sorter/api.php` next to itself (see Deploy). Putting files directly in `sorter/stage/` does not need that endpoint.
 
 An AI skill, `tax-document-classification`, then sorts them into folders such as Income - Self-employment, Income - Rental, Deductions, and _Last year's return, and it renames generic filenames so each pile is easier to think about and to match against the schedules the chart names.
 
