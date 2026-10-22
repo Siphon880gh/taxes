@@ -702,7 +702,12 @@ export function CheckerApp() {
           <div className="flex flex-wrap items-center gap-3 rounded-md border border-stone-300 bg-[#fffdf8] px-4 py-3">
             {libraryStuck || topCollapsed ? (
               <div className="path-library-identity">
-                <p className="font-display text-lg text-stone-900">Tax Final Confirmation</p>
+                {/* The page's only h1 lives in the header; when the header is collapsed this compact title takes that role. */}
+                {topCollapsed ? (
+                  <h1 className="font-display text-lg text-stone-900">Tax Final Confirmation</h1>
+                ) : (
+                  <p className="font-display text-lg text-stone-900">Tax Final Confirmation</p>
+                )}
                 <span className="text-sm text-stone-700">Return year: {returnYear}</span>
                 {topCollapsed ? (
                   <button type="button" className="btn-secondary" onClick={() => setTopCollapsed(false)}><ShortcutText text="Expand" index={headerShowsExpand ? 1 : -1} /></button>
