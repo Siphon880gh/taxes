@@ -28,7 +28,9 @@ Then open http://127.0.0.1:43123
 
 Start blank, or open a case study. **Coder/Nurse 1099 Example** walks a single filer with two 1099-NEC activities, payment-app goods and services, and one paid-off rental. Louisiana versus Los Angeles, the payment-app amount, and whether the depreciation records are clean stay unknown. **Joint W-2 & Crypto Example** is a second, shorter path so the tool is not only that example. Case-study facts are not tax advice.
 
-`npm test` checks the graph. `npm run generate-graph` rewrites the decision-graph document from the same source.
+`npm test` runs three suites: the decision-graph tests (paths, checklist items, and the sourced 2025 and 2026 figures), the sorter-endpoint tests (which hosts get the local-only message), and the PHP sorter test, which starts `php -S` against `sorter/api.php` and is skipped when `php` is not installed. `npm run generate-graph` rewrites the decision-graph document from the same source.
+
+The return year offers 2025 and 2026, the two years with figures loaded and sourced. Figures that could not be checked against an IRS or SSA page stay marked to verify.
 
 ## Deploy
 
