@@ -250,6 +250,7 @@ export function DocumentSorter({
           ref={inputRef}
           className="sr-only"
           type="file"
+          aria-label="Choose files to upload"
           multiple
           onChange={(event) => {
             if (event.target.files) void uploadList(event.target.files);
