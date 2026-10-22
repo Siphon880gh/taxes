@@ -1,6 +1,16 @@
 <?php
 // Upload endpoint for the static export. The panel calls /sorter/api.php.
 // Staged files are written to stage/ beside this script and are not executed.
+//
+// App-only gate (every action, reads included):
+//   1. Origin (or, for a GET without Origin, the Referer's origin) must be in app-config.php "origins".
+//   2. The X-Taxes-App: 1 header must be present, which forces a CORS preflight from any other website.
+//   3. GET ?action=handshake sets a signed, HttpOnly, SameSite=Strict session cookie (12 hours); every other
+//      action needs a valid, unexpired cookie.
+//   4. POSTs also need the CSRF token the handshake returned, in X-Taxes-Csrf.
+// Anything else gets 403 {"ok":false,"error":"forbidden"}. Responses are never cached.
+// This keeps out other websites, scanners, and casual requests. It is not a login: someone who copies the
+// app's headers and sends a forged Origin from their own script can still pass.
 declare(strict_types=1);
 
 const MAX_UPLOAD_BYTES = 64 * 1024 * 1024;
@@ -32,24 +42,171 @@ if (!function_exists("str_ends_with")) {
 
 $stage = __DIR__ . "/stage";
 
+const SESSION_COOKIE = "taxes_sorter";
+const SESSION_TTL = 12 * 60 * 60;
+const DEFAULT_ORIGINS = [
+    "https://wengindustries.com",
+    "https://www.wengindustries.com",
+    "http://localhost:8888",
+    "http://127.0.0.1:8888",
+    "http://localhost:43123",
+    "http://127.0.0.1:43123",
+];
+
 function fail(string $message, int $status = 400): never
 {
     throw new RuntimeException($message, $status);
 }
 
+/** Server-side settings from app-config.php beside this script (optional). */
+function app_config(): array
+{
+    static $config = null;
+    if ($config === null) {
+        $file = __DIR__ . "/app-config.php";
+        $loaded = is_file($file) ? require $file : [];
+        $config = is_array($loaded) ? $loaded : [];
+    }
+    return $config;
+}
+
+/** "scheme://host[:port]" in lower case, default ports dropped; "" when the value is not an http(s) URL. */
+function normalize_origin(string $value): string
+{
+    $parts = parse_url(trim($value));
+    if (!is_array($parts) || !isset($parts["scheme"], $parts["host"])) {
+        return "";
+    }
+    $scheme = strtolower((string) $parts["scheme"]);
+    if ($scheme !== "http" && $scheme !== "https") {
+        return "";
+    }
+    $host = strtolower((string) $parts["host"]);
+    $port = isset($parts["port"]) ? (int) $parts["port"] : null;
+    if ($port === null || ($scheme === "https" && $port === 443) || ($scheme === "http" && $port === 80)) {
+        return $scheme . "://" . $host;
+    }
+    return $scheme . "://" . $host . ":" . $port;
+}
+
+function allowed_origins(): array
+{
+    $list = app_config()["origins"] ?? DEFAULT_ORIGINS;
+    $out = [];
+    foreach (is_array($list) ? $list : [] as $origin) {
+        $normal = normalize_origin((string) $origin);
+        if ($normal !== "") {
+            $out[] = $normal;
+        }
+    }
+    return $out;
+}
+
+function origin_is_allowed(string $origin): bool
+{
+    $normal = normalize_origin($origin);
+    return $normal !== "" && in_array($normal, allowed_origins(), true);
+}
+
+/** Origin header; for a GET without one (same-origin browsers omit it), the Referer's origin. */
+function request_origin_allowed(string $method): bool
+{
+    $origin = (string) ($_SERVER["HTTP_ORIGIN"] ?? "");
+    if ($origin !== "") {
+        return origin_is_allowed($origin);
+    }
+    $referer = (string) ($_SERVER["HTTP_REFERER"] ?? "");
+    return $method === "GET" && $referer !== "" && origin_is_allowed($referer);
+}
+
 function send_cors(): void
 {
-    $origin = $_SERVER["HTTP_ORIGIN"] ?? "";
-    $allowed = [
-        "http://localhost:43123",
-        "http://127.0.0.1:43123",
-    ];
-    if (in_array($origin, $allowed, true)) {
+    header("Vary: Origin");
+    $origin = (string) ($_SERVER["HTTP_ORIGIN"] ?? "");
+    if ($origin !== "" && origin_is_allowed($origin)) {
         header("Access-Control-Allow-Origin: " . $origin);
-        header("Vary: Origin");
+        header("Access-Control-Allow-Credentials: true");
+        header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
+        header("Access-Control-Allow-Headers: Content-Type, X-Taxes-App, X-Taxes-Csrf");
+        header("Access-Control-Max-Age: 600");
     }
-    header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
-    header("Access-Control-Allow-Headers: Content-Type");
+}
+
+/** HMAC key from .app-secret.php beside this script, created with random_bytes on first use. Never served or committed. */
+function app_secret(): string
+{
+    static $key = null;
+    if (is_string($key)) {
+        return $key;
+    }
+    $file = __DIR__ . "/.app-secret.php";
+    if (is_file($file)) {
+        $loaded = require $file;
+        if (is_string($loaded) && preg_match('/^[0-9a-f]{64}$/', $loaded) === 1) {
+            return $key = $loaded;
+        }
+    }
+    $fresh = bin2hex(random_bytes(32));
+    $tmp = $file . "." . bin2hex(random_bytes(4)) . ".tmp";
+    $body = "<?php\n// Generated by api.php. Server-side secret for the sorter session cookie: never commit, upload, or serve it.\nreturn '" . $fresh . "';\n";
+    if (file_put_contents($tmp, $body, LOCK_EX) === false || !rename($tmp, $file)) {
+        @unlink($tmp);
+        fail("sorter error", 500);
+    }
+    @chmod($file, 0600);
+    return $key = $fresh;
+}
+
+function sign(string $purpose, string $payload): string
+{
+    return hash_hmac("sha256", $purpose . "|" . $payload, app_secret());
+}
+
+function cookie_path(): string
+{
+    $dir = str_replace("\\", "/", dirname((string) ($_SERVER["SCRIPT_NAME"] ?? "/sorter/api.php")));
+    return rtrim($dir, "/") . "/";
+}
+
+function request_is_https(): bool
+{
+    return (!empty($_SERVER["HTTPS"]) && $_SERVER["HTTPS"] !== "off")
+        || strtolower((string) ($_SERVER["HTTP_X_FORWARDED_PROTO"] ?? "")) === "https";
+}
+
+/** Sets the session cookie and returns the CSRF token bound to it. */
+function issue_session(): array
+{
+    $issued = time();
+    $payload = $issued . "." . bin2hex(random_bytes(16));
+    setcookie(SESSION_COOKIE, $payload . "." . sign("session", $payload), [
+        "expires" => $issued + SESSION_TTL,
+        "path" => cookie_path(),
+        "secure" => request_is_https(),
+        "httponly" => true,
+        "samesite" => "Strict",
+    ]);
+    return ["csrf" => sign("csrf", $payload), "expires" => $issued + SESSION_TTL];
+}
+
+/** The signed "issued.nonce" payload of a valid, unexpired session cookie, or null. */
+function session_payload(): ?string
+{
+    $raw = (string) ($_COOKIE[SESSION_COOKIE] ?? "");
+    if (preg_match('/^(\d{1,12})\.([0-9a-f]{32})\.([0-9a-f]{64})$/', $raw, $m) !== 1) {
+        return null;
+    }
+    $payload = $m[1] . "." . $m[2];
+    if (!hash_equals(sign("session", $payload), $m[3])) {
+        return null;
+    }
+    $age = time() - (int) $m[1];
+    return $age < -60 || $age > SESSION_TTL ? null : $payload;
+}
+
+function forbidden(): never
+{
+    respond(403, ["ok" => false, "error" => "forbidden"]);
 }
 
 function respond(int $status, array $body): never
@@ -57,7 +214,9 @@ function respond(int $status, array $body): never
     send_cors();
     http_response_code($status);
     header("Content-Type: application/json; charset=utf-8");
-    header("Cache-Control: no-store");
+    header("Cache-Control: no-store, max-age=0");
+    header("Pragma: no-cache");
+    header("X-Content-Type-Options: nosniff");
     echo json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
 }
@@ -634,15 +793,35 @@ function uploads_of(array $files): array
     return $out;
 }
 
-send_cors();
-if (($_SERVER["REQUEST_METHOD"] ?? "GET") === "OPTIONS") {
+$method = (string) ($_SERVER["REQUEST_METHOD"] ?? "GET");
+if ($method === "OPTIONS") {
+    if (!origin_is_allowed((string) ($_SERVER["HTTP_ORIGIN"] ?? ""))) {
+        forbidden();
+    }
+    send_cors();
+    header("Cache-Control: no-store, max-age=0");
     http_response_code(204);
     exit;
 }
 
 try {
+    if (!request_origin_allowed($method) || ($_SERVER["HTTP_X_TAXES_APP"] ?? "") !== "1") {
+        forbidden();
+    }
+    if ($method === "GET" && ($_GET["action"] ?? "") === "handshake") {
+        respond(200, ["ok" => true] + issue_session());
+    }
+    $session = session_payload();
+    if ($session === null) {
+        forbidden();
+    }
+    if ($method === "POST") {
+        $csrf = (string) ($_SERVER["HTTP_X_TAXES_CSRF"] ?? "");
+        if ($csrf === "" || !hash_equals(sign("csrf", $session), $csrf)) {
+            forbidden();
+        }
+    }
     ensure_dir($stage);
-    $method = $_SERVER["REQUEST_METHOD"] ?? "GET";
     if ($method === "GET") {
         if (isset($_GET["owed"])) {
             $result = read_owed_audit((string) $_GET["owed"], $stage);

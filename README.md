@@ -58,7 +58,19 @@ There is no deploy script in this repo.
 - [`sorter/.htaccess`](sorter/.htaccess), copied to `out/sorter/.htaccess` from [`public/sorter/.htaccess`](public/sorter/.htaccess)
 - [`sorter/stage/.htaccess`](sorter/stage/.htaccess), copied to `out/sorter/stage/.htaccess` from [`public/sorter/stage/.htaccess`](public/sorter/stage/.htaccess); it also turns PHP off in the stage folder
 
-`.htaccess` governs HTTP only, so `api.php` still reads and writes `sorter/stage/` on disk. `api.php` itself has no login: anyone who can reach its URL can list, read, upload, place, and remove staged documents through it.
+`.htaccess` governs HTTP only, so `api.php` still reads and writes `sorter/stage/` on disk.
+
+**api.php answers only the app.** Every action, reads included, goes through a gate at the top of [`sorter/api.php`](sorter/api.php), and anything that fails it gets `403 {"ok":false,"error":"forbidden"}`:
+
+1. The request's `Origin` (or, for a GET without one, the `Referer`'s origin) must be listed in [`sorter/app-config.php`](sorter/app-config.php): `https://wengindustries.com`, `https://www.wengindustries.com`, `http://localhost:8888`, `http://127.0.0.1:8888`, and the dev server on port 43123. CORS echoes only those origins, never `*`.
+2. The `X-Taxes-App: 1` header is required, which forces a CORS preflight; preflights from other origins get 403.
+3. `GET api.php?action=handshake` sets a signed session cookie (HMAC-SHA256 over issue time and a random nonce; HttpOnly, SameSite=Strict, Secure on https, path limited to the sorter folder, 12 hours). Every other action needs a valid, unexpired cookie.
+4. POSTs (upload, place, remove) also need the CSRF token the handshake returns, in `X-Taxes-Csrf`.
+5. Responses are `Cache-Control: no-store`.
+
+The signing key is `sorter/.app-secret.php`, created with `random_bytes` the first time `api.php` runs. It is gitignored, denied by `.htaccess` and the nginx rules, and should not be uploaded: let the server make its own. Deleting it signs everyone out. The tabs use [`src/lib/sorter-client.ts`](src/lib/sorter-client.ts), which does the handshake once, sends the headers on every call, and retries once after a fresh handshake when a session has expired. To serve the app from another address, add it to `app-config.php` (and `public/sorter/app-config.php`, which ships as `out/sorter/app-config.php`).
+
+What this does and does not do: it stops other websites (their pages cannot pass the preflight or read the responses), scanners, link-guessers, and casual `curl`. It is not a login. The app is a public static page with no secret the browser can hide, so someone who deliberately copies the app's headers and sends a forged `Origin` from their own script can still do the handshake and get through. Only a login or passphrase would truly restrict who can read the staged documents.
 
 **nginx ignores `.htaccess` entirely.** On an nginx host, paste the `location` blocks from [docs/NGINX.md](docs/NGINX.md) into the server block, above the existing `location ~ \.php$` block.
 

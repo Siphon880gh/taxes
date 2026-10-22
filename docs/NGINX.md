@@ -8,11 +8,13 @@ The rules match the `.htaccess` files:
 |---|---|
 | `out/`, `index.html` | served |
 | `sorter/api.php`, `out/sorter/api.php` | passed to PHP-FPM |
-| anything else under `sorter/` or `out/sorter/` (`stage/`, `sorted/`, uploads, `Summaries.md`, `Owed Audit.md`) | denied |
+| anything else under `sorter/` or `out/sorter/` (`stage/`, `sorted/`, uploads, `Summaries.md`, `Owed Audit.md`, `app-config.php`, `.app-secret.php`) | denied |
 | dotfiles and dot-folders (`.env*`, `.git/`, `.agents/`, `.htaccess`) | denied |
 | `context/`, `scripts/`, `src/`, `tests/`, `docs/`, `node_modules/` | denied |
 
 `api.php` still reads and writes `sorter/stage/` on disk. These rules govern HTTP only.
+
+`api.php` creates `sorter/.app-secret.php` (the key that signs its session cookie) on first use. Both the dotfile rule and the sorter rule below deny it; make sure at least one of them is in place before the first request. `api.php` also checks the app itself (Origin allowlist in `app-config.php`, the `X-Taxes-App` header, a session cookie, and a CSRF token on POSTs), so nginx only needs to pass `api.php` to PHP-FPM unchanged: keep the request headers (`Origin`, `Referer`, `Cookie`, `X-Taxes-*`) and do not add an `add_header Access-Control-Allow-Origin *` for this path. If PHP sits behind a TLS-terminating proxy, pass `X-Forwarded-Proto` or `fastcgi_param HTTPS on;` so the cookie gets its `Secure` flag.
 
 ## Paste into the `server { }` block
 

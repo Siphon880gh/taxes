@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
 import { WhyNotAutomatic } from "@/components/prompt-builder";
+import { sorterFetch } from "@/lib/sorter-client";
 import { sorterEndpoint, unreachableMessage } from "@/lib/sorter-endpoint";
 import { useDialogFocus } from "@/lib/use-dialog-focus";
 
@@ -78,7 +79,7 @@ export function DocumentSorter({
       return;
     }
     try {
-      const response = await fetch(endpoint.url);
+      const response = await sorterFetch(endpoint.url);
       const body = (await response.json()) as Status;
       if (!response.ok || !body.ok) {
         setError(body.error || "Could not list the staging directory.");
@@ -107,7 +108,7 @@ export function DocumentSorter({
     const payload = new FormData();
     payload.append("action", "upload");
     payload.append("file", file, file.name);
-    const response = await fetch(requireEndpoint(), { method: "POST", body: payload });
+    const response = await sorterFetch(requireEndpoint(), { method: "POST", body: payload });
     const body = (await response.json()) as { ok?: boolean; error?: string; archive?: boolean };
     if (!response.ok || !body.ok) throw new Error(body.error || `Could not upload ${file.name}`);
     return body;
@@ -158,7 +159,7 @@ export function DocumentSorter({
       payload.append("action", "place");
       payload.append("path", filePath);
       payload.append("category", category);
-      const response = await fetch(requireEndpoint(), { method: "POST", body: payload });
+      const response = await sorterFetch(requireEndpoint(), { method: "POST", body: payload });
       const body = (await response.json()) as { ok?: boolean; error?: string };
       if (!response.ok || !body.ok) throw new Error(body.error || "Could not place that file.");
       await refresh();
@@ -179,7 +180,7 @@ export function DocumentSorter({
       const payload = new FormData();
       payload.append("action", "remove");
       payload.append("category", category);
-      const response = await fetch(requireEndpoint(), { method: "POST", body: payload });
+      const response = await sorterFetch(requireEndpoint(), { method: "POST", body: payload });
       const body = (await response.json()) as { ok?: boolean; error?: string };
       if (!response.ok || !body.ok) throw new Error(body.error || "Could not remove that category.");
       await refresh();

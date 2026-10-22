@@ -48,6 +48,7 @@ next-env.d.ts
 /sorter/*
 !/sorter/api.php
 !/sorter/.htaccess
+!/sorter/app-config.php
 !/sorter/stage/
 /sorter/stage/*
 !/sorter/stage/.gitkeep
@@ -55,6 +56,7 @@ next-env.d.ts
 /public/sorter/*
 !/public/sorter/api.php
 !/public/sorter/.htaccess
+!/public/sorter/app-config.php
 !/public/sorter/stage/
 /public/sorter/stage/*
 !/public/sorter/stage/.gitkeep

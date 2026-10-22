@@ -5,6 +5,7 @@ import { useDialogFocus } from "@/lib/use-dialog-focus";
 import { createPortal } from "react-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { sorterFetch } from "@/lib/sorter-client";
 import { sorterEndpoint, unreachableMessage } from "@/lib/sorter-endpoint";
 
 type Status = {
@@ -41,7 +42,7 @@ export function OwedAuditPanel({ onDialog }: { onDialog?: (open: boolean) => voi
     }
     setError(null);
     try {
-      const response = await fetch(endpoint.url);
+      const response = await sorterFetch(endpoint.url);
       const body = (await response.json()) as Status;
       if (!response.ok || !body.ok) {
         setError(body.error || "Could not check for Owed Audit.md.");
@@ -74,7 +75,7 @@ export function OwedAuditPanel({ onDialog }: { onDialog?: (open: boolean) => voi
     setOpening(path);
     setError(null);
     try {
-      const response = await fetch(`${endpoint.url}?owed=${encodeURIComponent(path)}`);
+      const response = await sorterFetch(`${endpoint.url}?owed=${encodeURIComponent(path)}`);
       const body = (await response.json()) as Status & { markdown?: string; path?: string };
       if (!response.ok || !body.ok || typeof body.markdown !== "string") {
         setError(body.error || "Could not open Owed Audit.md.");
