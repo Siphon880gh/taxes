@@ -8,6 +8,8 @@ export type Citation = {
   /** Tax year, pricing year, or survey year the figure belongs to. */
   yearLabel: string;
   citation: string;
+  /** For a price, the last day the figure was read on the source page, as YYYY-MM-DD. */
+  checked?: string;
 };
 
 export type NodeKind = "question" | "check";

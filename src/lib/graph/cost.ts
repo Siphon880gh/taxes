@@ -11,7 +11,45 @@ export type PriceRow = {
   unverified: boolean;
   note: string;
   citation?: Citation;
+  /** Day the price was last read on its source, as YYYY-MM-DD, or null when it has no price page. */
+  checked: string | null;
+  checkedLabel: string | null;
+  /** Days since the check when that is past the staleness limit; otherwise null. */
+  staleDays: number | null;
 };
+
+/** A price whose last check is older than this many days is flagged as stale. */
+export const PRICE_STALE_AFTER_DAYS = 90;
+
+export type CostOptions = {
+  /** Defaults to the current date. */
+  today?: Date;
+  /** Defaults to PRICE_STALE_AFTER_DAYS. */
+  staleAfterDays?: number;
+};
+
+type DraftRow = Omit<PriceRow, "checked" | "checkedLabel" | "staleDays">;
+
+function checkedDate(iso: string): Date | null {
+  const match = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+}
+
+/** Add the last-checked date and a staleness count to a price row. */
+export function withFreshness(row: DraftRow, today: Date, staleAfterDays: number): PriceRow {
+  const iso = row.citation?.checked ?? null;
+  const date = iso ? checkedDate(iso) : null;
+  if (!iso || !date) return { ...row, checked: null, checkedLabel: null, staleDays: null };
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const days = Math.round((start.getTime() - date.getTime()) / 86_400_000);
+  return {
+    ...row,
+    checked: iso,
+    checkedLabel: date.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }),
+    staleDays: days > staleAfterDays ? days : null,
+  };
+}
 
 export type ProEstimate = {
   low: number;
@@ -30,6 +68,7 @@ export type CostReport = {
   framing: string | null;
   direction: "same" | "higher" | "lower-work" | "none";
   estimate: ProEstimate | null;
+  staleAfterDays: number;
 };
 
 /** CPI-U, all items, U.S. city average, not seasonally adjusted. See citations.bls_cpi_u. */
@@ -109,7 +148,9 @@ function nsaSum(parts: { label: string; amount: number }[]): number {
   return parts.reduce((sum, part) => sum + part.amount, 0);
 }
 
-export function costReport(session: Session): CostReport {
+export function costReport(session: Session, options: CostOptions = {}): CostReport {
+  const today = options.today ?? new Date();
+  const staleAfterDays = options.staleAfterDays ?? PRICE_STALE_AFTER_DAYS;
   const tags = complexityTags(session);
   const needsPremium =
     tags.includes("Schedule C") || tags.includes("Schedule E") || tags.includes("investments");
@@ -118,7 +159,7 @@ export function costReport(session: Session): CostReport {
     !needsPremium &&
     answerOf(session, "deduction_choice") !== "itemized" &&
     !tags.includes("Schedule C");
-  const rows: PriceRow[] = [];
+  const rows: DraftRow[] = [];
 
   if (session.revealed.length > 1) {
     rows.push({
@@ -140,7 +181,7 @@ export function costReport(session: Session): CostReport {
         amountLabel: "$139",
         yearLabel: citations.turbotax_premium.yearLabel,
         unverified: false,
-        note: "Published federal price for the online product whose forms include rental property, investments, and self-employment. The online state add-on was not a fixed published dollar on the page retrieved October 3, 2026, so no state fee is added.",
+        note: "Published federal price for the online product whose forms include rental property, investments, and self-employment. The state fee is the separate TurboTax Online state row and is not added here.",
         citation: citations.turbotax_premium,
       });
     } else if (answerOf(session, "deduction_choice") === "itemized") {
@@ -151,7 +192,7 @@ export function costReport(session: Session): CostReport {
         amountLabel: "$79",
         yearLabel: citations.turbotax_deluxe.yearLabel,
         unverified: false,
-        note: "Published federal price for the online deductions product. State fee not verified as a fixed dollar, so it is not added. If the return also needs Schedule E or a full Schedule C, Deluxe is the wrong tier — Premium is $139 federal.",
+        note: "Published federal price for the online deductions product. The state fee is the separate TurboTax Online state row and is not added here. If the return also needs Schedule E or a full Schedule C, Deluxe is the wrong tier — Premium is $139 federal.",
         citation: citations.turbotax_deluxe,
       });
     } else if (simple && answerOf(session, "w2") === "yes" && answerOf(session, "se") === "no") {
@@ -173,8 +214,21 @@ export function costReport(session: Session): CostReport {
         amountLabel: "Not selected yet",
         yearLabel: citations.turbotax_premium.yearLabel,
         unverified: true,
-        note: "The published tiers are Free Edition $0 for a simple Form 1040, Deluxe $79 federal for deductions, and Premium $139 federal for rental, investments, and self-employment. Finish the income questions before treating one of them as the estimate. State add-on for paid online products was not verified.",
+        note: "The published tiers are Free Edition $0 for a simple Form 1040, Deluxe $79 federal for deductions, and Premium $139 federal for rental, investments, and self-employment. Finish the income questions before treating one of them as the estimate. The state fee for paid online products is the separate TurboTax Online state row.",
         citation: citations.turbotax_premium,
+      });
+    }
+
+    if (!rows.some((row) => row.id === "tt-free")) {
+      rows.push({
+        id: "tt-state",
+        vendor: "TurboTax Online state",
+        label: "Per state return with a paid online federal product",
+        amountLabel: "$0–$64",
+        yearLabel: citations.turbotax_state.yearLabel,
+        unverified: false,
+        note: "Intuit's State additional page lists $0–$64 per state, and $0 only with a free federal return. It does not say which fee applies to which product or filing date, so this range is shown and no single state dollar is added to the TurboTax federal price.",
+        citation: citations.turbotax_state,
       });
     }
 
@@ -197,10 +251,10 @@ export function costReport(session: Session): CostReport {
       yearLabel: citations.hrblock_online.yearLabel,
       unverified: true,
       note: tags.includes("Schedule C")
-        ? "H&R Block's pages describe Self-Employed as including Premium features plus business income. That is the tier description that matches Schedule C. The dollar price was not in the HTML retrieved October 3, 2026, and the same page retrieved October 16, 2026 still prints no dollar amount, so none is shown."
+        ? "H&R Block's pages describe Self-Employed as including Premium features plus business income. That is the tier description that matches Schedule C. The dollar price was not in the HTML retrieved October 3, 2026, and the same page retrieved October 16, 2026 and October 21, 2026 still prints no dollar amount, so none is shown."
         : tags.includes("Schedule E") || tags.includes("investments")
-          ? "H&R Block's pages describe Premium as covering rental income and investments. That is the tier description that matches this path. The dollar price was not in the HTML retrieved October 3, 2026, and the same page retrieved October 16, 2026 still prints no dollar amount, so none is shown."
-          : "H&R Block's pages describe Free Online, Deluxe for itemized deductions, Premium for rental and investments, and Self-Employed for business income. Dollar prices were not in the HTML retrieved October 3, 2026, and the same page retrieved October 16, 2026 still prints no dollar amount, so none is shown.",
+          ? "H&R Block's pages describe Premium as covering rental income and investments. That is the tier description that matches this path. The dollar price was not in the HTML retrieved October 3, 2026, and the same page retrieved October 16, 2026 and October 21, 2026 still prints no dollar amount, so none is shown."
+          : "H&R Block's pages describe Free Online, Deluxe for itemized deductions, Premium for rental and investments, and Self-Employed for business income. Dollar prices were not in the HTML retrieved October 3, 2026, and the same page retrieved October 16, 2026 and October 21, 2026 still prints no dollar amount, so none is shown.",
       citation: citations.hrblock_online,
     });
 
@@ -276,5 +330,12 @@ export function costReport(session: Session): CostReport {
     });
   }
 
-  return { rows, quoteNote, framing, direction, estimate: proEstimate(session) };
+  return {
+    rows: rows.map((row) => withFreshness(row, today, staleAfterDays)),
+    quoteNote,
+    framing,
+    direction,
+    estimate: proEstimate(session),
+    staleAfterDays,
+  };
 }

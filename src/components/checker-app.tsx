@@ -969,7 +969,13 @@ export function CheckerApp() {
                           <p className="mt-1 text-xs uppercase tracking-wide text-stone-500">
                             {row.yearLabel}
                             {row.unverified ? " · Price unverified" : ""}
+                            {row.checkedLabel ? ` · Last checked ${row.checkedLabel}` : ""}
                           </p>
+                          {row.staleDays != null ? (
+                            <p className="price-stale" role="status">
+                              Last checked {row.staleDays} days ago, past the {cost.staleAfterDays}-day limit. Recheck the source before relying on this price.
+                            </p>
+                          ) : null}
                           <p className="mt-1 text-sm text-stone-700">{row.note}</p>
                           {row.citation ? (
                             <a className="text-sm text-rust underline-offset-2 hover:underline" href={row.citation.url} target="_blank" rel="noreferrer">

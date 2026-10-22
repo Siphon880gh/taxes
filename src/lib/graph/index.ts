@@ -1,6 +1,6 @@
 export { caseStudies, applyCase } from "./cases";
 export { buildChecklist, checklistTitle } from "./checklist";
-export { costReport, proEstimate } from "./cost";
+export { costReport, PRICE_STALE_AFTER_DAYS, proEstimate } from "./cost";
 export { deductionNarrative } from "./deduction";
 export { applyNodeReply, nodePrompt } from "./prompt";
 export { chartView, edgesFor, mermaidSource, nodeLabel, NODE_GROUP_THRESHOLD } from "./mermaid";

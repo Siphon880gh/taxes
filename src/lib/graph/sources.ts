@@ -127,42 +127,56 @@ export const citations = {
     url: "https://turbotax.intuit.com/personal-taxes/online/premium/",
     yearLabel: "Tax year 2025 (product year 2025–2026)",
     citation:
-      "Intuit product page retrieved October 3, 2026. TurboTax Do It Yourself Premium is listed at $139 federal and is described as covering rental property income and deductions and self-employment. Schedule E and Schedule C appear in that product's forms list. A separate fixed dollar for the online state return was not published on the page.",
+      "Intuit product page retrieved October 3, 2026. TurboTax Do It Yourself Premium is listed at $139 federal and is described as covering rental property income and deductions and self-employment. Schedule E and Schedule C appear in that product's forms list. A separate fixed dollar for the online state return was not published on the page. Rechecked October 21, 2026: still $139 federal.",
+    checked: "2026-10-21",
   } satisfies Citation,
   turbotax_deluxe: {
     title: "TurboTax Do It Yourself Deluxe online, 2025–2026",
     url: "https://turbotax.intuit.com/personal-taxes/online/deluxe.jsp",
     yearLabel: "Tax year 2025 (product year 2025–2026)",
     citation:
-      "Intuit product page retrieved October 3, 2026. Deluxe is listed at $79 federal and is marketed for deductions, including mortgage interest and property taxes. The same page's forms notes say Schedule E and a full Schedule C are not the Deluxe scope; adding Schedule D, E, or F can require an upgrade.",
+      "Intuit product page retrieved October 3, 2026. Deluxe is listed at $79 federal and is marketed for deductions, including mortgage interest and property taxes. The same page's forms notes say Schedule E and a full Schedule C are not the Deluxe scope; adding Schedule D, E, or F can require an upgrade. Rechecked October 21, 2026: still $79 federal.",
+    checked: "2026-10-21",
   } satisfies Citation,
   turbotax_free: {
     title: "TurboTax Free Edition, 2025–2026",
     url: "https://turbotax.intuit.com/personal-taxes/online/free-edition.jsp",
     yearLabel: "Tax year 2025 (product year 2025–2026)",
     citation:
-      "Intuit product page retrieved October 3, 2026. Free Edition is $0 federal, $0 state, and $0 to file for a simple Form 1040 only (no schedules except as needed for the earned income credit, child tax credit, student loan interest, and Schedule 1-A). Intuit says roughly 37% of taxpayers qualify and the offer can change.",
+      "Intuit product page retrieved October 3, 2026. Free Edition is $0 federal, $0 state, and $0 to file for a simple Form 1040 only (no schedules except as needed for the earned income credit, child tax credit, student loan interest, and Schedule 1-A). Intuit says roughly 37% of taxpayers qualify and the offer can change. Rechecked October 21, 2026: the Intuit pricing notes still read $0 Federal + $0 State + $0 To File.",
+    checked: "2026-10-21",
+  } satisfies Citation,
+  turbotax_state: {
+    title: "TurboTax Online State additional, 2025–2026",
+    url: "https://turbotax.intuit.com/headless/static/modals/tto-all-state-additional-en/",
+    yearLabel: "Tax year 2025 (Intuit State additional page retrieved October 21, 2026)",
+    citation:
+      "Intuit's TurboTax Online State additional page, opened from the “State additional” link on the Deluxe and Premium pages, retrieved October 21, 2026. Price per state is listed as $0–$64, and $0 for state only if you qualify for a free federal return. The page does not say which fee applies to which product or filing date, so no single state dollar is added.",
+    checked: "2026-10-21",
   } satisfies Citation,
   turbotax_desktop: {
     title: "TurboTax Desktop pricing, 2025–2026",
     url: "https://turbotax.intuit.com/desktop-pricing/",
     yearLabel: "Tax year 2025 (product year 2025–2026)",
     citation:
-      "Intuit desktop pricing page retrieved October 3, 2026. Listed federal prices: Deluxe $84, Premier $119, Home & Business $134, Business $194. Personal state e-file is listed at $25, except New York and Washington. These desktop prices are not added to the online Premium estimate. Which desktop SKU includes both Schedule C and Schedule E was not confirmed on that page.",
+      "Intuit desktop pricing page retrieved October 3, 2026. Listed federal prices: Deluxe $84, Premier $119, Home & Business $134, Business $194. Personal state e-file is listed at $25, except New York and Washington. These desktop prices are not added to the online Premium estimate. Which desktop SKU includes both Schedule C and Schedule E was not confirmed on that page. Rechecked October 21, 2026: the same prices and the $25 state e-file fee are listed.",
+    checked: "2026-10-21",
   } satisfies Citation,
   hrblock_online: {
     title: "H&R Block online tax filing product descriptions",
     url: "https://www.hrblock.com/online-tax-filing/",
-    yearLabel: "Pages retrieved October 3 and October 16, 2026",
+    yearLabel: "Pages retrieved October 3, October 16, and October 21, 2026",
     citation:
-      "H&R Block online filing and tax-center pages retrieved October 3, 2026, and the online filing page again on October 16, 2026, name Free Online, Deluxe (itemized deductions), Premium (rental income, investments, cryptocurrency), and Self-Employed (Premium features plus business expenses). The October 16 page says “+ per state filed” and still prints no dollar amount for any online tier, so no H&R Block price is used. Downloadable-software pages retrieved October 3, 2026 list an additional state program at $39.95 for some desktop editions; that figure is not used as the online price.",
+      "H&R Block online filing and tax-center pages retrieved October 3, 2026, and the online filing page again on October 16, 2026, name Free Online, Deluxe (itemized deductions), Premium (rental income, investments, cryptocurrency), and Self-Employed (Premium features plus business expenses). The October 16 page says “+ per state filed” and still prints no dollar amount for any online tier, so no H&R Block price is used. Downloadable-software pages retrieved October 3, 2026 list an additional state program at $39.95 for some desktop editions; that figure is not used as the online price. Rechecked October 21, 2026: the online filing page still prints “+ per state filed” with no dollar amount in the page itself. Third-party reviews quote online prices, but they are not H&R Block's own page, so they are not used.",
+    checked: "2026-10-21",
   } satisfies Citation,
   freetaxusa_pricing: {
     title: "FreeTaxUSA upfront pricing",
     url: "https://www.freetaxusa.com/pricing/",
     yearLabel: "Tax year 2025 (pricing page retrieved October 16, 2026)",
     citation:
-      "FreeTaxUSA pricing page retrieved October 16, 2026, 2025 returns table. Federal tax returns are free for every situation listed, including investments, rental property, and self-employment. A state tax return is $15.99. An amended tax return is $16.98. Optional products on the same page: Deluxe Support $7.99, Pro Support $64.99, Audit Defense $19.99. Basic support is free. Prior-year state returns are listed at $17.99 and are not the current-year price.",
+      "FreeTaxUSA pricing page retrieved October 16, 2026, 2025 returns table. Federal tax returns are free for every situation listed, including investments, rental property, and self-employment. A state tax return is $15.99. An amended tax return is $16.98. Optional products on the same page: Deluxe Support $7.99, Pro Support $64.99, Audit Defense $19.99. Basic support is free. Prior-year state returns are listed at $17.99 and are not the current-year price. Rechecked October 21, 2026: federal is still $0 and a state return is still $15.99.",
+    checked: "2026-10-21",
   } satisfies Citation,
   nsa_2023: {
     title: "National Society of Accountants, 2023 Income and Fees report",

@@ -19,7 +19,7 @@ import {
 } from "../src/lib/graph/session";
 import { applyCase, caseStudies } from "../src/lib/graph/cases";
 import { buildChecklist } from "../src/lib/graph/checklist";
-import { CPI_U, costReport, proEstimate } from "../src/lib/graph/cost";
+import { CPI_U, costReport, PRICE_STALE_AFTER_DAYS, proEstimate } from "../src/lib/graph/cost";
 import { chartView, mermaidSource } from "../src/lib/graph/mermaid";
 import { applyNodeReply, nodePrompt } from "../src/lib/graph/prompt";
 import { numberEntryError } from "../src/lib/graph/allocate";
@@ -657,4 +657,44 @@ test("the tax pro estimate is a CPI-adjusted NSA range for the forms reached and
   assert.ok(crypto && crypto.low < crypto.high);
   // Schedule D grew more slowly than CPI-U from 2020 to 2023, so CPI-U sets its high-end factor.
   assert.match(crypto.note, /Schedule D \/ Form 8949 \$126/);
+});
+
+test("price rows show when they were last checked and flag a check older than the limit", () => {
+  const weng = applyCase("weng-2025");
+  const fresh = costReport(weng, { today: new Date(2026, 9, 21) });
+  assert.equal(fresh.staleAfterDays, PRICE_STALE_AFTER_DAYS);
+  assert.equal(PRICE_STALE_AFTER_DAYS, 90);
+  const premium = fresh.rows.find((row) => row.id === "tt-premium");
+  assert.equal(premium?.checked, "2026-10-21");
+  assert.equal(premium?.checkedLabel, "October 21, 2026");
+  assert.equal(premium?.staleDays, null);
+  assert.equal(fresh.rows.find((row) => row.id === "quote")?.checked, null);
+  assert.equal(fresh.rows.find((row) => row.id === "nsa")?.checked, null);
+
+  const state = fresh.rows.find((row) => row.id === "tt-state");
+  assert.equal(state?.amountLabel, "$0–$64");
+  assert.equal(state?.unverified, false);
+  assert.match(state?.citation?.url ?? "", /tto-all-state-additional/);
+  assert.match(premium?.note ?? "", /separate TurboTax Online state row/);
+
+  const block = fresh.rows.find((row) => row.id === "hrb");
+  assert.equal(block?.unverified, true);
+  assert.match(block?.note ?? "", /October 21, 2026/);
+
+  const day90 = costReport(weng, { today: new Date(2027, 0, 19) });
+  assert.equal(day90.rows.find((row) => row.id === "tt-premium")?.staleDays, null);
+  const day91 = costReport(weng, { today: new Date(2027, 0, 20) });
+  assert.equal(day91.rows.find((row) => row.id === "tt-premium")?.staleDays, 91);
+  assert.equal(day91.rows.find((row) => row.id === "freetaxusa")?.staleDays, 91);
+  assert.equal(day91.rows.find((row) => row.id === "quote")?.staleDays, null);
+
+  const tight = costReport(weng, { today: new Date(2026, 9, 31), staleAfterDays: 7 });
+  assert.equal(tight.staleAfterDays, 7);
+  assert.equal(tight.rows.find((row) => row.id === "tt-premium")?.staleDays, 10);
+
+  let simple = applyAnswer(blankSession(), "filing_status", "single");
+  simple = applyAnswer(simple, "w2", "yes");
+  simple = applyAnswer(simple, "se", "no");
+  const simpleRows = costReport(simple).rows.map((row) => row.id);
+  if (simpleRows.includes("tt-free")) assert.equal(simpleRows.includes("tt-state"), false);
 });
