@@ -7,7 +7,7 @@
     "build": "next build --turbopack && node scripts/set-export-basename.mjs",
     "start": "next start -p 43123 -H 0.0.0.0",
     "lint": "eslint",
-    "test": "tsx --test tests/**/*.ts",
+    "test": "tsx --test tests/*.ts tests/*.mjs",
     "generate-graph": "tsx scripts/generate-graph-doc.ts",
     "update-cpi": "tsx scripts/update-cpi.ts"
   },

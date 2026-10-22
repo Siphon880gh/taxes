@@ -2,14 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
 import { WhyNotAutomatic } from "@/components/prompt-builder";
-
-const ENDPOINT = process.env.SERVER_URL_UPLOAD_API_PHP ?? "";
+import { sorterEndpoint, unreachableMessage } from "@/lib/sorter-endpoint";
 
 function requireEndpoint() {
-  if (!ENDPOINT) {
-    throw new Error("Set SERVER_URL_UPLOAD_API_PHP in .env. Restart the dev server after changing it.");
-  }
-  return ENDPOINT;
+  const endpoint = sorterEndpoint();
+  if (!endpoint.ok) throw new Error(endpoint.message);
+  return endpoint.url;
 }
 
 type StagedFile = { path: string; bytes: number; category?: string };
@@ -71,10 +69,21 @@ export function DocumentSorter({
   const [picked, setPicked] = useState("");
   const [newCategory, setNewCategory] = useState("");
 
+  const [localOnly, setLocalOnly] = useState<string | null>(null);
+
   const refresh = useCallback(async () => {
     setError(null);
+    const endpoint = sorterEndpoint();
+    if (!endpoint.ok && endpoint.reason === "remote") {
+      setLocalOnly(endpoint.message);
+      return;
+    }
+    if (!endpoint.ok) {
+      setError(endpoint.message);
+      return;
+    }
     try {
-      const response = await fetch(requireEndpoint());
+      const response = await fetch(endpoint.url);
       const body = (await response.json()) as Status;
       if (!response.ok || !body.ok) {
         setError(body.error || "Could not list the staging directory.");
@@ -91,7 +100,7 @@ export function DocumentSorter({
       setSuggestSummaries(suggest);
       onSuggestSummariesRef.current?.(suggest);
     } catch (err) {
-      setError(err instanceof Error ? err.message : `Could not reach ${ENDPOINT}. The PHP server must be running.`);
+      setError(unreachableMessage(err, endpoint.url));
     }
   }, []);
 
@@ -215,6 +224,11 @@ export function DocumentSorter({
       <h2 id="check-heading" className="font-display text-2xl text-stone-900">
         Document Sorter
       </h2>
+      {localOnly ? (
+        <p className="local-only-note" role="status">
+          {localOnly}
+        </p>
+      ) : null}
       <div className="sorter-note" role="note">
         <p>Open this codebase in Cursor and invoke the skill tax-document-classification.</p>
         {suggestSummaries ? <p>{SUMMARIES_SKILL_NOTE}</p> : null}
@@ -222,6 +236,8 @@ export function DocumentSorter({
         <p>The folder a document is in is its category.</p>
         <WhyNotAutomatic />
       </div>
+      {localOnly ? null : (
+      <>
       <div
         className={over ? "sorter-drop is-over" : "sorter-drop"}
         onDragEnter={(event) => {
@@ -316,6 +332,8 @@ export function DocumentSorter({
           </ul>
         </section>
       ) : null}
+      </>
+      )}
       {editing ? (
         <div className="modal-backdrop" role="presentation" onClick={closeCategory}>
           <div

@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
+const hasPhp = spawnSync("php", ["-v"], { stdio: "ignore" }).status === 0;
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "sorter-php-"));
 const sorterDir = path.join(tmp, "sorter");
 fs.mkdirSync(sorterDir);
@@ -38,7 +39,7 @@ with zipfile.ZipFile(sys.argv[2], "w") as zf:
 }
 
 const port = await freePort();
-const php = spawn("php", ["-S", `127.0.0.1:${port}`, "-t", tmp], { stdio: "ignore" });
+const php = hasPhp ? spawn("php", ["-S", `127.0.0.1:${port}`, "-t", tmp], { stdio: "ignore" }) : null;
 const base = `http://127.0.0.1:${port}/sorter/api.php`;
 
 async function ready() {
@@ -53,7 +54,7 @@ async function ready() {
   throw new Error("php server did not start");
 }
 
-test("php api stores a file, keeps archive folders, rejects traversal, and places a category", async () => {
+test("php api stores a file, keeps archive folders, rejects traversal, and places a category", { skip: hasPhp ? false : "php is not installed" }, async () => {
   await ready();
   const empty = await (await fetch(base)).json();
   assert.equal(empty.summaries, false);
@@ -207,6 +208,6 @@ function form(action, fields) {
 }
 
 test.after(() => {
-  php.kill("SIGTERM");
+  php?.kill("SIGTERM");
   fs.rmSync(tmp, { recursive: true, force: true });
 });

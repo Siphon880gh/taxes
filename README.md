@@ -53,7 +53,7 @@ There is no deploy script in this repo. If you sync with an FTP or SFTP client, 
 
 Before you walk the chart, you can drop W-2s, 1099s, receipts, bills, and scans into the **Document Sorter** tab, or straight into `sorter/stage/`.
 
-The tab uploads and places files through PHP. Copy [`.env.sample`](.env.sample) to `.env` and set `SERVER_URL_UPLOAD_API_PHP` to the URL where PHP serves [`sorter/api.php`](sorter/api.php). Restart `npm run dev` after changing `.env`. Putting files directly in `sorter/stage/` does not need that endpoint.
+The tab uploads and places files through PHP. Copy [`.env.sample`](.env.sample) to `.env` and set `SERVER_URL_UPLOAD_API_PHP` to the URL where PHP serves [`sorter/api.php`](sorter/api.php). Restart `npm run dev` after changing `.env`. That setting is used only by `npm run dev`: a built `out/` opened on this computer finds `../sorter/api.php` next to itself, and the build never carries a localhost URL. On any other host the Document Sorter and Return & Owe Audit tabs show "Available when running locally" and make no requests. Putting files directly in `sorter/stage/` does not need that endpoint.
 
 An AI skill, `tax-document-classification`, then sorts them into folders such as Income - Self-employment, Income - Rental, Deductions, and _Last year's return, and it renames generic filenames so each pile is easier to think about and to match against the schedules the chart names.
 

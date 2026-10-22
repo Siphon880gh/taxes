@@ -4,8 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-
-const ENDPOINT = process.env.SERVER_URL_UPLOAD_API_PHP ?? "";
+import { sorterEndpoint, unreachableMessage } from "@/lib/sorter-endpoint";
 
 type Status = {
   ok?: boolean;
@@ -24,6 +23,7 @@ export function OwedAuditPanel({ onDialog }: { onDialog?: (open: boolean) => voi
   const [error, setError] = useState<string | null>(null);
   const [opening, setOpening] = useState<string | null>(null);
   const [reading, setReading] = useState<{ path: string; markdown: string } | null>(null);
+  const [localOnly, setLocalOnly] = useState<string | null>(null);
 
   const close = useCallback(() => {
     setReading(null);
@@ -31,22 +31,24 @@ export function OwedAuditPanel({ onDialog }: { onDialog?: (open: boolean) => voi
   }, [onDialog]);
 
   const refresh = useCallback(async () => {
-    if (!ENDPOINT) {
-      setError("Set SERVER_URL_UPLOAD_API_PHP in .env. Restart the dev server after changing it.");
+    const endpoint = sorterEndpoint();
+    if (!endpoint.ok) {
+      if (endpoint.reason === "remote") setLocalOnly(endpoint.message);
+      else setError(endpoint.message);
       setChecked(true);
       return;
     }
     setError(null);
     try {
-      const response = await fetch(ENDPOINT);
+      const response = await fetch(endpoint.url);
       const body = (await response.json()) as Status;
       if (!response.ok || !body.ok) {
         setError(body.error || "Could not check for Owed Audit.md.");
         return;
       }
       setPaths(body.owedAudits ?? []);
-    } catch {
-      setError(`Could not reach ${ENDPOINT}. The PHP server must be running.`);
+    } catch (err) {
+      setError(unreachableMessage(err, endpoint.url));
     } finally {
       setChecked(true);
     }
@@ -66,11 +68,12 @@ export function OwedAuditPanel({ onDialog }: { onDialog?: (open: boolean) => voi
   }, [reading, close]);
 
   async function openAudit(path: string) {
-    if (!ENDPOINT) return;
+    const endpoint = sorterEndpoint();
+    if (!endpoint.ok) return;
     setOpening(path);
     setError(null);
     try {
-      const response = await fetch(`${ENDPOINT}?owed=${encodeURIComponent(path)}`);
+      const response = await fetch(`${endpoint.url}?owed=${encodeURIComponent(path)}`);
       const body = (await response.json()) as Status & { markdown?: string; path?: string };
       if (!response.ok || !body.ok || typeof body.markdown !== "string") {
         setError(body.error || "Could not open Owed Audit.md.");
@@ -78,8 +81,8 @@ export function OwedAuditPanel({ onDialog }: { onDialog?: (open: boolean) => voi
       }
       setReading({ path: body.path || path, markdown: body.markdown });
       onDialog?.(true);
-    } catch {
-      setError(`Could not reach ${ENDPOINT}. The PHP server must be running.`);
+    } catch (err) {
+      setError(unreachableMessage(err, endpoint.url));
     } finally {
       setOpening(null);
     }
@@ -96,6 +99,11 @@ export function OwedAuditPanel({ onDialog }: { onDialog?: (open: boolean) => voi
       <p className="mt-2 text-sm text-stone-800">
         The skill writes Owed Audit.md in the folder that holds those documents. Federal and state stay separate. Next year&apos;s estimated-tax vouchers are not this year&apos;s balance.
       </p>
+      {localOnly ? (
+        <p className="local-only-note mt-3" role="status">
+          {localOnly}
+        </p>
+      ) : null}
       {checked && paths.length > 0 ? (
         <ul className="mt-4 flex flex-col gap-2">
           {paths.map((path) => (
@@ -113,7 +121,7 @@ export function OwedAuditPanel({ onDialog }: { onDialog?: (open: boolean) => voi
           ))}
         </ul>
       ) : null}
-      {checked && paths.length === 0 && !error ? (
+      {checked && paths.length === 0 && !error && !localOnly ? (
         <p className="mt-4 text-sm text-stone-600">No Owed Audit.md is in sorter/stage yet.</p>
       ) : null}
       {error ? (
@@ -121,9 +129,11 @@ export function OwedAuditPanel({ onDialog }: { onDialog?: (open: boolean) => voi
           {error}
         </p>
       ) : null}
-      <button type="button" className="btn-secondary mt-3" onClick={() => void refresh()}>
-        Refresh
-      </button>
+      {localOnly ? null : (
+        <button type="button" className="btn-secondary mt-3" onClick={() => void refresh()}>
+          Refresh
+        </button>
+      )}
       {reading && typeof document !== "undefined"
         ? createPortal(
             <div className="modal-backdrop owed-audit-backdrop" role="presentation" onClick={close}>
