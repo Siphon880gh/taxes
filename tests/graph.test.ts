@@ -25,6 +25,7 @@ import { applyNodeReply, nodePrompt } from "../src/lib/graph/prompt";
 import { numberEntryError } from "../src/lib/graph/allocate";
 import { getNode } from "../src/lib/graph/nodes";
 import { tips } from "../src/lib/graph/tips";
+import { QUOTE_STORAGE_KEY, readStoredQuote, writeStoredQuote } from "../src/lib/quote-storage";
 import {
   federalBasicStandard,
   stateStandard,
@@ -697,4 +698,44 @@ test("price rows show when they were last checked and flag a check older than th
   simple = applyAnswer(simple, "se", "no");
   const simpleRows = costReport(simple).rows.map((row) => row.id);
   if (simpleRows.includes("tt-free")) assert.equal(simpleRows.includes("tt-state"), false);
+});
+
+test("the quote is saved to and read from browser storage, and storage problems are harmless", () => {
+  const data = new Map<string, string>();
+  const store = {
+    getItem: (key: string) => data.get(key) ?? null,
+    setItem: (key: string, value: string) => void data.set(key, value),
+    removeItem: (key: string) => void data.delete(key),
+  };
+  assert.equal(readStoredQuote(store), null);
+  writeStoredQuote({ amount: 1250, preparer: "Main Street CPA" }, store);
+  assert.deepEqual(readStoredQuote(store), { amount: 1250, preparer: "Main Street CPA" });
+  writeStoredQuote({ amount: null, preparer: "Main Street CPA" }, store);
+  assert.deepEqual(readStoredQuote(store), { amount: null, preparer: "Main Street CPA" });
+  writeStoredQuote({ amount: null, preparer: "  " }, store);
+  assert.equal(data.has(QUOTE_STORAGE_KEY), false);
+  assert.equal(readStoredQuote(store), null);
+
+  data.set(QUOTE_STORAGE_KEY, "{not json");
+  assert.equal(readStoredQuote(store), null);
+  data.set(QUOTE_STORAGE_KEY, JSON.stringify({ amount: -4, preparer: 7 }));
+  assert.equal(readStoredQuote(store), null);
+
+  assert.equal(readStoredQuote(null), null);
+  assert.doesNotThrow(() => writeStoredQuote({ amount: 5, preparer: null }, null));
+  const broken = {
+    getItem: () => {
+      throw new Error("blocked");
+    },
+    setItem: () => {
+      throw new Error("full");
+    },
+    removeItem: () => {
+      throw new Error("blocked");
+    },
+  };
+  assert.equal(readStoredQuote(broken), null);
+  assert.doesNotThrow(() => writeStoredQuote({ amount: 5, preparer: null }, broken));
+  // In Node there is no window, so the default store is absent rather than an error.
+  assert.equal(readStoredQuote(), null);
 });

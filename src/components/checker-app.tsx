@@ -8,6 +8,7 @@ import { PromptBuilder } from "@/components/prompt-builder";
 import { pickShortcutLetter, ShortcutLayer, ShortcutText, ShortcutTip, useShortcut } from "@/components/shortcut-layer";
 import { decodeNumbers, encodeNumbers, numberEntryError, suggestionText } from "@/lib/graph/allocate";
 import { DISCLAIMER } from "@/lib/disclaimer";
+import { readStoredQuote, writeStoredQuote } from "@/lib/quote-storage";
 import {
   applyAnswer,
   applyCase,
@@ -430,8 +431,25 @@ export function CheckerApp() {
       }));
   }, [view]);
 
+  /** Put the quote saved in this browser back on a session. Examples and imported files keep their own quote. */
+  function withStoredQuote(next: Session): Session {
+    const stored = readStoredQuote();
+    return stored ? setQuote(next, stored.amount, stored.preparer) : next;
+  }
+
+  /** Change the quote on screen and in this browser's storage. */
+  function changeQuote(amount: number | null, preparer: string | null) {
+    writeStoredQuote({ amount, preparer: preparer?.trim() ? preparer : null });
+    setSession((current) => setQuote(current, amount, preparer));
+  }
+
+  useEffect(() => {
+    const stored = readStoredQuote();
+    if (stored) setSession((current) => (current.caseStudyId ? current : setQuote(current, stored.amount, stored.preparer)));
+  }, []);
+
   function loadBlank() {
-    const next = blankSession();
+    const next = withStoredQuote(blankSession());
     setSession(next);
     setSelectedId("filing_status");
     setDockTab(firstDockTab(getNode("filing_status")));
@@ -485,7 +503,10 @@ export function CheckerApp() {
 
   async function importChart(file: File) {
     try {
-      adoptSession(importSession(await file.text()));
+      const imported = importSession(await file.text());
+      // The imported file wins over the quote saved in this browser, including when it has no quote.
+      writeStoredQuote({ amount: imported.quote, preparer: imported.quotePreparer });
+      adoptSession(imported);
     } catch (err) {
       setImportError(err instanceof Error ? err.message : "That file is not a chart session.");
     }
@@ -880,8 +901,7 @@ export function CheckerApp() {
                         value={session.quotePreparer ?? ""}
                         placeholder="Who quoted this return"
                         onChange={(event) => {
-                          const name = event.target.value;
-                          setSession((current) => setQuote(current, current.quote, name));
+                          changeQuote(session.quote, event.target.value);
                         }}
                       />
                     </label>
@@ -897,7 +917,7 @@ export function CheckerApp() {
                         onChange={(event) => {
                           const text = event.target.value;
                           setQuoteDraft(text);
-                          setSession((current) => setQuote(current, parseQuoteAmount(text), current.quotePreparer));
+                          changeQuote(parseQuoteAmount(text), session.quotePreparer);
                         }}
                         onBlur={() => setQuoteDraft(null)}
                       />
@@ -907,7 +927,7 @@ export function CheckerApp() {
                         type="button"
                         onClick={() => {
                           setQuoteDraft(null);
-                          setSession((current) => setQuote(current, null, null));
+                          changeQuote(null, null);
                         }}
                       >
                         Clear quote
@@ -916,7 +936,7 @@ export function CheckerApp() {
                     {quoteDraft != null && quoteDraft.trim() !== "" && parseQuoteAmount(quoteDraft) == null ? (
                       <p className="text-rust" role="alert">Enter a dollar amount such as 975 or $1,250.</p>
                     ) : null}
-                    <p>Saved with the chart session. Export the session to keep it.</p>
+                    <p>Saved in this browser and with the chart session. Importing a session file replaces the saved quote.</p>
                   </fieldset>
                   <p className="mt-2 text-sm text-stone-800" role="note">
                     This is only for the forms and schedules reached so far, not a price for a finished return.
