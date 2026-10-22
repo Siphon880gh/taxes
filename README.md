@@ -70,8 +70,6 @@ There is no deploy script in this repo.
 
 The signing key is `sorter/.app-secret.php`, created with `random_bytes` the first time `api.php` runs. It is gitignored, denied by `.htaccess` and the nginx rules, and should not be uploaded: let the server make its own. Deleting it signs everyone out. The tabs use [`src/lib/sorter-client.ts`](src/lib/sorter-client.ts), which does the handshake once, sends the headers on every call, and retries once after a fresh handshake when a session has expired. To serve the app from another address, add it to `app-config.php` (and `public/sorter/app-config.php`, which ships as `out/sorter/app-config.php`).
 
-What this does and does not do: it stops other websites (their pages cannot pass the preflight or read the responses), scanners, link-guessers, and casual `curl`. It is not a login. The app is a public static page with no secret the browser can hide, so someone who deliberately copies the app's headers and sends a forged `Origin` from their own script can still do the handshake and get through. Only a login or passphrase would truly restrict who can read the staged documents.
-
 **nginx ignores `.htaccess` entirely.** On an nginx host, paste the `location` blocks from [docs/NGINX.md](docs/NGINX.md) into the server block, above the existing `location ~ \.php$` block.
 
 ## Sort documents with the AI skills

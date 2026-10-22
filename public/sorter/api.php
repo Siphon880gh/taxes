@@ -9,8 +9,6 @@
 //      action needs a valid, unexpired cookie.
 //   4. POSTs also need the CSRF token the handshake returned, in X-Taxes-Csrf.
 // Anything else gets 403 {"ok":false,"error":"forbidden"}. Responses are never cached.
-// This keeps out other websites, scanners, and casual requests. It is not a login: someone who copies the
-// app's headers and sends a forged Origin from their own script can still pass.
 declare(strict_types=1);
 
 const MAX_UPLOAD_BYTES = 64 * 1024 * 1024;
