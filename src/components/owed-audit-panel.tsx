@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useDialogFocus } from "@/lib/use-dialog-focus";
 import { createPortal } from "react-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -24,6 +25,8 @@ export function OwedAuditPanel({ onDialog }: { onDialog?: (open: boolean) => voi
   const [opening, setOpening] = useState<string | null>(null);
   const [reading, setReading] = useState<{ path: string; markdown: string } | null>(null);
   const [localOnly, setLocalOnly] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(reading != null, dialogRef);
 
   const close = useCallback(() => {
     setReading(null);
@@ -111,8 +114,12 @@ export function OwedAuditPanel({ onDialog }: { onDialog?: (open: boolean) => voi
               <button
                 type="button"
                 className="btn-secondary"
-                disabled={opening === path}
-                onClick={() => void openAudit(path)}
+                aria-disabled={opening === path}
+                aria-busy={opening === path}
+                onClick={() => {
+                  // aria-disabled, not disabled: a disabled button drops focus, and the dialog returns focus here on close.
+                  if (opening !== path) void openAudit(path);
+                }}
               >
                 View Owed Audit.md
               </button>
@@ -138,6 +145,8 @@ export function OwedAuditPanel({ onDialog }: { onDialog?: (open: boolean) => voi
         ? createPortal(
             <div className="modal-backdrop owed-audit-backdrop" role="presentation" onClick={close}>
               <div
+                ref={dialogRef}
+                tabIndex={-1}
                 className="modal-card owed-audit-modal"
                 role="dialog"
                 aria-modal="true"

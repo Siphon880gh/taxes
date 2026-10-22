@@ -43,6 +43,7 @@ import {
 } from "@/lib/graph";
 import { answerOf } from "@/lib/graph/session";
 import { parseYear } from "@/lib/graph/thresholds";
+import { onTabListKeyDown } from "@/lib/tablist-keys";
 import type { GraphNode, Session, TipBody } from "@/lib/graph/types";
 
 
@@ -595,6 +596,13 @@ export function CheckerApp() {
   const showTextAnswer = Boolean(answerFormOpen && selected?.textInput);
   const showNumberAnswer = Boolean(answerFormOpen && selected?.numberInputs);
   const showAnswerTab = Boolean(selected && asksForAnswer(selected));
+  // The dock tab that takes Tab focus (roving tabindex): the open tab if it is shown, else the first shown tab.
+  const shownDockTabs = [
+    ...(showAnswerTab ? (["answer"] as const) : []),
+    ...(selected?.tipId ? (["info"] as const) : []),
+    "comments" as const,
+  ];
+  const focusTab = shownDockTabs.includes(dockTab) ? dockTab : shownDockTabs[0];
   const showInfoTab = Boolean(selected?.tipId);
   const choiceTaken = new Set<string>(["e", "i", "f", "t", "c", "l"]);
   if (!dockCollapsed || checklistOpen) choiceTaken.add("h");
@@ -813,7 +821,7 @@ export function CheckerApp() {
             type="button"
             className="question-dock-collapse"
             aria-expanded={checklistOpen}
-            aria-label={checklistOpen ? "Collapse this frame" : "Expand this frame"}
+            aria-label={checklistOpen ? "Hide this frame" : "Expand this frame"}
             onClick={checklistOpen ? () => setChecklistOpen(false) : openChecklist}
           >
             <ShortcutText text={checklistOpen ? "Hide" : "Expand"} index={checklistOpen || checklistShowsExpand ? (checklistOpen ? 0 : 1) : -1} />
@@ -1047,7 +1055,7 @@ export function CheckerApp() {
             type="button"
             className="question-dock-collapse"
             aria-expanded={!dockCollapsed}
-            aria-label={dockCollapsed ? "Expand the bottom panel" : "Collapse the bottom panel"}
+            aria-label={dockCollapsed ? "Expand the bottom panel" : "Hide the bottom panel"}
             onClick={dockCollapsed ? expandDock : collapseDock}
           >
             <ShortcutText text={dockCollapsed ? "Expand" : "Hide"} index={dockCollapsed ? 1 : 0} />
@@ -1088,13 +1096,14 @@ export function CheckerApp() {
                 if (!scope || names.length < 2) return null;
                 const active = session.activeInstance[scope] ?? 0;
                 return (
-                  <div className="instance-switch" role="tablist" aria-label="Which record this path is checking">
+                  <div className="instance-switch" role="tablist" aria-label="Which record this path is checking" onKeyDown={onTabListKeyDown}>
                     {names.map((name, index) => (
                       <button
                         key={`${scope}-${index}`}
                         type="button"
                         role="tab"
                         aria-selected={index === active}
+                        tabIndex={index === active ? 0 : -1}
                         className={index === active ? "year-btn year-btn-on" : "year-btn"}
                         onClick={() => switchInstance(scope, index)}
                       >
@@ -1116,14 +1125,14 @@ export function CheckerApp() {
                 </>
               ) : null}
               {selected ? (
-                <div className="dock-tabs" role="tablist" aria-label="Answer, information, or comments">
+                <div className="dock-tabs" role="tablist" aria-label="Answer, information, or comments" onKeyDown={onTabListKeyDown}>
                   {asksForAnswer(selected) ? (
-                    <button type="button" role="tab" aria-selected={dockTab === "answer"} className={dockTab === "answer" ? "dock-tab dock-tab-on" : "dock-tab"} onClick={() => setDockTab("answer")}>
+                    <button type="button" role="tab" aria-selected={dockTab === "answer"} tabIndex={focusTab === "answer" ? 0 : -1} className={dockTab === "answer" ? "dock-tab dock-tab-on" : "dock-tab"} onClick={() => setDockTab("answer")}>
                       <ShortcutText text="Answer" index={0} />
                     </button>
                   ) : null}
                   {selected.tipId ? (
-                    <button type="button" role="tab" aria-selected={dockTab === "info"} className={dockTab === "info" ? "dock-tab dock-tab-on" : "dock-tab"} onClick={() => setDockTab("info")}>
+                    <button type="button" role="tab" aria-selected={dockTab === "info"} tabIndex={focusTab === "info" ? 0 : -1} className={dockTab === "info" ? "dock-tab dock-tab-on" : "dock-tab"} onClick={() => setDockTab("info")}>
                       <ShortcutText text="Information" index={1} />
                     </button>
                   ) : null}
@@ -1131,6 +1140,7 @@ export function CheckerApp() {
                     type="button"
                     role="tab"
                     aria-selected={dockTab === "comments"}
+                    tabIndex={focusTab === "comments" ? 0 : -1}
                     aria-label={selectedComment?.trim() ? "Comments, this box has a comment" : "Comments"}
                     className={`dock-tab${dockTab === "comments" ? " dock-tab-on" : ""}${selectedComment?.trim() ? " dock-tab-noted" : ""}`}
                     onClick={() => setDockTab("comments")}

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
 import { WhyNotAutomatic } from "@/components/prompt-builder";
 import { sorterEndpoint, unreachableMessage } from "@/lib/sorter-endpoint";
+import { useDialogFocus } from "@/lib/use-dialog-focus";
 
 function requireEndpoint() {
   const endpoint = sorterEndpoint();
@@ -209,6 +210,8 @@ export function DocumentSorter({
   }
 
   const editing = files.find((file) => file.path === editingPath) ?? null;
+  const categoryDialogRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(editing != null, categoryDialogRef);
 
   useEffect(() => {
     if (!editing) return;
@@ -337,6 +340,8 @@ export function DocumentSorter({
       {editing ? (
         <div className="modal-backdrop" role="presentation" onClick={closeCategory}>
           <div
+            ref={categoryDialogRef}
+            tabIndex={-1}
             className="modal-card"
             role="dialog"
             aria-modal="true"

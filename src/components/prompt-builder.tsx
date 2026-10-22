@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useDialogFocus } from "@/lib/use-dialog-focus";
 import { ShortcutText, useShortcut } from "@/components/shortcut-layer";
 import type { GraphNode } from "@/lib/graph/types";
 
@@ -23,6 +24,8 @@ export function PromptBuilder({
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const explanation = node.prompt || node.help || node.chart;
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(true, dialogRef);
 
   useEffect(() => {
     setStep("build");
@@ -60,7 +63,7 @@ export function PromptBuilder({
 
   return (
     <div className="modal-backdrop" role="presentation" onClick={onClose}>
-      <div className="modal-card prompt-builder" role="dialog" aria-modal="true" aria-labelledby="prompt-builder-title" onClick={(event) => event.stopPropagation()}>
+      <div ref={dialogRef} tabIndex={-1} className="modal-card prompt-builder" role="dialog" aria-modal="true" aria-labelledby="prompt-builder-title" onClick={(event) => event.stopPropagation()}>
         <h2 id="prompt-builder-title" className="font-display text-2xl text-stone-900">
           {step === "build" ? "Prompt Builder" : "Import JSON"}
         </h2>

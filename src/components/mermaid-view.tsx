@@ -432,12 +432,23 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
           const id = matchNodeId(node.id, new Set(propsRef.current.nodeIds));
           if (!id) return;
           node.classList.toggle("is-selected", id === markedId);
-          (node as SVGElement).onclick = (event) => {
+          const el = node as SVGElement;
+          el.onclick = (event) => {
+            event.stopPropagation();
+            onSelectRef.current(id);
+          };
+          // Keyboard: every chart box is a focusable button (named by its visible text); Enter or Space selects it.
+          el.setAttribute("tabindex", "0");
+          el.setAttribute("role", "button");
+          el.onkeydown = (event) => {
+            if (event.key !== "Enter" && event.key !== " ") return;
+            event.preventDefault();
             event.stopPropagation();
             onSelectRef.current(id);
           };
         });
-        if (drawn) setLensMarkup(drawn.outerHTML);
+        // The magnifier copy is decorative: keep it out of the tab order and the accessibility tree.
+        if (drawn) setLensMarkup(drawn.outerHTML.replace(/\s(?:tabindex|role)="[^"]*"/g, ""));
         setError(null);
         requestAnimationFrame(() => measure());
       } catch (err) {
@@ -862,7 +873,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
         type="button"
         className="btn-secondary chart-cue-toggle"
         aria-pressed={showCommentCues}
-        aria-label={showCommentCues ? "Hide comment markers on the chart" : "Show comment markers on the chart"}
+        aria-label="Comments: show markers on the chart"
         onClick={() => setShowCommentCues((current) => !current)}
       >
         <span className="comment-cue-dot" aria-hidden="true" />
@@ -1056,7 +1067,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
             type="button"
             className="chart-magnifier-collapse"
             aria-expanded={magnifierOpen}
-            aria-label={magnifierOpen ? "Collapse the magnifier" : "Expand the magnifier"}
+            aria-label={magnifierOpen ? "Hide the magnifier" : "Expand the magnifier"}
             onClick={() => setMagnifierOpen((open) => !open)}
           >
             {magnifierOpen ? "Hide" : "Expand"}

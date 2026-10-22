@@ -1415,3 +1415,16 @@ button.question-dock-tile {
   font-size: 0.875rem;
   color: #3f3a2e;
 }
+
+/* Keyboard focus on a chart box (each g.node is a focusable button). */
+.mermaid-host g.node:focus {
+  outline: none;
+}
+
+.mermaid-host g.node:focus-visible rect,
+.mermaid-host g.node:focus-visible polygon,
+.mermaid-host g.node:focus-visible path {
+  stroke: #1d4ed8 !important;
+  stroke-width: 3px !important;
+  stroke-dasharray: 4 2;
+}
