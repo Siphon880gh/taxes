@@ -1,0 +1,26 @@
+# Document sorter: only api.php is reachable over HTTP. Everything else here (stage/, sorted/, uploaded and
+# placed documents, Summaries.md, Owed Audit.md) is denied, so it is served only through api.php.
+# .htaccess governs HTTP requests only. api.php reads and writes these folders on disk and is unaffected.
+# nginx ignores .htaccess entirely: use the location blocks in docs/NGINX.md instead.
+# Keep this file identical to public/sorter/.htaccess, which the build copies to out/sorter/.htaccess.
+
+# Apache 2.4+
+<IfModule mod_authz_core.c>
+  <If "%{REQUEST_URI} !~ m#/sorter/api\.php$#">
+    Require all denied
+  </If>
+</IfModule>
+
+# Apache 2.2 fallback
+<IfModule !mod_authz_core.c>
+  Order allow,deny
+  Deny from all
+  <Files "api.php">
+    Order deny,allow
+    Allow from all
+  </Files>
+  <IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule !^api\.php$ - [F]
+  </IfModule>
+</IfModule>

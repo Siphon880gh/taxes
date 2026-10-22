@@ -50,7 +50,17 @@ On the web host the layout is:
 
 The tabs find the endpoint in the browser (`src/lib/sorter-endpoint.ts`): `SERVER_URL_UPLOAD_API_PHP` from `.env` if it is set and reachable from the page, otherwise `sorter/api.php` next to the `out/` folder the page was served from. So on `https://wengindustries.com/app/taxes/out/` they call `https://wengindustries.com/app/taxes/sorter/api.php`, and a localhost URL in `.env` is used only on this computer. Keep `sorter/api.php` and `public/sorter/api.php` identical.
 
-There is no deploy script in this repo. The tax documents in `sorter/stage/` are served only through `api.php` to anyone who can reach that URL.
+There is no deploy script in this repo.
+
+**Direct access is blocked, api.php stays open.** The `.htaccess` files deny direct HTTP fetches of everything except `out/` and `api.php`: `sorter/stage/` and any other folder under `sorter/` (documents, `Summaries.md`, `Owed Audit.md`), the same under `out/sorter/`, dotfiles such as `.env*` and `.git/`, and `context/`, `.agents/`, `scripts/`, `src/`, `tests/`, `docs/`, `node_modules/`. They use Apache 2.4 syntax with a 2.2 fallback:
+
+- [`.htaccess`](.htaccess) at the app root
+- [`sorter/.htaccess`](sorter/.htaccess), copied to `out/sorter/.htaccess` from [`public/sorter/.htaccess`](public/sorter/.htaccess)
+- [`sorter/stage/.htaccess`](sorter/stage/.htaccess), copied to `out/sorter/stage/.htaccess` from [`public/sorter/stage/.htaccess`](public/sorter/stage/.htaccess); it also turns PHP off in the stage folder
+
+`.htaccess` governs HTTP only, so `api.php` still reads and writes `sorter/stage/` on disk. `api.php` itself has no login: anyone who can reach its URL can list, read, upload, place, and remove staged documents through it.
+
+**nginx ignores `.htaccess` entirely.** On an nginx host, paste the `location` blocks from [docs/NGINX.md](docs/NGINX.md) into the server block, above the existing `location ~ \.php$` block.
 
 ## Sort documents with the AI skills
 

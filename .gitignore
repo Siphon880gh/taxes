@@ -47,12 +47,14 @@ next-env.d.ts
 # document sorter uploads and placed tax files (keep the PHP endpoint and empty stage marker)
 /sorter/*
 !/sorter/api.php
+!/sorter/.htaccess
 !/sorter/stage/
 /sorter/stage/*
 !/sorter/stage/.gitkeep
 !/sorter/stage/.htaccess
 /public/sorter/*
 !/public/sorter/api.php
+!/public/sorter/.htaccess
 !/public/sorter/stage/
 /public/sorter/stage/*
 !/public/sorter/stage/.gitkeep

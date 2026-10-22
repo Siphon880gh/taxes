@@ -1,0 +1,33 @@
+# Tax Final Confirmation (app/taxes): block direct HTTP access to files that are not part of the public site.
+# Hybrid deploy: out/ is public, and sorter/api.php (plus the out/sorter/api.php copy) is the only public PHP.
+# Blocked: dotfiles and dot-folders (.env*, .git/, .agents/, .htaccess), context/, scripts/, src/, tests/, docs/,
+# node_modules/, and everything under sorter/ and out/sorter/ except api.php (stage/, sorted/, uploads, Summaries.md).
+# .htaccess governs HTTP requests only. api.php reads and writes sorter/stage/ on disk and is unaffected.
+# nginx ignores .htaccess entirely: use the location blocks in docs/NGINX.md instead.
+
+# Apache 2.4+
+<IfModule mod_authz_core.c>
+  <If "%{REQUEST_URI} =~ m#/\.#">
+    Require all denied
+  </If>
+  <ElseIf "%{REQUEST_URI} =~ m#/(context|scripts|src|tests|docs|node_modules)(/|$)#i">
+    Require all denied
+  </ElseIf>
+  <ElseIf "%{REQUEST_URI} =~ m#/sorter(/|$)#i && %{REQUEST_URI} !~ m#/sorter/api\.php$#">
+    Require all denied
+  </ElseIf>
+</IfModule>
+
+# Apache 2.2 fallback
+<IfModule !mod_authz_core.c>
+  <FilesMatch "^\.">
+    Order allow,deny
+    Deny from all
+  </FilesMatch>
+  <IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule (^|/)\. - [F]
+    RewriteRule ^(context|scripts|src|tests|docs|node_modules)(/|$) - [F,NC]
+    RewriteRule ^(out/)?sorter(/|$)(?!api\.php$) - [F,NC]
+  </IfModule>
+</IfModule>

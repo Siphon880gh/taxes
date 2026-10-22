@@ -1,6 +1,32 @@
+# Staged tax documents: never served directly. api.php lists, reads, places, and removes them from disk.
+# Uploads keep their own names and extensions, so PHP is also switched off here in case a host serves this folder.
+# nginx ignores .htaccess entirely: use the location blocks in docs/NGINX.md instead.
+# Keep this file identical to public/sorter/stage/.htaccess (copied to out/sorter/stage/.htaccess by the build).
+
+# Apache 2.4+
 <IfModule mod_authz_core.c>
   Require all denied
+  <Files "*">
+    Require all denied
+  </Files>
 </IfModule>
+
+# Apache 2.2 fallback
 <IfModule !mod_authz_core.c>
+  Order allow,deny
   Deny from all
+  <Files "*">
+    Order allow,deny
+    Deny from all
+  </Files>
+</IfModule>
+
+<IfModule mod_php.c>
+  php_flag engine off
+</IfModule>
+<IfModule mod_php7.c>
+  php_flag engine off
+</IfModule>
+<IfModule mod_php5.c>
+  php_flag engine off
 </IfModule>
