@@ -99,9 +99,10 @@ test("Weng 2025 opens Schedule C, Schedule E, and Form 1040 without inventing th
   assert.equal(turbo?.amountLabel, "$139");
   assert.equal(turbo?.unverified, false);
   const block = cost.rows.find((row) => row.id === "hrb");
-  assert.equal(block?.unverified, true);
-  assert.match(block?.amountLabel ?? "", /unverified/i);
-  assert.match(block?.note ?? "", /October 16, 2026/);
+  assert.equal(block?.unverified, false);
+  assert.equal(block?.amountLabel, "$130 + $49 per state");
+  assert.match(block?.label ?? "", /Self-Employed/);
+  assert.match(block?.note ?? "", /October 21, 2026/);
   const nsa = cost.rows.find((row) => row.id === "nsa");
   assert.match(nsa?.note ?? "", /\$754/);
   assert.match(nsa?.note ?? "", /\$867/);
@@ -674,6 +675,7 @@ test("the tax pro estimate is an inflation-only NSA range for the forms reached 
 
 test("price rows show when they were last checked and flag a check older than the limit", () => {
   const weng = applyCase("weng-2025");
+  const day91Hrb = () => costReport(weng, { today: new Date(2027, 0, 20) }).rows.find((row) => row.id === "hrb")?.staleDays;
   const fresh = costReport(weng, { today: new Date(2026, 9, 21) });
   assert.equal(fresh.staleAfterDays, PRICE_STALE_AFTER_DAYS);
   assert.equal(PRICE_STALE_AFTER_DAYS, 90);
@@ -691,8 +693,9 @@ test("price rows show when they were last checked and flag a check older than th
   assert.match(premium?.note ?? "", /separate TurboTax Online state row/);
 
   const block = fresh.rows.find((row) => row.id === "hrb");
-  assert.equal(block?.unverified, true);
-  assert.match(block?.note ?? "", /October 21, 2026/);
+  assert.equal(block?.unverified, false);
+  assert.equal(block?.checked, "2026-10-21");
+  assert.equal(day91Hrb(), 91);
 
   const day90 = costReport(weng, { today: new Date(2027, 0, 19) });
   assert.equal(day90.rows.find((row) => row.id === "tt-premium")?.staleDays, null);
@@ -750,4 +753,38 @@ test("the quote is saved to and read from browser storage, and storage problems 
   assert.doesNotThrow(() => writeStoredQuote({ amount: 5, preparer: null }, broken));
   // In Node there is no window, so the default store is absent rather than an error.
   assert.equal(readStoredQuote(), null);
+});
+
+test("H&R Block's online tier and state fee follow the forms reached", () => {
+  const hrb = (session: ReturnType<typeof blankSession>) => costReport(session).rows.find((row) => row.id === "hrb");
+  const weng = hrb(applyCase("weng-2025"));
+  assert.equal(weng?.label, "Online Self-Employed, federal plus each state");
+  assert.equal(weng?.amountLabel, "$130 + $49 per state");
+  assert.match(weng?.citation?.url ?? "", /hrblock\.com\/online-tax-filing/);
+
+  const crypto = hrb(applyCase("joint-w2-crypto"));
+  assert.equal(crypto?.amountLabel, "$105 + $49 per state");
+  assert.match(crypto?.label ?? "", /Premium/);
+
+  let simple = applyAnswer(blankSession(), "filing_status", "single");
+  simple = applyAnswer(simple, "w2", "yes");
+  simple = applyAnswer(simple, "se", "no");
+  assert.ok(costReport(simple).rows.some((row) => row.id === "tt-free"));
+  assert.equal(hrb(simple)?.amountLabel, "$0 + $0 per state");
+  assert.match(hrb(simple)?.label ?? "", /Free Online/);
+
+  const itemized = rebuild(
+    { year: { answerId: "y2025" }, filing_status: { answerId: "single" }, w2: { answerId: "yes" }, se: { answerId: "no" }, rental: { answerId: "no" }, deduction_choice: { answerId: "itemized" } },
+    null,
+    null,
+    { w2: ["W-2 1"] },
+  );
+  assert.equal(answerOf(itemized, "deduction_choice"), "itemized");
+  assert.equal(hrb(itemized)?.amountLabel, "$65 + $49 per state");
+  assert.match(hrb(itemized)?.label ?? "", /Deluxe/);
+
+  const open = hrb(blankSession());
+  assert.equal(open?.amountLabel, "Not selected yet");
+  assert.match(open?.note ?? "", /\$65 \+ \$49 per state/);
+  assert.equal(open?.unverified, false);
 });

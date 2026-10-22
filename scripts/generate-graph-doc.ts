@@ -242,7 +242,7 @@ ${thresholdTables()}
 
 ## Preparation prices
 
-The cost panel shows FreeTaxUSA's published federal and state prices, a TurboTax published tier for the complexity on the path, an H&R Block tier description with the dollar amount unverified, desktop TurboTax list prices that are not added to the estimate, and 2023 NSA national averages. An arithmetic sum of NSA pieces is not a surveyed package price, not a 2025 price, and not a Louisiana or Los Angeles price.
+The cost panel shows FreeTaxUSA's published federal and state prices, a TurboTax published tier for the complexity on the path, an H&R Block online tier with its federal and per-state price, desktop TurboTax list prices that are not added to the estimate, and 2023 NSA national averages. An arithmetic sum of NSA pieces is not a surveyed package price, not a 2025 price, and not a Louisiana or Los Angeles price.
 
 On the Weng 2025 case the independent-firm quote is $975. That number is a preparation quote, not rent, not an expense, and not income. The records note beside it:
 
@@ -250,7 +250,7 @@ ${wengCost.framing}
 
 ${wengCost.quoteNote}
 
-FreeTaxUSA's pricing page retrieved October 16, 2026 lists federal filing at $0 for every situation, including rental property, investments, and self-employment, and a state return at $15.99. Optional Deluxe Support $7.99, Pro Support $64.99, and Audit Defense $19.99 are not added. H&R Block's online dollar price was not in the HTML retrieved October 3, 2026 or October 16, 2026, so the panel says the price is unverified. TurboTax Do It Yourself Premium is $139 federal for a path with Schedule C or Schedule E. The online state add-on was not a fixed published dollar, so it is not added. The state is unknown, so no state price is applied to the quote.
+FreeTaxUSA's pricing page retrieved October 16, 2026 lists federal filing at $0 for every situation, including rental property, investments, and self-employment, and a state return at $15.99. Optional Deluxe Support $7.99, Pro Support $64.99, and Audit Defense $19.99 are not added. H&R Block's online filing page, rendered in a browser October 21, 2026, lists Free Online $0 + $0 per state, Deluxe $65 + $49, Premium $105 + $49, and Self-Employed $130 + $49; a path with Schedule C or Schedule SE uses Self-Employed. TurboTax Do It Yourself Premium is $139 federal for a path with Schedule C or Schedule E. Intuit's online State additional page lists $0–$64 per state without saying which applies, so no single state dollar is added. The state is unknown, so no state price is applied to the quote.
 
 ## Case studies
 

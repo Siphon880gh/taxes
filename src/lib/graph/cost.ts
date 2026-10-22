@@ -247,18 +247,31 @@ export function costReport(session: Session, options: CostOptions = {}): CostRep
       citation: citations.turbotax_desktop,
     });
 
+    // H&R Block tier from the forms reached, following its online filing page:
+    // 1099 income with expenses (Schedule C, Schedule SE) is Self-Employed only; rental and
+    // investment income (Schedule E, Schedule D) starts at Premium; itemizing (Schedule A) or
+    // interest and dividends over $1,500 (Schedule B) starts at Deluxe; Free Online is a simple
+    // Form 1040, picked with the same test as TurboTax Free Edition.
+    const hrbTier =
+      tags.includes("Schedule C") || tags.includes("Schedule SE")
+        ? { name: "Self-Employed", federal: 130, state: 49, why: "Schedule C or Schedule SE is on this path, and H&R Block lists 1099 income with expenses only in Self-Employed." }
+        : tags.includes("Schedule E") || tags.includes("investments")
+          ? { name: "Premium", federal: 105, state: 49, why: "Rental or investment income is on this path, and H&R Block lists it from Premium up." }
+          : answerOf(session, "deduction_choice") === "itemized" || has(session, "check_sch_b")
+            ? { name: "Deluxe", federal: 65, state: 49, why: "Itemized deductions or Schedule B are on this path, which is past Free Online; Deluxe is the first tier that includes Schedule A." }
+            : simple && answerOf(session, "w2") === "yes" && answerOf(session, "se") === "no"
+              ? { name: "Free Online", federal: 0, state: 0, why: "This path is a simple Form 1040 so far. Free Online allows no schedules except EITC, CTC, student loan interest, and retirement distributions, with interest and dividends up to $1,500." }
+              : null;
     rows.push({
       id: "hrb",
       vendor: "H&R Block",
-      label: "Online tier for this complexity",
-      amountLabel: "Price unverified",
+      label: hrbTier ? `Online ${hrbTier.name}, federal plus each state` : "Online tier for this complexity",
+      amountLabel: hrbTier ? `$${hrbTier.federal} + $${hrbTier.state} per state` : "Not selected yet",
       yearLabel: citations.hrblock_online.yearLabel,
-      unverified: true,
-      note: tags.includes("Schedule C")
-        ? "H&R Block's pages describe Self-Employed as including Premium features plus business income. That is the tier description that matches Schedule C. The dollar price was not in the HTML retrieved October 3, 2026, and the same page retrieved October 16, 2026 and October 21, 2026 still prints no dollar amount, so none is shown."
-        : tags.includes("Schedule E") || tags.includes("investments")
-          ? "H&R Block's pages describe Premium as covering rental income and investments. That is the tier description that matches this path. The dollar price was not in the HTML retrieved October 3, 2026, and the same page retrieved October 16, 2026 and October 21, 2026 still prints no dollar amount, so none is shown."
-          : "H&R Block's pages describe Free Online, Deluxe for itemized deductions, Premium for rental and investments, and Self-Employed for business income. Dollar prices were not in the HTML retrieved October 3, 2026, and the same page retrieved October 16, 2026 and October 21, 2026 still prints no dollar amount, so none is shown.",
+      unverified: false,
+      note: hrbTier
+        ? `${hrbTier.why} The online filing page, rendered October 21, 2026, lists ${hrbTier.name} at $${hrbTier.federal} plus $${hrbTier.state} per state filed. The page shows no tax year or “starting at” wording. Tax Pro Review and other add-ons are not included.`
+        : "The online filing page, rendered October 21, 2026, lists Free Online $0 + $0 per state, Deluxe $65 + $49 per state, Premium $105 + $49 per state, and Self-Employed $130 + $49 per state. Finish the income and deduction questions before treating one of them as the price.",
       citation: citations.hrblock_online,
     });
 

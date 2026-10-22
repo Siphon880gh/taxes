@@ -50,7 +50,7 @@ The same tab can also place files into those categories by hand after upload.
 
 Tax Pro Costs starts with a **FreeTaxUSA Walkthrough** control. After the files are sorted, open this repo in Cursor and invoke `freetaxusa-walkthrough`. The skill opens [FreeTaxUSA](https://www.freetaxusa.com) in a browser tab inside Cursor, reads the screen, and tells you the next entry with the number and the file it came from. It asks when that step is done, or watches the screen for the change. You type. It does not file the return. The skill lives at [`.agents/skills/freetaxusa-walkthrough/SKILL.md`](.agents/skills/freetaxusa-walkthrough/SKILL.md).
 
-The same tab lists published preparation prices for the forms reached so far. FreeTaxUSA's pricing page retrieved October 16, 2026 lists federal filing at $0 and a state return at $15.99. Optional Deluxe Support, Pro Support, and Audit Defense are on that page and are not added to the estimate. H&R Block's online page still prints no dollar amount, so that row stays unverified.
+The same tab lists published preparation prices for the forms reached so far. FreeTaxUSA's pricing page retrieved October 16, 2026 lists federal filing at $0 and a state return at $15.99. Optional Deluxe Support, Pro Support, and Audit Defense are on that page and are not added to the estimate. H&R Block's online filing page, rendered in a browser October 21, 2026, lists Free Online $0 + $0 per state, Deluxe $65 + $49, Premium $105 + $49, and Self-Employed $130 + $49; the row picks the tier from the forms reached.
 
 When you ask which local skills this repo has, the answer comes from the folders under [`.agents/skills/`](.agents/skills/), as [AGENTS.md](AGENTS.md) describes.
 

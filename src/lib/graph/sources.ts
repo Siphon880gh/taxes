@@ -163,11 +163,11 @@ export const citations = {
     checked: "2026-10-21",
   } satisfies Citation,
   hrblock_online: {
-    title: "H&R Block online tax filing product descriptions",
+    title: "H&R Block online tax filing prices",
     url: "https://www.hrblock.com/online-tax-filing/",
-    yearLabel: "Pages retrieved October 3, October 16, and October 21, 2026",
+    yearLabel: "Online filing page rendered in a browser, October 21, 2026 (no tax year printed)",
     citation:
-      "H&R Block online filing and tax-center pages retrieved October 3, 2026, and the online filing page again on October 16, 2026, name Free Online, Deluxe (itemized deductions), Premium (rental income, investments, cryptocurrency), and Self-Employed (Premium features plus business expenses). The October 16 page says “+ per state filed” and still prints no dollar amount for any online tier, so no H&R Block price is used. Downloadable-software pages retrieved October 3, 2026 list an additional state program at $39.95 for some desktop editions; that figure is not used as the online price. Rechecked October 21, 2026: the online filing page still prints “+ per state filed” with no dollar amount in the page itself. Third-party reviews quote online prices, but they are not H&R Block's own page, so they are not used.",
+      "H&R Block online filing page, rendered in a browser October 21, 2026. The prices fill in only after the page's scripts run; the raw HTML read October 3 and October 16, 2026 showed none. Online filing options: Free Online $0 + $0 per state filed; Deluxe $65 + $49 per state filed; Premium $105 + $49 per state filed; Self-Employed $130 + $49 per state filed. The page prints no tax year and no “starting at” wording. Free Online is for simple returns only: Form 1040 and no schedules except the Earned Income Tax Credit, Child Tax Credit, student loan interest, and retirement plan distributions, with interest and dividends up to $1,500. The comparison table adds a Health Savings Account from Deluxe up, rental and investment income from Premium up, and 1099 income with expenses only in Self-Employed. The FAQ lists Schedule A (itemized deductions) among the forms in Deluxe, Premium, and Self-Employed.",
     checked: "2026-10-21",
   } satisfies Citation,
   freetaxusa_pricing: {
