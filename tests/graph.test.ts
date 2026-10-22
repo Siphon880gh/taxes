@@ -12,8 +12,10 @@ import {
   selectInstance,
   setNodeComment,
   visibleCommentNodeIds,
+  answerOf,
   importSession,
   parseQuoteAmount,
+  rebuild,
   sessionToJson,
   setQuote,
 } from "../src/lib/graph/session";
@@ -619,45 +621,55 @@ test("an entered quote is parsed, named, priced, and kept through answers and a 
   assert.equal(applyCase("weng-2025").quotePreparer, null);
 });
 
-test("the tax pro estimate is a CPI-adjusted NSA range for the forms reached and is labeled an estimate", () => {
+test("the tax pro estimate is an inflation-only NSA range for the forms reached and is labeled an estimate", () => {
   const blank = proEstimate(blankSession());
   assert.ok(blank && blank.low < blank.high);
   assert.match(blank.note, /no schedule add-ons yet/);
   const factor = CPI_U.latest / CPI_U.surveyYearAverage2023;
   assert.ok(Math.abs(factor - 1.1058) < 0.001);
+  assert.equal(blank.low, Math.round(279 * factor));
+  assert.equal(blank.high, Math.round(392 * factor));
 
   const weng = applyCase("weng-2025");
   const estimate = costReport(weng).estimate;
   assert.ok(estimate);
-  // Not itemized base $279 + Schedule C $221 + Schedule E $192 + Schedule SE $62 = $754, raised by CPI-U.
-  assert.equal(estimate.low, Math.round(754 * factor));
+  // Schedule C $221 + Schedule E $192 + Schedule SE $62 on either base, raised by CPI-U only.
+  assert.equal(estimate.low, Math.round((279 + 221 + 192 + 62) * factor));
+  assert.equal(estimate.high, Math.round((392 + 221 + 192 + 62) * factor));
   assert.equal(estimate.low, 834);
-  // Itemized base and each add-on raised by the larger of CPI-U or its own 2020→2023 growth.
-  assert.equal(estimate.high, Math.round(392 * (392 / 323) + 221 * (221 / 192) + 192 * (192 / 145) + 62 * (62 / 41)));
-  assert.equal(estimate.high, 1078);
-  assert.equal(estimate.quotePosition, "within");
+  assert.equal(estimate.high, 959);
+  assert.equal(estimate.quotePosition, "above");
   assert.match(estimate.note, /Estimate only, not a quote/);
-  assert.match(estimate.note, /CPI-U/);
+  assert.match(estimate.note, /CPI-U inflation/);
+  assert.match(estimate.note, /averages, not a spread/);
+  assert.doesNotMatch(estimate.note, /2020/);
   assert.deepEqual(estimate.citations.map((citation) => citation.url).sort(), [
     "https://img1.wsimg.com/blobby/go/a15c5ffb-9439-4993-b38e-4acbf6145e32/2023%2BComplete%2BIncome%2Band%2BFees%2BReport.pdf",
     "https://www.bls.gov/news.release/cpi.nr0.htm",
   ].sort());
 
   assert.equal(proEstimate(setQuote(weng, 500, null))?.quotePosition, "below");
+  assert.equal(proEstimate(setQuote(weng, 900, null))?.quotePosition, "within");
   assert.equal(proEstimate(setQuote(weng, 2000, null))?.quotePosition, "above");
   assert.equal(proEstimate(setQuote(weng, null, null))?.quotePosition, null);
 
-  const standard = applyAnswer(weng, "deduction_choice", "standard");
-  if (standard.revealed.includes("deduction_choice")) {
-    const narrow = proEstimate(standard);
-    assert.ok(narrow && narrow.high < estimate.high);
-    assert.equal(narrow?.low, 834);
-  }
+  const standard = rebuild({ ...weng.answers, deduction_choice: { answerId: "standard" } }, weng.quote, weng.caseStudyId, weng.instances);
+  const itemized = rebuild({ ...weng.answers, deduction_choice: { answerId: "itemized" } }, weng.quote, weng.caseStudyId, weng.instances);
+  assert.equal(answerOf(standard, "deduction_choice"), "standard");
+  assert.equal(proEstimate(standard)?.low, 834);
+  assert.equal(proEstimate(standard)?.high, 834);
+  assert.match(proEstimate(standard)?.note ?? "", /single figure/);
+  assert.equal(proEstimate(itemized)?.low, 959);
+  assert.equal(proEstimate(itemized)?.high, 959);
 
   const crypto = proEstimate(applyCase("joint-w2-crypto"));
   assert.ok(crypto && crypto.low < crypto.high);
-  // Schedule D grew more slowly than CPI-U from 2020 to 2023, so CPI-U sets its high-end factor.
   assert.match(crypto.note, /Schedule D \/ Form 8949 \$126/);
+  // Schedule D / Form 8949 $126 on the $279 or $392 base, raised by CPI-U only.
+  assert.equal(crypto.low, Math.round((279 + 126) * factor));
+  assert.equal(crypto.high, Math.round((392 + 126) * factor));
+  assert.equal(crypto.low, 448);
+  assert.equal(crypto.high, 573);
 });
 
 test("price rows show when they were last checked and flag a check older than the limit", () => {

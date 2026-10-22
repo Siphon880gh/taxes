@@ -74,23 +74,24 @@ export type CostReport = {
 /** CPI-U, all items, U.S. city average, not seasonally adjusted. See citations.bls_cpi_u. */
 export const CPI_U = { surveyYearAverage2023: 304.702, latest: 336.94, latestLabel: "September 2026" } as const;
 
-type NsaFee = { label: string; y2023: number; y2020: number };
+type NsaFee = { label: string; y2023: number };
 
-/** NSA national averages for the 2023 and 2020 surveys. See citations.nsa_2023. */
+/** NSA 2023 national averages. See citations.nsa_2023. */
 const NSA = {
-  notItemized: { label: "Form 1040 not itemized, with a state return", y2023: 279, y2020: 220 },
-  itemized: { label: "Form 1040 itemized, with a state return", y2023: 392, y2020: 323 },
-  scheduleC: { label: "Schedule C", y2023: 221, y2020: 192 },
-  scheduleE: { label: "Schedule E rental", y2023: 192, y2020: 145 },
-  scheduleSE: { label: "Schedule SE", y2023: 62, y2020: 41 },
-  scheduleD: { label: "Schedule D / Form 8949", y2023: 126, y2020: 118 },
-  scheduleB: { label: "Schedule B", y2023: 64, y2020: 42 },
+  notItemized: { label: "Form 1040 not itemized, with a state return", y2023: 279 },
+  itemized: { label: "Form 1040 itemized, with a state return", y2023: 392 },
+  scheduleC: { label: "Schedule C", y2023: 221 },
+  scheduleE: { label: "Schedule E rental", y2023: 192 },
+  scheduleSE: { label: "Schedule SE", y2023: 62 },
+  scheduleD: { label: "Schedule D / Form 8949", y2023: 126 },
+  scheduleB: { label: "Schedule B", y2023: 64 },
 } satisfies Record<string, NsaFee>;
 
 /**
- * Estimated independent-preparer fee for the forms reached so far.
- * Low end: the lower matching 2023 base plus add-ons, raised by CPI-U.
- * High end: the higher matching base plus add-ons, each raised by the larger of CPI-U or that fee's own 2020→2023 growth.
+ * Estimated independent-preparer fee for the forms reached so far, using inflation only.
+ * Each end is an NSA 2023 national-average total raised by the same CPI-U factor. The NSA report publishes
+ * averages, not a spread, so the only range in these figures is the Form 1040 base: not itemized at the low end
+ * and itemized at the high end. Once the path answers that question, the range collapses to one figure.
  */
 export function proEstimate(session: Session): ProEstimate | null {
   if (session.revealed.length <= 1) return null;
@@ -106,25 +107,28 @@ export function proEstimate(session: Session): ProEstimate | null {
   const lowBase = choice === "itemized" ? NSA.itemized : NSA.notItemized;
   const highBase = choice === "standard" ? NSA.notItemized : NSA.itemized;
   const cpiFactor = CPI_U.latest / CPI_U.surveyYearAverage2023;
-  const low = Math.round([lowBase, ...addOns].reduce((sum, fee) => sum + fee.y2023, 0) * cpiFactor);
-  const high = Math.round(
-    [highBase, ...addOns].reduce((sum, fee) => sum + fee.y2023 * Math.max(cpiFactor, fee.y2023 / fee.y2020), 0),
-  );
+  const total = (base: NsaFee) => [base, ...addOns].reduce((sum, fee) => sum + fee.y2023, 0);
+  const low = Math.round(total(lowBase) * cpiFactor);
+  const high = Math.round(total(highBase) * cpiFactor);
   const quotePosition =
     session.quote == null ? null : session.quote < low ? "below" : session.quote > high ? "above" : "within";
   const baseText =
     lowBase === highBase
-      ? `${lowBase.label} ($${lowBase.y2023} in 2023)`
-      : `${lowBase.label} ($${lowBase.y2023}) at the low end and ${highBase.label.replace("Form 1040 ", "")} ($${highBase.y2023}) at the high end, because this path has not said whether the return itemizes`;
+      ? `${lowBase.label} $${lowBase.y2023}`
+      : `${lowBase.label} $${lowBase.y2023} for the low end and ${highBase.label.replace("Form 1040 ", "")} $${highBase.y2023} for the high end`;
   const addOnText = addOns.length
     ? addOns.map((fee) => `${fee.label} $${fee.y2023}`).join(", ")
     : "no schedule add-ons yet";
+  const spreadText =
+    lowBase === highBase
+      ? "This path has answered whether the return itemizes, so both ends use the same base and the estimate is a single figure."
+      : "The range comes only from whether the return itemizes, which this path has not answered yet; the NSA report gives averages, not a spread.";
   return {
     low,
     high,
     cpiFactor,
     quotePosition,
-    note: `Estimate only, not a quote. It starts from the NSA 2023 national averages: ${baseText}, plus ${addOnText}. The low end raises the 2023 total by CPI-U inflation from the 2023 average to ${CPI_U.latestLabel} (×${cpiFactor.toFixed(3)}). The high end assumes each fee keeps growing as it did from the 2020 to the 2023 survey, or by CPI-U if that is higher. National averages are not Los Angeles or Louisiana prices, and a preparer can charge well outside this range.`,
+    note: `Estimate only, not a quote. It takes the NSA 2023 national averages (${baseText}, plus ${addOnText}) and raises each total by CPI-U inflation from the 2023 average to ${CPI_U.latestLabel} (×${cpiFactor.toFixed(3)}). ${spreadText} National averages are not Los Angeles or Louisiana prices, and a preparer can charge well outside this estimate.`,
     citations: [citations.nsa_2023, citations.bls_cpi_u],
   };
 }

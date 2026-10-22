@@ -956,13 +956,16 @@ export function CheckerApp() {
                     <div className="pro-estimate" role="note" aria-label="Estimated tax pro fee">
                       <p className="pro-estimate-label">Estimate · not a quote</p>
                       <p className="pro-estimate-range">
-                        Tax pro fee for the forms reached so far: ${cost.estimate.low.toLocaleString("en-US")}–${cost.estimate.high.toLocaleString("en-US")}
+                        Tax pro fee for the forms reached so far:{" "}
+                        {cost.estimate.low === cost.estimate.high
+                          ? `about $${cost.estimate.low.toLocaleString("en-US")}`
+                          : `$${cost.estimate.low.toLocaleString("en-US")}–$${cost.estimate.high.toLocaleString("en-US")}`}
                       </p>
                       {cost.estimate.quotePosition && session.quote != null ? (
                         <p className="text-sm font-medium text-stone-900">
                           {cost.estimate.quotePosition === "within"
-                            ? `The $${session.quote.toLocaleString("en-US")} quote is inside this range.`
-                            : `The $${session.quote.toLocaleString("en-US")} quote is ${cost.estimate.quotePosition} this range.`}
+                            ? `The $${session.quote.toLocaleString("en-US")} quote is inside this ${cost.estimate.low === cost.estimate.high ? "estimate" : "range"}.`
+                            : `The $${session.quote.toLocaleString("en-US")} quote is ${cost.estimate.quotePosition} this ${cost.estimate.low === cost.estimate.high ? "estimate" : "range"}.`}
                         </p>
                       ) : null}
                       <p className="mt-1 text-sm text-stone-700">{cost.estimate.note}</p>
