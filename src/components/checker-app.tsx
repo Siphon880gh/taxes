@@ -969,6 +969,10 @@ export function CheckerApp() {
                         </p>
                       ) : null}
                       <p className="mt-1 text-sm text-stone-700">{cost.estimate.note}</p>
+                      <p className="mt-1 text-sm text-stone-700">
+                        {cost.estimate.inflationThrough}
+                        {cost.estimate.inflationHint ? <span className="price-stale"> {cost.estimate.inflationHint}</span> : null}
+                      </p>
                       <p className="mt-1 flex flex-wrap gap-x-3 text-sm">
                         {cost.estimate.citations.map((citation) => (
                           <a key={citation.url} className="text-rust underline-offset-2 hover:underline" href={citation.url} target="_blank" rel="noreferrer">

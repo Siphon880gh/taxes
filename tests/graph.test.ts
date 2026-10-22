@@ -27,6 +27,8 @@ import { applyNodeReply, nodePrompt } from "../src/lib/graph/prompt";
 import { numberEntryError } from "../src/lib/graph/allocate";
 import { getNode } from "../src/lib/graph/nodes";
 import { tips } from "../src/lib/graph/tips";
+import { monthLabel, monthsSince } from "../src/lib/graph/cpi";
+import { parseCpiArgs } from "../scripts/cpi-args";
 import { QUOTE_STORAGE_KEY, readStoredQuote, writeStoredQuote } from "../src/lib/quote-storage";
 import {
   federalBasicStandard,
@@ -787,4 +789,52 @@ test("H&R Block's online tier and state fee follow the forms reached", () => {
   assert.equal(open?.amountLabel, "Not selected yet");
   assert.match(open?.note ?? "", /\$65 \+ \$49 per state/);
   assert.equal(open?.unverified, false);
+});
+
+test("the estimate says how current its inflation data is and hints when newer CPI is likely out", () => {
+  const weng = applyCase("weng-2025");
+  assert.equal(monthLabel("2026-09"), "September 2026");
+  assert.equal(monthsSince("2026-09", new Date(2027, 0, 5)), 4);
+  const fresh = proEstimate(weng, { today: new Date(2026, 9, 21), cpi: { latest: 336.94, latestMonth: "2026-09" } });
+  assert.equal(fresh?.inflationThrough, "Inflation data through September 2026.");
+  assert.equal(fresh?.inflationHint, null);
+  const edge = proEstimate(weng, { today: new Date(2026, 10, 30), cpi: { latest: 336.94, latestMonth: "2026-09" } });
+  assert.equal(edge?.inflationHint, null);
+  const old = proEstimate(weng, { today: new Date(2026, 11, 1), cpi: { latest: 336.94, latestMonth: "2026-09" } });
+  assert.match(old?.inflationHint ?? "", /3 months back.*newer CPI data.*docs\/UPDATE_INFLATION\.md/);
+  assert.match(costReport(weng, { today: new Date(2027, 5, 1) }).estimate?.inflationHint ?? "", /UPDATE_INFLATION/);
+  const raised = proEstimate(weng, { cpi: { latest: 340, latestMonth: "2026-10" } });
+  assert.equal(raised?.low, Math.round(754 * (340 / 304.702)));
+  assert.match(raised?.note ?? "", /to October 2026/);
+});
+
+test("update-cpi validates month, value, and order before touching anything", () => {
+  const today = new Date(2026, 10, 12);
+  const current = { latest: 336.94, latestMonth: "2026-09" };
+  assert.deepEqual(parseCpiArgs(["--month", "2026-10", "--value", "337.5", "--dry-run"], today, current), {
+    month: "2026-10",
+    value: 337.5,
+    checked: "2026-11-12",
+    dryRun: true,
+  });
+  assert.deepEqual(parseCpiArgs(["--month=2026-10", "--value=337.512", "--checked=2026-11-13"], today, current), {
+    month: "2026-10",
+    value: 337.512,
+    checked: "2026-11-13",
+    dryRun: false,
+  });
+  const fails = (argv: string[], pattern: RegExp) => assert.throws(() => parseCpiArgs(argv, today, current), pattern);
+  fails(["--value", "337.5"], /--month/);
+  fails(["--month", "2026-10"], /--value/);
+  fails(["--month", "2026-13", "--value", "337.5"], /look like 2026-10/);
+  fails(["--month", "Oct 2026", "--value", "337.5"], /look like 2026-10/);
+  fails(["--month", "2026-10", "--value", "abc"], /index like/);
+  fails(["--month", "2026-10", "--value", "3.4"], /index like/);
+  fails(["--month", "2026-10", "--value", "250"], /not plausible/);
+  fails(["--month", "2026-10", "--value", "420"], /not plausible/);
+  fails(["--month", "2026-08", "--value", "337.5"], /older than/);
+  fails(["--month", "2026-11", "--value", "337.5"], /has not finished/);
+  fails(["--month", "2026-10", "--value", "337.5", "--checked", "11/12"], /--checked/);
+  fails(["--month", "2026-10", "--value", "337.5", "--force"], /Unknown option/);
+  fails(["2026-10"], /Unexpected argument/);
 });

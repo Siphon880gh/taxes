@@ -52,6 +52,8 @@ Tax Pro Costs starts with a **FreeTaxUSA Walkthrough** control. After the files 
 
 The same tab lists published preparation prices for the forms reached so far. FreeTaxUSA's pricing page retrieved October 16, 2026 lists federal filing at $0 and a state return at $15.99. Optional Deluxe Support, Pro Support, and Audit Defense are on that page and are not added to the estimate. H&R Block's online filing page, rendered in a browser October 21, 2026, lists Free Online $0 + $0 per state, Deluxe $65 + $49, Premium $105 + $49, and Self-Employed $130 + $49; the row picks the tier from the forms reached.
 
+The tab also shows an estimated independent-preparer fee: NSA 2023 national averages raised by CPI-U inflation. The note says which month the inflation data runs through, and hints when newer data is likely out. To update the CPI-U figure by hand, see [`docs/UPDATE_INFLATION.md`](docs/UPDATE_INFLATION.md) (`npm run update-cpi -- --month YYYY-MM --value N --dry-run`).
+
 When you ask which local skills this repo has, the answer comes from the folders under [`.agents/skills/`](.agents/skills/), as [AGENTS.md](AGENTS.md) describes.
 
 ![Published preparation-price comparison for the path so far](docs/screenshots/costs.png)

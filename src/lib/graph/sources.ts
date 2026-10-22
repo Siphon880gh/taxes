@@ -1,4 +1,7 @@
+import { CPI_U, cpiFactor, dayLabel, monthLabel } from "./cpi";
 import type { Citation } from "./types";
+
+const cpiMonth = monthLabel(CPI_U.latestMonth);
 
 export const retrieved = "October 3, 2026";
 
@@ -186,10 +189,10 @@ export const citations = {
       "NSA 2023 Income & Fees complete report, national average column. Form 1040 not itemized with a state return $279; Form 1040 itemized with a state return $392; Schedule C $221; Schedule E (rental) $192; Schedule D/Form 8949 $126; Schedule B $64; Schedule SE $62. These are separate averages. The report does not publish a 2025 Los Angeles or Louisiana package price. The 2025 NSA fee tables were not public when this tool was built. The fee tables give averages for each form, not a range or percentiles, so the fee estimate's only spread is the not-itemized versus itemized Form 1040 base.",
   } satisfies Citation,
   bls_cpi_u: {
-    title: "BLS Consumer Price Index, September 2026 (CPI-U, U.S. city average)",
+    title: `BLS Consumer Price Index, ${cpiMonth} (CPI-U, U.S. city average)`,
     url: "https://www.bls.gov/news.release/cpi.nr0.htm",
-    yearLabel: "CPI-U September 2026 against the 2023 annual average (retrieved October 21, 2026)",
-    citation:
-      "Bureau of Labor Statistics CPI news release for September 2026, published October 14, 2026, retrieved October 21, 2026. CPI-U all items, U.S. city average, not seasonally adjusted: 336.940 (1982-84=100). The 2023 annual average of the same series (CUUR0000SA0) is 304.702. 336.940 ÷ 304.702 = 1.106, so prices rose about 10.6% from the 2023 survey year to September 2026. CPI measures consumer prices in general, not tax-preparation fees.",
+    yearLabel: `CPI-U ${cpiMonth} against the 2023 annual average (retrieved ${dayLabel(CPI_U.checked)})`,
+    checked: CPI_U.checked,
+    citation: `Bureau of Labor Statistics CPI release for ${cpiMonth}, retrieved ${dayLabel(CPI_U.checked)}. CPI-U all items, U.S. city average, not seasonally adjusted (series CUUR0000SA0, https://data.bls.gov/timeseries/CUUR0000SA0): ${CPI_U.latest.toFixed(3)} (1982-84=100). The 2023 annual average of the same series is ${CPI_U.surveyYearAverage2023}. ${CPI_U.latest.toFixed(3)} ÷ ${CPI_U.surveyYearAverage2023} = ${cpiFactor().toFixed(3)}, so prices rose about ${((cpiFactor() - 1) * 100).toFixed(1)}% from the 2023 survey year to ${cpiMonth}. CPI measures consumer prices in general, not tax-preparation fees. Updated by hand; see docs/UPDATE_INFLATION.md.`,
   } satisfies Citation,
 } as const;

@@ -1,3 +1,4 @@
+import { CPI_STALE_AFTER_MONTHS, CPI_U, cpiFactor as factorOf, type CpiFigure, monthLabel, monthsSince } from "./cpi";
 import { citations } from "./sources";
 import { answerOf } from "./session";
 import type { Citation, Session } from "./types";
@@ -59,6 +60,10 @@ export type ProEstimate = {
   /** Where an entered or loaded quote sits against the range. */
   quotePosition: "below" | "within" | "above" | null;
   note: string;
+  /** "Inflation data through September 2026." */
+  inflationThrough: string;
+  /** Gentle hint when the CPI month is old enough that BLS has likely published newer data; null otherwise. */
+  inflationHint: string | null;
   citations: Citation[];
 };
 
@@ -71,8 +76,8 @@ export type CostReport = {
   staleAfterDays: number;
 };
 
-/** CPI-U, all items, U.S. city average, not seasonally adjusted. See citations.bls_cpi_u. */
-export const CPI_U = { surveyYearAverage2023: 304.702, latest: 336.94, latestLabel: "September 2026" } as const;
+/** CPI-U figure lives in ./cpi so `npm run update-cpi` can rewrite it by hand. See citations.bls_cpi_u. */
+export { CPI_U };
 
 type NsaFee = { label: string; y2023: number };
 
@@ -93,7 +98,10 @@ const NSA = {
  * averages, not a spread, so the only range in these figures is the Form 1040 base: not itemized at the low end
  * and itemized at the high end. Once the path answers that question, the range collapses to one figure.
  */
-export function proEstimate(session: Session): ProEstimate | null {
+export function proEstimate(
+  session: Session,
+  options: { today?: Date; cpi?: CpiFigure } = {},
+): ProEstimate | null {
   if (session.revealed.length <= 1) return null;
   const tags = complexityTags(session);
   const choice = answerOf(session, "deduction_choice");
@@ -106,7 +114,10 @@ export function proEstimate(session: Session): ProEstimate | null {
   ].filter((fee): fee is NsaFee => fee !== null);
   const lowBase = choice === "itemized" ? NSA.itemized : NSA.notItemized;
   const highBase = choice === "standard" ? NSA.notItemized : NSA.itemized;
-  const cpiFactor = CPI_U.latest / CPI_U.surveyYearAverage2023;
+  const cpi = options.cpi ?? CPI_U;
+  const cpiFactor = factorOf(cpi);
+  const cpiMonth = monthLabel(cpi.latestMonth);
+  const cpiAge = monthsSince(cpi.latestMonth, options.today ?? new Date());
   const total = (base: NsaFee) => [base, ...addOns].reduce((sum, fee) => sum + fee.y2023, 0);
   const low = Math.round(total(lowBase) * cpiFactor);
   const high = Math.round(total(highBase) * cpiFactor);
@@ -128,7 +139,12 @@ export function proEstimate(session: Session): ProEstimate | null {
     high,
     cpiFactor,
     quotePosition,
-    note: `Estimate only, not a quote. It takes the NSA 2023 national averages (${baseText}, plus ${addOnText}) and raises each total by CPI-U inflation from the 2023 average to ${CPI_U.latestLabel} (×${cpiFactor.toFixed(3)}). ${spreadText} National averages are not Los Angeles or Louisiana prices, and a preparer can charge well outside this estimate.`,
+    note: `Estimate only, not a quote. It takes the NSA 2023 national averages (${baseText}, plus ${addOnText}) and raises each total by CPI-U inflation from the 2023 average to ${cpiMonth} (×${cpiFactor.toFixed(3)}). ${spreadText} National averages are not Los Angeles or Louisiana prices, and a preparer can charge well outside this estimate.`,
+    inflationThrough: `Inflation data through ${cpiMonth}.`,
+    inflationHint:
+      cpiAge > CPI_STALE_AFTER_MONTHS
+        ? `That is ${cpiAge} months back, so BLS has likely published newer CPI data. To update it by hand, follow docs/UPDATE_INFLATION.md.`
+        : null,
     citations: [citations.nsa_2023, citations.bls_cpi_u],
   };
 }
@@ -352,7 +368,7 @@ export function costReport(session: Session, options: CostOptions = {}): CostRep
     quoteNote,
     framing,
     direction,
-    estimate: proEstimate(session),
+    estimate: proEstimate(session, { today }),
     staleAfterDays,
   };
 }
