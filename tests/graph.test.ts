@@ -19,7 +19,7 @@ import {
 } from "../src/lib/graph/session";
 import { applyCase, caseStudies } from "../src/lib/graph/cases";
 import { buildChecklist } from "../src/lib/graph/checklist";
-import { costReport } from "../src/lib/graph/cost";
+import { CPI_U, costReport, proEstimate } from "../src/lib/graph/cost";
 import { chartView, mermaidSource } from "../src/lib/graph/mermaid";
 import { applyNodeReply, nodePrompt } from "../src/lib/graph/prompt";
 import { numberEntryError } from "../src/lib/graph/allocate";
@@ -616,4 +616,45 @@ test("an entered quote is parsed, named, priced, and kept through answers and a 
   assert.equal(costReport(cleared).rows.some((row) => row.id === "quote"), false);
   assert.equal(costReport(setQuote(session, 900, null)).rows[0]?.vendor, "Independent firm quote");
   assert.equal(applyCase("weng-2025").quotePreparer, null);
+});
+
+test("the tax pro estimate is a CPI-adjusted NSA range for the forms reached and is labeled an estimate", () => {
+  const blank = proEstimate(blankSession());
+  assert.ok(blank && blank.low < blank.high);
+  assert.match(blank.note, /no schedule add-ons yet/);
+  const factor = CPI_U.latest / CPI_U.surveyYearAverage2023;
+  assert.ok(Math.abs(factor - 1.1058) < 0.001);
+
+  const weng = applyCase("weng-2025");
+  const estimate = costReport(weng).estimate;
+  assert.ok(estimate);
+  // Not itemized base $279 + Schedule C $221 + Schedule E $192 + Schedule SE $62 = $754, raised by CPI-U.
+  assert.equal(estimate.low, Math.round(754 * factor));
+  assert.equal(estimate.low, 834);
+  // Itemized base and each add-on raised by the larger of CPI-U or its own 2020→2023 growth.
+  assert.equal(estimate.high, Math.round(392 * (392 / 323) + 221 * (221 / 192) + 192 * (192 / 145) + 62 * (62 / 41)));
+  assert.equal(estimate.high, 1078);
+  assert.equal(estimate.quotePosition, "within");
+  assert.match(estimate.note, /Estimate only, not a quote/);
+  assert.match(estimate.note, /CPI-U/);
+  assert.deepEqual(estimate.citations.map((citation) => citation.url).sort(), [
+    "https://img1.wsimg.com/blobby/go/a15c5ffb-9439-4993-b38e-4acbf6145e32/2023%2BComplete%2BIncome%2Band%2BFees%2BReport.pdf",
+    "https://www.bls.gov/news.release/cpi.nr0.htm",
+  ].sort());
+
+  assert.equal(proEstimate(setQuote(weng, 500, null))?.quotePosition, "below");
+  assert.equal(proEstimate(setQuote(weng, 2000, null))?.quotePosition, "above");
+  assert.equal(proEstimate(setQuote(weng, null, null))?.quotePosition, null);
+
+  const standard = applyAnswer(weng, "deduction_choice", "standard");
+  if (standard.revealed.includes("deduction_choice")) {
+    const narrow = proEstimate(standard);
+    assert.ok(narrow && narrow.high < estimate.high);
+    assert.equal(narrow?.low, 834);
+  }
+
+  const crypto = proEstimate(applyCase("joint-w2-crypto"));
+  assert.ok(crypto && crypto.low < crypto.high);
+  // Schedule D grew more slowly than CPI-U from 2020 to 2023, so CPI-U sets its high-end factor.
+  assert.match(crypto.note, /Schedule D \/ Form 8949 \$126/);
 });

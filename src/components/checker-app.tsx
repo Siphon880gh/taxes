@@ -932,6 +932,29 @@ export function CheckerApp() {
                   )}
                   {cost.framing ? <p className="mt-3 text-sm text-stone-800">{cost.framing}</p> : null}
                   {cost.quoteNote ? <p className="mt-2 text-sm font-medium text-stone-900">{cost.quoteNote}</p> : null}
+                  {cost.estimate ? (
+                    <div className="pro-estimate" role="note" aria-label="Estimated tax pro fee">
+                      <p className="pro-estimate-label">Estimate · not a quote</p>
+                      <p className="pro-estimate-range">
+                        Tax pro fee for the forms reached so far: ${cost.estimate.low.toLocaleString("en-US")}–${cost.estimate.high.toLocaleString("en-US")}
+                      </p>
+                      {cost.estimate.quotePosition && session.quote != null ? (
+                        <p className="text-sm font-medium text-stone-900">
+                          {cost.estimate.quotePosition === "within"
+                            ? `The $${session.quote.toLocaleString("en-US")} quote is inside this range.`
+                            : `The $${session.quote.toLocaleString("en-US")} quote is ${cost.estimate.quotePosition} this range.`}
+                        </p>
+                      ) : null}
+                      <p className="mt-1 text-sm text-stone-700">{cost.estimate.note}</p>
+                      <p className="mt-1 flex flex-wrap gap-x-3 text-sm">
+                        {cost.estimate.citations.map((citation) => (
+                          <a key={citation.url} className="text-rust underline-offset-2 hover:underline" href={citation.url} target="_blank" rel="noreferrer">
+                            {citation.title}
+                          </a>
+                        ))}
+                      </p>
+                    </div>
+                  ) : null}
                   {cost.rows.length === 0 ? (
                     <p className="mt-3 text-stone-700">The comparison appears once a year is selected.</p>
                   ) : (

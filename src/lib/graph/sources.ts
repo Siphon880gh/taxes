@@ -169,6 +169,13 @@ export const citations = {
     url: "https://img1.wsimg.com/blobby/go/a15c5ffb-9439-4993-b38e-4acbf6145e32/2023%2BComplete%2BIncome%2Band%2BFees%2BReport.pdf",
     yearLabel: "Survey year 2023 (report © 2024)",
     citation:
-      "NSA 2023 Income & Fees complete report, national average column. Form 1040 not itemized with a state return $279; Form 1040 itemized with a state return $392; Schedule C $221; Schedule E (rental) $192; Schedule D/Form 8949 $126; Schedule B $64; Schedule SE $62. These are separate averages. The report does not publish a 2025 Los Angeles or Louisiana package price. The 2025 NSA fee tables were not public when this tool was built.",
+      "NSA 2023 Income & Fees complete report, national average column. Form 1040 not itemized with a state return $279; Form 1040 itemized with a state return $392; Schedule C $221; Schedule E (rental) $192; Schedule D/Form 8949 $126; Schedule B $64; Schedule SE $62. These are separate averages. The report does not publish a 2025 Los Angeles or Louisiana package price. The 2025 NSA fee tables were not public when this tool was built. The same table's 2020 column, used only for the high end of the fee estimate: Form 1040 not itemized $220; itemized $323; Schedule C $192; Schedule E $145; Schedule D/Form 8949 $118; Schedule B $42; Schedule SE $41.",
+  } satisfies Citation,
+  bls_cpi_u: {
+    title: "BLS Consumer Price Index, September 2026 (CPI-U, U.S. city average)",
+    url: "https://www.bls.gov/news.release/cpi.nr0.htm",
+    yearLabel: "CPI-U September 2026 against the 2023 annual average (retrieved October 21, 2026)",
+    citation:
+      "Bureau of Labor Statistics CPI news release for September 2026, published October 14, 2026, retrieved October 21, 2026. CPI-U all items, U.S. city average, not seasonally adjusted: 336.940 (1982-84=100). The 2023 annual average of the same series (CUUR0000SA0) is 304.702. 336.940 ÷ 304.702 = 1.106, so prices rose about 10.6% from the 2023 survey year to September 2026. CPI measures consumer prices in general, not tax-preparation fees.",
   } satisfies Citation,
 } as const;

@@ -1265,6 +1265,29 @@ button.question-dock-tile {
   font-size: 0.9rem;
 }
 
+.pro-estimate {
+  margin-top: 0.75rem;
+  border: 1px solid #9a3412;
+  border-radius: 0.5rem;
+  background: #fff7ed;
+  padding: 0.65rem 0.85rem;
+}
+
+.pro-estimate-label {
+  color: #9a3412;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.pro-estimate-range {
+  margin-top: 0.15rem;
+  color: #1c1917;
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
 .quote-entry p {
   flex-basis: 100%;
   color: #78716c;

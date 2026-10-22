@@ -13,12 +13,82 @@ export type PriceRow = {
   citation?: Citation;
 };
 
+export type ProEstimate = {
+  low: number;
+  high: number;
+  /** CPI-U ratio from the 2023 survey year to the latest month used. */
+  cpiFactor: number;
+  /** Where an entered or loaded quote sits against the range. */
+  quotePosition: "below" | "within" | "above" | null;
+  note: string;
+  citations: Citation[];
+};
+
 export type CostReport = {
   rows: PriceRow[];
   quoteNote: string | null;
   framing: string | null;
   direction: "same" | "higher" | "lower-work" | "none";
+  estimate: ProEstimate | null;
 };
+
+/** CPI-U, all items, U.S. city average, not seasonally adjusted. See citations.bls_cpi_u. */
+export const CPI_U = { surveyYearAverage2023: 304.702, latest: 336.94, latestLabel: "September 2026" } as const;
+
+type NsaFee = { label: string; y2023: number; y2020: number };
+
+/** NSA national averages for the 2023 and 2020 surveys. See citations.nsa_2023. */
+const NSA = {
+  notItemized: { label: "Form 1040 not itemized, with a state return", y2023: 279, y2020: 220 },
+  itemized: { label: "Form 1040 itemized, with a state return", y2023: 392, y2020: 323 },
+  scheduleC: { label: "Schedule C", y2023: 221, y2020: 192 },
+  scheduleE: { label: "Schedule E rental", y2023: 192, y2020: 145 },
+  scheduleSE: { label: "Schedule SE", y2023: 62, y2020: 41 },
+  scheduleD: { label: "Schedule D / Form 8949", y2023: 126, y2020: 118 },
+  scheduleB: { label: "Schedule B", y2023: 64, y2020: 42 },
+} satisfies Record<string, NsaFee>;
+
+/**
+ * Estimated independent-preparer fee for the forms reached so far.
+ * Low end: the lower matching 2023 base plus add-ons, raised by CPI-U.
+ * High end: the higher matching base plus add-ons, each raised by the larger of CPI-U or that fee's own 2020→2023 growth.
+ */
+export function proEstimate(session: Session): ProEstimate | null {
+  if (session.revealed.length <= 1) return null;
+  const tags = complexityTags(session);
+  const choice = answerOf(session, "deduction_choice");
+  const addOns: NsaFee[] = [
+    tags.includes("Schedule C") ? NSA.scheduleC : null,
+    tags.includes("Schedule E") ? NSA.scheduleE : null,
+    tags.includes("Schedule SE") ? NSA.scheduleSE : null,
+    tags.includes("investments") ? NSA.scheduleD : null,
+    has(session, "check_sch_b") ? NSA.scheduleB : null,
+  ].filter((fee): fee is NsaFee => fee !== null);
+  const lowBase = choice === "itemized" ? NSA.itemized : NSA.notItemized;
+  const highBase = choice === "standard" ? NSA.notItemized : NSA.itemized;
+  const cpiFactor = CPI_U.latest / CPI_U.surveyYearAverage2023;
+  const low = Math.round([lowBase, ...addOns].reduce((sum, fee) => sum + fee.y2023, 0) * cpiFactor);
+  const high = Math.round(
+    [highBase, ...addOns].reduce((sum, fee) => sum + fee.y2023 * Math.max(cpiFactor, fee.y2023 / fee.y2020), 0),
+  );
+  const quotePosition =
+    session.quote == null ? null : session.quote < low ? "below" : session.quote > high ? "above" : "within";
+  const baseText =
+    lowBase === highBase
+      ? `${lowBase.label} ($${lowBase.y2023} in 2023)`
+      : `${lowBase.label} ($${lowBase.y2023}) at the low end and ${highBase.label.replace("Form 1040 ", "")} ($${highBase.y2023}) at the high end, because this path has not said whether the return itemizes`;
+  const addOnText = addOns.length
+    ? addOns.map((fee) => `${fee.label} $${fee.y2023}`).join(", ")
+    : "no schedule add-ons yet";
+  return {
+    low,
+    high,
+    cpiFactor,
+    quotePosition,
+    note: `Estimate only, not a quote. It starts from the NSA 2023 national averages: ${baseText}, plus ${addOnText}. The low end raises the 2023 total by CPI-U inflation from the 2023 average to ${CPI_U.latestLabel} (×${cpiFactor.toFixed(3)}). The high end assumes each fee keeps growing as it did from the 2020 to the 2023 survey, or by CPI-U if that is higher. National averages are not Los Angeles or Louisiana prices, and a preparer can charge well outside this range.`,
+    citations: [citations.nsa_2023, citations.bls_cpi_u],
+  };
+}
 
 function has(session: Session, id: string): boolean {
   return session.revealed.includes(id);
@@ -206,5 +276,5 @@ export function costReport(session: Session): CostReport {
     });
   }
 
-  return { rows, quoteNote, framing, direction };
+  return { rows, quoteNote, framing, direction, estimate: proEstimate(session) };
 }
