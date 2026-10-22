@@ -634,6 +634,33 @@ function uploads_of(array $files): array
     return $out;
 }
 
+/**
+ * Local-only guard. The sorter reads and writes real tax documents, so it answers only a browser on this machine.
+ * A request that came through a proxy (forwarding headers present) is refused even when the proxy itself is local.
+ */
+function request_is_local(): bool
+{
+    $addr = (string) ($_SERVER["REMOTE_ADDR"] ?? "");
+    if (!in_array($addr, ["127.0.0.1", "::1", "::ffff:127.0.0.1"], true)) {
+        return false;
+    }
+    foreach (["HTTP_X_FORWARDED_FOR", "HTTP_FORWARDED", "HTTP_X_REAL_IP", "HTTP_CLIENT_IP"] as $header) {
+        if (!empty($_SERVER[$header])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+if (!request_is_local()) {
+    send_cors();
+    http_response_code(403);
+    header("Content-Type: application/json; charset=utf-8");
+    header("Cache-Control: no-store");
+    echo json_encode(["ok" => false, "error" => "The document sorter only runs on this computer (localhost)."]);
+    exit;
+}
+
 send_cors();
 if (($_SERVER["REQUEST_METHOD"] ?? "GET") === "OPTIONS") {
     http_response_code(204);

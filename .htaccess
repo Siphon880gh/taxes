@@ -1,0 +1,11 @@
+# Defense in depth if this whole folder is ever synced to a web host by mistake.
+# Only out/ (and index.html, which redirects to it) is meant to be public. See README "Deploy".
+# Some hosts ignore .htaccess, so never rely on this: upload out/ only.
+<IfModule mod_authz_core.c>
+  <FilesMatch "^\.(env|git)">
+    Require all denied
+  </FilesMatch>
+  <If "%{REQUEST_URI} =~ m#/(sorter|context|\.agents|scripts|src|tests|docs|node_modules)/#">
+    Require local
+  </If>
+</IfModule>

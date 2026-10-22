@@ -44,16 +44,13 @@ next-env.d.ts
 # fetched source dumps used while checking figures
 /agent-tools
 
-# document sorter uploads and placed tax files (keep the PHP endpoint and empty stage marker)
+# document sorter uploads and placed tax files (keep the PHP endpoint, its local-only .htaccess, and the empty stage marker)
 /sorter/*
 !/sorter/api.php
+!/sorter/.htaccess
 !/sorter/stage/
 /sorter/stage/*
 !/sorter/stage/.gitkeep
 !/sorter/stage/.htaccess
-/public/sorter/*
-!/public/sorter/api.php
-!/public/sorter/stage/
-/public/sorter/stage/*
-!/public/sorter/stage/.gitkeep
-!/public/sorter/stage/.htaccess
+# the sorter is local-only; never let a copy land in public/ (it would ship inside out/)
+/public/sorter/

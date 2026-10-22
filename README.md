@@ -30,6 +30,25 @@ Start blank, or open a case study. **Coder/Nurse 1099 Example** walks a single f
 
 `npm test` checks the graph. `npm run generate-graph` rewrites the decision-graph document from the same source.
 
+## Deploy
+
+The public site is a static build. `npm run build` writes it to `out/`, and the build rewrites asset paths so the same `out/` works at `/weng/app/taxes/out/` on localhost and at `/app/taxes/out/` on the web host.
+
+**Upload only these** to `<host>/app/taxes/`:
+
+- the contents of `out/`, into `<host>/app/taxes/out/`
+- `index.html` from the repo root, which only redirects to `out/` (optional)
+
+**Never upload** anything else from this folder, and especially not:
+
+- `sorter/` — the document sorter's PHP endpoint and `sorter/stage/` / `sorter/sorted/`, which hold real tax documents, `Summaries.md`, and `Owed Audit.md`
+- `.env` and `.env.*`
+- `context/`, `.agents/`, `src/`, `scripts/`, `tests/`, `docs/`, `node_modules/`, `.next/`, `.git/`
+
+The Document Sorter and Return & Owe Audit tabs work only when the app runs on your own computer. On any other host they say so and make no requests. As a backstop, `sorter/api.php` refuses (403) any request that does not come from `127.0.0.1` or `::1`, or that came through a proxy. `sorter/.htaccess` and the root `.htaccess` deny the same paths on Apache hosts that honor `.htaccess`. Do not count on either: upload `out/` only.
+
+There is no deploy script in this repo. If you sync with an FTP or SFTP client, point it at `out/`, not at this folder.
+
 ## Sort documents with the AI skills
 
 Before you walk the chart, you can drop W-2s, 1099s, receipts, bills, and scans into the **Document Sorter** tab, or straight into `sorter/stage/`.
