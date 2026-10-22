@@ -12,6 +12,9 @@ import {
   saltCap,
   seRates,
   socialSecurityWageBase,
+  infoReturnThreshold,
+  qbiThreshold,
+  schedule1A,
   stateStandard,
   ten99kThreshold,
 } from "../src/lib/graph/thresholds";
@@ -114,7 +117,7 @@ function design(): string {
 }
 
 function thresholdTables(): string {
-  const years: TaxYear[] = [2024, 2025, 2026];
+  const years: TaxYear[] = [2025, 2026];
   const statuses: FilingStatus[] = ["single", "mfj", "mfs", "hoh", "qss"];
   const federal = ["| Year | Status | Basic standard deduction | Age/blind add-on |", "| --- | --- | --- | --- |"];
   for (const year of years) {
@@ -140,19 +143,34 @@ function thresholdTables(): string {
   }
   const salt2025 = saltCap(2025, "single");
   const saltMfs = saltCap(2025, "mfs");
+  const salt2026 = saltCap(2026, "single");
+  const salt2026Mfs = saltCap(2026, "mfs");
   const wage = socialSecurityWageBase(2025);
+  const wage2026 = socialSecurityWageBase(2026);
+  const qbi = ([2025, 2026] as TaxYear[]).flatMap((year) =>
+    (["single", "mfj", "mfs"] as FilingStatus[]).map((status) => {
+      const q = qbiThreshold(year, status);
+      return `| ${year} | ${status} | ${money(q.threshold ?? 0)} | ${money(q.phaseInEnd ?? 0)} |`;
+    }),
+  );
   return [
     federal.join("\n"),
     "",
-    "The 2025 basic amounts are the post-OBBBA figures in the 2025 Form 1040 instructions and IR-2025-103. The 2026 basic amounts and the 2026 age add-on are from Rev. Proc. 2025-32. Tax year 2024 amounts are not loaded.",
+    "The 2025 basic amounts are the post-OBBBA figures in the 2025 Form 1040 instructions and IR-2025-103. The 2026 basic amounts and the 2026 age add-on are from Rev. Proc. 2025-32. Tax year 2024 is not offered because no 2024 figures are loaded.",
     "",
     state.join("\n"),
     "",
     "Louisiana 2025 is La. R.S. 47:294 and the 2025 IT-540 instructions. Louisiana 2026 is LDR RIB 26-019; the 2026 IT-540 line number is not confirmed in that bulletin. California 2025 is the 2025 Form 540 instructions. California 2026 is the FTB indexing announcement (page updated September 30, 2026), not a final 2026 Form 540 booklet.",
     "",
-    `State and local tax cap for 2025 Schedule A line 5e: ${money(salt2025.amount ?? 0)} generally, ${money(saltMfs.amount ?? 0)} if married filing separately, before the modified-AGI phase-down. The phase-down is not computed here. A 2026 cap is not stored.`,
+    `State and local tax cap: 2025 Schedule A line 5e ${money(salt2025.amount ?? 0)} generally, ${money(saltMfs.amount ?? 0)} if married filing separately, reduced above ${money(salt2025.phaseDownOver ?? 0)} modified AGI (${money(saltMfs.phaseDownOver ?? 0)} MFS). 2026: ${money(salt2026.amount ?? 0)} (${money(salt2026Mfs.amount ?? 0)} MFS), reduced above ${money(salt2026.phaseDownOver ?? 0)} (${money(salt2026Mfs.phaseDownOver ?? 0)} MFS). The phase-down is not computed here.`,
     "",
-    `Self-employment, Publication 334 (2025): ${seRates.multiplier} of net profit, combined rate ${seRates.combined} (${seRates.socialSecurity} Social Security and ${seRates.medicare} Medicare). Social Security wage base for 2025: ${wage.amount == null ? "not stored" : money(wage.amount)}. The 2024 and 2026 wage bases are not stored.`,
+    `Form 1099-NEC and no-withholding W-2 threshold (Pub. 15, 2026): ${money(infoReturnThreshold(2025).amount ?? 0)} for payments made in 2025, ${money(infoReturnThreshold(2026).amount ?? 0)} for payments made in 2026.`,
+    "",
+    ["| Year | Status | QBI threshold (Form 8995 at or below) | Phase-in range ends |", "| --- | --- | --- | --- |", ...qbi].join("\n"),
+    "",
+    `Schedule 1-A (2025 through 2028, FS-2025-03): tips up to ${money(schedule1A.tips.max)}, overtime up to ${money(schedule1A.overtime.max.other)} (${money(schedule1A.overtime.max.mfj)} joint), both reduced above ${money(schedule1A.tips.phaseOutOver.other)} modified AGI (${money(schedule1A.tips.phaseOutOver.mfj)} joint); car loan interest up to ${money(schedule1A.carLoan.max)}, reduced above ${money(schedule1A.carLoan.phaseOutOver.other)} (${money(schedule1A.carLoan.phaseOutOver.mfj)} joint); seniors ${money(schedule1A.senior.perPerson)} per person 65 or older, reduced by 6% above ${money(schedule1A.senior.phaseOutOver.other)} (${money(schedule1A.senior.phaseOutOver.mfj)} joint).`,
+    "",
+    `Self-employment, Publication 334 (2025): ${seRates.multiplier} of net profit, combined rate ${seRates.combined} (${seRates.socialSecurity} Social Security and ${seRates.medicare} Medicare). Social Security wage base: ${money(wage.amount ?? 0)} for 2025; ${money(wage2026.amount ?? 0)} for 2026 (SSA).`,
     "",
     `Form 1099-K for tax year ${ten99kThreshold.year}: a third party settlement organization is not required to file the form unless gross payments for goods or services exceed ${money(ten99kThreshold.grossExceeds)} and the number of transactions exceeds ${ten99kThreshold.transactionsExceed}. ${ten99kThreshold.recalledMatches} Goods-and-services income remains reportable when no form is generated. No Louisiana or California 1099-K threshold is stored.`,
   ].join("\n");

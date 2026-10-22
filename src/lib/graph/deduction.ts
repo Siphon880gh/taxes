@@ -2,6 +2,8 @@ import { answerOf } from "./session";
 import {
   federalAdditionalAgeBlind,
   federalBasicStandard,
+  dependentStandard,
+  seniorDeduction,
   parseJurisdiction,
   parseStatus,
   parseYear,
@@ -48,7 +50,7 @@ export function deductionNarrative(session: Session): string[] {
 
   if (answerOf(session, "claimed_dependent") === "yes") {
     lines.push(
-      "Someone else can claim this filer. For 2025, Topic 551 limits the standard deduction to the greater of $1,350 or earned income plus $450, capped at the basic standard deduction. Earned income was not entered, so the full basic amount above is not this person's deduction.",
+      `Someone else can claim this filer. ${dependentStandard(year).note} Earned income was not entered, so the full basic amount above is not this person's deduction.`,
     );
   }
 
@@ -61,13 +63,7 @@ export function deductionNarrative(session: Session): string[] {
   }
 
   if (age === "age" || age === "both") {
-    if (year === 2025) {
-      lines.push(
-        "Tax year 2025 also has an enhanced senior deduction of up to $6,000 ($12,000 if both spouses qualify), claimed on Schedule 1-A, and limited if MAGI is more than $75,000 ($150,000 married filing jointly). MAGI was not entered, so the phaseout is not computed. It is separate from the standard deduction.",
-      );
-    } else {
-      lines.push("An enhanced senior deduction for the selected year was not verified here, so no dollar amount is shown.");
-    }
+    lines.push(seniorDeduction(year, status).note);
   }
 
   const choice = answerOf(session, "deduction_choice");

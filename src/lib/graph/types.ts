@@ -1,4 +1,5 @@
-export type TaxYear = 2024 | 2025 | 2026;
+/** Tax years with sourced figures. 2024 was dropped because no 2024 figures are loaded. */
+export type TaxYear = 2025 | 2026;
 
 export type Certainty = "sourced" | "verify";
 

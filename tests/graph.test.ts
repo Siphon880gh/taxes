@@ -21,6 +21,7 @@ import {
 } from "../src/lib/graph/session";
 import { applyCase, caseStudies } from "../src/lib/graph/cases";
 import { buildChecklist } from "../src/lib/graph/checklist";
+import { deductionNarrative } from "../src/lib/graph/deduction";
 import { CPI_U, costReport, PRICE_STALE_AFTER_DAYS, proEstimate } from "../src/lib/graph/cost";
 import { chartView, mermaidSource } from "../src/lib/graph/mermaid";
 import { applyNodeReply, nodePrompt } from "../src/lib/graph/prompt";
@@ -32,6 +33,13 @@ import { parseCpiArgs } from "../scripts/cpi-args";
 import { QUOTE_STORAGE_KEY, readStoredQuote, writeStoredQuote } from "../src/lib/quote-storage";
 import {
   federalBasicStandard,
+  infoReturnThreshold,
+  parseYear,
+  qbiThreshold,
+  saltCap,
+  schedule1A,
+  seniorDeduction,
+  socialSecurityWageBase,
   stateStandard,
   ten99kThreshold,
 } from "../src/lib/graph/thresholds";
@@ -209,7 +217,7 @@ test("the joint W-2 and crypto illustration is a different path", () => {
 test("sourced thresholds keep their year", () => {
   assert.equal(federalBasicStandard(2025, "single").amount, 15750);
   assert.equal(federalBasicStandard(2026, "mfj").amount, 32200);
-  assert.equal(federalBasicStandard(2024, "single").amount, null);
+  assert.equal(parseYear("y2024"), null);
   assert.equal(stateStandard(2025, "single", "louisiana").amount, 12500);
   assert.equal(stateStandard(2025, "hoh", "california").amount, 11412);
   assert.equal(ten99kThreshold.year, 2025);
@@ -275,7 +283,7 @@ test("selecting Single groups a fan-out of more than 7 topics by section", () =>
   assert.match(chart, /group_filing_status_invest\[/);
   assert.match(chart, /Interest, capital gains, and digital assets<br\/>4 topics/);
   assert.match(chart, /Other income, credits, and payments<br\/>13 topics/);
-  assert.match(chart, /Standard deduction and itemizing<br\/>5 topics/);
+  assert.match(chart, /Standard deduction and itemizing<br\/>6 topics/);
   assert.doesNotMatch(chart, /\n  interest\[/);
   assert.doesNotMatch(chart, /\n  dependents\[/);
   assert.doesNotMatch(chart, /\n  deduction_choice\[/);
@@ -524,7 +532,7 @@ test("a node prompt carries the session and a reply applies only that box", () =
   const next = applyNodeReply(session, "filing_status", '{"nodeId":"filing_status","answerId":"single"}');
   assert.equal(next.answers.filing_status?.answerId, "single");
   assert.equal(session.answers.filing_status, undefined);
-  assert.throws(() => applyNodeReply(session, "filing_status", '{"nodeId":"year","answerId":"y2024"}'), /different box/);
+  assert.throws(() => applyNodeReply(session, "filing_status", '{"nodeId":"year","answerId":"y2026"}'), /different box/);
   assert.throws(() => applyNodeReply(session, "filing_status", "not json"), /not JSON/);
   assert.throws(() => applyNodeReply(session, "filing_status", '{"answerId":"nope"}'), /not one of this box/);
   const replaced = applyNodeReply(session, "filing_status", sessionToJson(applyAnswer(session, "filing_status", "mfj")));
@@ -837,4 +845,115 @@ test("update-cpi validates month, value, and order before touching anything", ()
   fails(["--month", "2026-10", "--value", "337.5", "--checked", "11/12"], /--checked/);
   fails(["--month", "2026-10", "--value", "337.5", "--force"], /Unknown option/);
   fails(["2026-10"], /Unexpected argument/);
+});
+
+test("2026 figures are loaded with their own sources and 2024 is not offered", () => {
+  assert.deepEqual(getNode("year").answers?.map((answer) => answer.id), ["y2025", "y2026", "unknown"]);
+  const salt25 = saltCap(2025, "single");
+  const salt26 = saltCap(2026, "single");
+  const salt26mfs = saltCap(2026, "mfs");
+  assert.equal(salt25.amount, 40000);
+  assert.equal(salt25.phaseDownOver, 500000);
+  assert.equal(saltCap(2025, "mfs").phaseDownOver, 250000);
+  assert.equal(salt26.amount, 40400);
+  assert.equal(salt26.phaseDownOver, 505000);
+  assert.equal(salt26mfs.amount, 20200);
+  assert.equal(salt26mfs.phaseDownOver, 252500);
+  assert.match(salt26.citation?.url ?? "", /2026-form-1040-es/);
+  assert.equal(saltCap(null, "single").amount, null);
+
+  assert.equal(socialSecurityWageBase(2025).amount, 176100);
+  assert.equal(socialSecurityWageBase(2026).amount, 184500);
+  assert.match(socialSecurityWageBase(2026).citation?.url ?? "", /ssa\.gov/);
+
+  assert.equal(infoReturnThreshold(2025).amount, 600);
+  assert.equal(infoReturnThreshold(2026).amount, 2000);
+  assert.equal(infoReturnThreshold(null).unverified, true);
+
+  assert.deepEqual([qbiThreshold(2025, "single").threshold, qbiThreshold(2025, "mfj").threshold], [197300, 394600]);
+  assert.deepEqual([qbiThreshold(2025, "mfj").phaseInEnd, qbiThreshold(2025, "hoh").phaseInEnd], [494600, 247300]);
+  assert.deepEqual(
+    [qbiThreshold(2026, "single").threshold, qbiThreshold(2026, "mfs").threshold, qbiThreshold(2026, "mfj").threshold],
+    [201750, 201775, 403500],
+  );
+  assert.equal(qbiThreshold(2026, "mfj").phaseInEnd, 553500);
+  assert.match(qbiThreshold(2026, "single").citation?.url ?? "", /rp-25-32/);
+  assert.match(qbiThreshold(2025, "single").citation?.url ?? "", /rp-24-40/);
+  assert.equal(qbiThreshold(null, "single").threshold, null);
+
+  assert.equal(seniorDeduction(2026, "single").amount, 6000);
+  assert.match(seniorDeduction(2026, "mfj").note, /\$12,000.*\$150,000/);
+  assert.match(seniorDeduction(2025, "mfs").note, /must file jointly/);
+  assert.equal(schedule1A.tips.max, 25000);
+  assert.deepEqual(schedule1A.overtime.max, { mfj: 25000, other: 12500 });
+  assert.deepEqual(schedule1A.carLoan.phaseOutOver, { mfj: 200000, other: 100000 });
+  assert.equal(schedule1A.carLoan.perThousand, 200);
+  assert.equal(schedule1A.senior.rate, 0.06);
+});
+
+test("year-aware text: dependents, senior deduction, worker threshold, QBI, and the SALT cap follow the selected year", () => {
+  const for2026 = (answers: Record<string, string>) => {
+    let session = applyAnswer(blankSession(), "year", "y2026");
+    for (const [id, answerId] of Object.entries(answers)) session = applyAnswer(session, id, answerId);
+    return session;
+  };
+  const dependent26 = deductionNarrative(for2026({ filing_status: "single", claimed_dependent: "yes" })).join(" ");
+  assert.match(dependent26, /For 2026, .*\$1,350 or earned income plus \$450.*Rev\. Proc\. 2025-32/);
+  assert.doesNotMatch(dependent26, /For 2025/);
+  const senior26 = deductionNarrative(for2026({ filing_status: "single", age_blind: "age" })).join(" ");
+  assert.match(senior26, /Tax year 2026 also has an enhanced senior deduction of up to \$6,000/);
+  assert.doesNotMatch(senior26, /not verified/);
+
+  const weng = applyAnswer(applyCase("weng-2025"), "se_screen", "qbi");
+  assert.equal(weng.revealed.includes("check_8995"), true);
+  const weng26 = applyAnswer(weng, "year", "y2026");
+  assert.equal(answerOf(weng26, "se_screen"), "qbi");
+  const items25 = buildChecklist(weng);
+  const items26 = buildChecklist(weng26);
+  const qbi25 = items25.find((item) => item.id === "8995" || item.id === "se-both" || item.id === "rental-qbi");
+  const qbi26 = items26.find((item) => item.id === qbi25?.id);
+  assert.match(qbi25?.summary ?? "", /\$197,300/);
+  assert.match(qbi26?.summary ?? "", /\$201,750/);
+  for (const item of [...items25, ...items26]) assert.doesNotMatch(item.summary, /2024 (income|taxable-income) cutoffs/);
+  const workers = (session: typeof weng) => buildChecklist(session).find((item) => item.id === "sch-c-workers")?.summary ?? "";
+  const withWorkers25 = applyAnswer(applyAnswer(weng, "se_records", "no"), "se_workers", "yes");
+  assert.equal(withWorkers25.revealed.includes("check_se_workers"), true);
+  assert.match(workers(withWorkers25), /\$600 or more/);
+  assert.match(workers(applyAnswer(withWorkers25, "year", "y2026")), /\$2,000 or more/);
+  const itemized26 = buildChecklist(for2026({ filing_status: "mfs", deduction_choice: "itemized" })).find((item) => item.id === "sch-a");
+  assert.match(itemized26?.summary ?? "", /\$20,200.*\$252,500/);
+  assert.match(itemized26?.source?.url ?? "", /2026-form-1040-es/);
+});
+
+test("Schedule 1-A asks about tips, overtime, car-loan interest, and seniors, with limits for the year and status", () => {
+  let session = applyAnswer(blankSession(), "filing_status", "single");
+  assert.equal(session.revealed.includes("schedule_1a"), true);
+  session = applyAnswer(session, "schedule_1a", "yes");
+  for (const id of ["s1a_tips", "s1a_overtime", "s1a_car", "s1a_senior"]) assert.equal(session.revealed.includes(id), true);
+  for (const id of ["s1a_tips", "s1a_overtime", "s1a_car", "s1a_senior"]) session = applyAnswer(session, id, "yes");
+  assert.deepEqual(assertGraphIntact(), []);
+  const items = buildChecklist(session);
+  const tips = items.find((item) => item.id === "s1a-tips");
+  assert.equal(tips?.line, "13");
+  assert.equal(tips?.certainty, "sourced");
+  assert.match(tips?.summary ?? "", /\$25,000.*\$100 for each full \$1,000.*\$150,000/);
+  assert.match(tips?.source?.url ?? "", /f1040s1a\.pdf/);
+  assert.match(items.find((item) => item.id === "s1a-overtime")?.summary ?? "", /\$12,500 \(\$25,000 if married filing jointly\)/);
+  assert.match(items.find((item) => item.id === "s1a-car")?.summary ?? "", /\$10,000.*\$200 for each \$1,000 or part.*\$100,000.*VIN/);
+  assert.match(items.find((item) => item.id === "s1a-senior")?.summary ?? "", /\$6,000 per person.*6% of modified AGI over \$75,000/);
+  assert.match(items.find((item) => item.id === "s1a-total")?.line ?? "", /13b/);
+
+  const mfs = applyAnswer(applyAnswer(applyAnswer(blankSession(), "filing_status", "mfs"), "schedule_1a", "yes"), "s1a_tips", "yes");
+  assert.match(buildChecklist(mfs).find((item) => item.id === "s1a-tips")?.summary ?? "", /Married filing separately cannot claim/);
+  const mfj26 = ["filing_status:mfj", "schedule_1a:yes", "s1a_overtime:yes"].reduce(
+    (acc, pair) => applyAnswer(acc, pair.split(":")[0], pair.split(":")[1]),
+    applyAnswer(blankSession(), "year", "y2026"),
+  );
+  const overtime26 = buildChecklist(mfj26).find((item) => item.id === "s1a-overtime");
+  assert.equal(overtime26?.certainty, "verify");
+  assert.match(overtime26?.summary ?? "", /For 2026.*\$25,000 on a joint return.*\$300,000.*confirm them on the form/);
+  const unknown = applyAnswer(applyAnswer(blankSession(), "filing_status", "single"), "schedule_1a", "unknown");
+  assert.ok(buildChecklist(unknown).some((item) => item.id === "s1a-unknown"));
+  const none = applyAnswer(applyAnswer(blankSession(), "filing_status", "single"), "schedule_1a", "no");
+  assert.equal(buildChecklist(none).some((item) => item.id.startsWith("s1a-")), false);
 });

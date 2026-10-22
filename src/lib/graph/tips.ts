@@ -25,7 +25,7 @@ export const tips: Record<string, Tip> = {
       const wage = socialSecurityWageBase(ctx.year);
       const wageLine =
         wage.amount != null
-          ? `For tax year ${wage.year}, Publication 334 puts the Social Security wage base at ${money(wage.amount)} of combined wages, tips, and net earnings. The 2.9% Medicare portion has no wage base in that publication.`
+          ? `For tax year ${wage.year}, ${wage.year === 2026 ? "SSA puts" : "Publication 334 puts"} the Social Security wage base at ${money(wage.amount)} of combined wages, tips, and net earnings. The 2.9% Medicare portion has no wage base.`
           : wage.note;
       return {
         title: "Self-employment tax — how the pieces fit",

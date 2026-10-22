@@ -42,16 +42,16 @@ flowchart TD
   se_screen["Form 8995, or a work-from-home share on Schedule C?"]
   check_se_both["Verify Form 8995 or Form 8995-A. The filing notes deduct 20% of qualified business income, subject to limits, on line 5. Also verify Schedule C line 25 for the work share of utilities. Confirm both lines. This chart does not compute either amount."]
   note_qbi_no["Neither Form 8995 nor a Schedule C line 25 work-from-home share is on this activity. Verify that was intentional. This chart does not compute either amount."]
-  check_8995["Verify Form 8995 or Form 8995-A. The filing notes deduct 20% of qualified business income, subject to limits, on line 5. Confirm that line. Schedule C line 25 is not opened from this answer. The 2024 income cutoffs in the notes are not applied."]
+  check_8995["Verify Form 8995 or Form 8995-A. The filing notes deduct 20% of qualified business income, subject to limits, on line 5. Confirm that line. Schedule C line 25 is not opened from this answer. The checklist shows the QBI threshold for the selected year."]
   flag_qbi["Qualified business income and Schedule C line 25 are unknown — neither Form 8995 nor a work-from-home share is assumed"]
   check_home_c["Verify Schedule C line 25 for the work share of utilities (electric, phone, internet, water, and similar). A home-office share of insurance, taxes, or mortgage is a separate proportion of the space used for work. Form 8995 is not opened from this answer. This chart does not compute either share."]
   se_records["Vehicle, meals, or home-office expenses on this Schedule C?"]
   check_se_records["Verify the mileage log, the meal records (who, what, why), and exclusive-and-regular use of any home office behind the Schedule C expense lines. Those line numbers are not named in the filing notes, so they stay flagged. Not an instruction to add an expense."]
   note_se_records_no["No vehicle, meal, or home-office deduction on this Schedule C"]
   flag_se_records["Vehicle, meal, and home-office deductions unknown — verify the Schedule C expense lines and the logs behind them"]
-  se_workers["Did this business pay any worker USD 600 or more?"]
-  check_se_workers["Verify that each worker paid USD 600 or more received a W-2 or a 1099-NEC, that a Form W-9 is on file for each contractor, and that the Schedule C questions about Forms 1099 were answered. The Schedule C line letters are not named in the filing notes, so they stay flagged."]
-  note_se_workers_no["No worker was paid USD 600 or more by this business"]
+  se_workers["Did this business pay any worker USD 600 or more (2025) or USD 2,000 or more (2026)?"]
+  check_se_workers["Verify that each worker paid at or above the year's threshold (USD 600 in 2025, USD 2,000 in 2026) received a W-2 or a 1099-NEC, that a Form W-9 is on file for each contractor, and that the Schedule C questions about Forms 1099 were answered. The Schedule C line letters are not named in the filing notes, so they stay flagged."]
+  note_se_workers_no["No worker was paid at or above the reporting threshold by this business"]
   flag_se_workers["Payments to workers unknown — verify whether a W-2 or 1099-NEC had to be issued"]
   se_loss["Hobby, or a business? A startup or freelance side activity is the one to ask about."]
   check_hobby["Classified as a hobby: report the income, and do not deduct the related expenses. The IRS defines a legitimate business (not a hobby) as an activity that makes a profit in at least 3 of 5 consecutive years (2 of 7 for horse breeding, training, or racing). A new activity can postpone that test with Form 5213. This chart does not make the classification."]
@@ -211,6 +211,19 @@ flowchart TD
   check_no_mortgage["No personal mortgage — verify Schedule A is not claiming home mortgage interest. This does not choose the standard deduction."]
   check_mortgage["If the return itemizes, verify Form 1098 and home mortgage interest on Schedule A. Not a reason to start Schedule A."]
   age_blind["Age 65 or older, or blind, at year end?"]
+  schedule_1a["Schedule 1-A: tips, overtime, car-loan interest, or the senior deduction?"]
+  note_s1a_no["No Schedule 1-A deduction claimed"]
+  flag_s1a["Schedule 1-A unknown — verify whether tips, overtime, car-loan interest, or the senior deduction were considered"]
+  s1a_tips["Qualified tips deducted (Schedule 1-A Part II)?"]
+  s1a_overtime["Qualified overtime deducted (Schedule 1-A Part III)?"]
+  s1a_car["Car-loan interest deducted (Schedule 1-A Part IV)?"]
+  s1a_senior["Enhanced senior deduction claimed (Schedule 1-A Part V)?"]
+  check_s1a_tips["Verify Schedule 1-A Part II against the tips on the W-2 or payer statement. The checklist names the line and the limits for the year."]
+  check_s1a_overtime["Verify Schedule 1-A Part III uses only the overtime premium, not all overtime pay. The checklist names the line and the limits for the year."]
+  check_s1a_car["Verify Schedule 1-A Part IV: the VIN, a loan after 2024, a new US-assembled personal vehicle, and that business-use interest on Schedule C or E is not counted twice."]
+  check_s1a_senior["Verify Schedule 1-A Part V: each person claimed was 65 or older by year end and has a valid SSN. The checklist names the line and the phase-out for the year."]
+  note_s1a_part_no["That Schedule 1-A part is not claimed"]
+  flag_s1a_part["A Schedule 1-A part is unknown — read that part of the form"]
   claimed_dependent["Can someone else claim you?"]
   mfs_spouse["Does the spouse itemize on a separate return?"]
   deduction_choice["What the prepared return deducted"]
@@ -226,7 +239,7 @@ flowchart TD
   deduction_result["Standard vs itemized — sourced amounts for the selected year, status, and jurisdiction. Verify Form 1040 line 12e. Not a recommendation to change the return."]
   flag_deduction["A deduction fact is unknown — do not treat a comparison as finished"]
   form_1040["Form 1040 — Schedule C, Schedule E, and any other schedules this path turns up flow onto the main Form 1040. Schedule 1 is adjustments, Schedule 2 is additional taxes, and Schedule 3 is credits. The filing notes use line 15 for taxable income; confirm that line. Verify the prepared return. Not an instruction to start a form."]
-  year -->|"2024"| filing_status
+  year -->|"2025"| filing_status
   filing_status -->|"Single"| w2
   filing_status -->|"Single"| se
   filing_status -->|"Single"| payapps
@@ -250,6 +263,7 @@ flowchart TD
   filing_status -->|"Single"| ip_pin
   filing_status -->|"Single"| personal_mortgage
   filing_status -->|"Single"| age_blind
+  filing_status -->|"Single"| schedule_1a
   filing_status -->|"Single"| claimed_dependent
   filing_status -->|"Single"| deduction_choice
   filing_status -->|"Single"| jurisdiction
@@ -488,6 +502,33 @@ flowchart TD
   personal_mortgage -->|"Mortgage"| check_mortgage
   personal_mortgage -->|"Unknown"| flag_deduction
   age_blind -->|"No"| deduction_result
+  schedule_1a -->|"Yes"| s1a_tips
+  schedule_1a -->|"Yes"| s1a_overtime
+  schedule_1a -->|"Yes"| s1a_car
+  schedule_1a -->|"Yes"| s1a_senior
+  schedule_1a -->|"Yes"| form_1040
+  schedule_1a -->|"No"| note_s1a_no
+  schedule_1a -->|"Unknown"| flag_s1a
+  s1a_tips -->|"Yes"| check_s1a_tips
+  s1a_tips -->|"Yes"| form_1040
+  s1a_tips -->|"No"| note_s1a_part_no
+  s1a_tips -->|"Unknown"| flag_s1a_part
+  s1a_overtime -->|"Yes"| check_s1a_overtime
+  s1a_overtime -->|"Yes"| form_1040
+  s1a_overtime -->|"No"| note_s1a_part_no
+  s1a_overtime -->|"Unknown"| flag_s1a_part
+  s1a_car -->|"Yes"| check_s1a_car
+  s1a_car -->|"Yes"| form_1040
+  s1a_car -->|"No"| note_s1a_part_no
+  s1a_car -->|"Unknown"| flag_s1a_part
+  s1a_senior -->|"Yes"| check_s1a_senior
+  s1a_senior -->|"Yes"| form_1040
+  s1a_senior -->|"No"| note_s1a_part_no
+  s1a_senior -->|"Unknown"| flag_s1a_part
+  check_s1a_tips -->|"flows onto"| form_1040
+  check_s1a_overtime -->|"flows onto"| form_1040
+  check_s1a_car -->|"flows onto"| form_1040
+  check_s1a_senior -->|"flows onto"| form_1040
   claimed_dependent -->|"No"| deduction_result
   mfs_spouse -->|"Spouse itemizes"| deduction_result
   deduction_choice -->|"Standard"| deduction_result
@@ -515,9 +556,8 @@ The walk starts with the tax year on the prepared return, then the filing status
 
 Which tax year is on the return you are final-checking?
 
-In early October 2026, a 2025 return can still be in the extension window (file-by date with an extension is October 15, 2026). 2026 figures are included only where a published source was found. This is the year on the return, not a suggestion to file a new one.
+A 2025 return was due October 15, 2026 with an extension; a 2026 return is filed in 2027. 2026 figures are included only where a published source was found. Tax year 2024 is not offered because no 2024 figures are loaded. This is the year on the return, not a suggestion to file a new one.
 
-- **2024** → `filing_status`
 - **2025** → `filing_status`
 - **2026** → `filing_status`
 - **I don't know** → `filing_status`
@@ -528,12 +568,12 @@ What filing status is on the prepared return?
 
 The status changes the standard deduction. Each income topic opens only if you say it applies. Unknown does not pick a status for you.
 
-- **Single** → `w2`, `se`, `payapps`, `rental`, `interest`, `capgain`, `crypto`, `foreign`, `retirement`, `hsa`, `education`, `estimates`, `dependents`, `unemployment`, `marketplace`, `eitc`, `amt`, `underpay`, `installment`, `extension`, `ip_pin`, `personal_mortgage`, `age_blind`, `claimed_dependent`, `deduction_choice`, `jurisdiction`
-- **Married filing jointly** → `w2`, `se`, `payapps`, `rental`, `interest`, `capgain`, `crypto`, `foreign`, `retirement`, `hsa`, `education`, `estimates`, `dependents`, `unemployment`, `marketplace`, `eitc`, `amt`, `underpay`, `installment`, `extension`, `ip_pin`, `personal_mortgage`, `age_blind`, `claimed_dependent`, `deduction_choice`, `jurisdiction`
-- **Married filing separately** → `w2`, `se`, `payapps`, `rental`, `interest`, `capgain`, `crypto`, `foreign`, `retirement`, `hsa`, `education`, `estimates`, `dependents`, `unemployment`, `marketplace`, `eitc`, `amt`, `underpay`, `installment`, `extension`, `ip_pin`, `personal_mortgage`, `age_blind`, `claimed_dependent`, `deduction_choice`, `jurisdiction`, `mfs_spouse`
-- **Head of household** → `w2`, `se`, `payapps`, `rental`, `interest`, `capgain`, `crypto`, `foreign`, `retirement`, `hsa`, `education`, `estimates`, `dependents`, `unemployment`, `marketplace`, `eitc`, `amt`, `underpay`, `installment`, `extension`, `ip_pin`, `personal_mortgage`, `age_blind`, `claimed_dependent`, `deduction_choice`, `jurisdiction`
-- **Qualifying surviving spouse** → `w2`, `se`, `payapps`, `rental`, `interest`, `capgain`, `crypto`, `foreign`, `retirement`, `hsa`, `education`, `estimates`, `dependents`, `unemployment`, `marketplace`, `eitc`, `amt`, `underpay`, `installment`, `extension`, `ip_pin`, `personal_mortgage`, `age_blind`, `claimed_dependent`, `deduction_choice`, `jurisdiction`
-- **I don't know** → `w2`, `se`, `payapps`, `rental`, `interest`, `capgain`, `crypto`, `foreign`, `retirement`, `hsa`, `education`, `estimates`, `dependents`, `unemployment`, `marketplace`, `eitc`, `amt`, `underpay`, `installment`, `extension`, `ip_pin`, `personal_mortgage`, `age_blind`, `claimed_dependent`, `deduction_choice`, `jurisdiction`
+- **Single** → `w2`, `se`, `payapps`, `rental`, `interest`, `capgain`, `crypto`, `foreign`, `retirement`, `hsa`, `education`, `estimates`, `dependents`, `unemployment`, `marketplace`, `eitc`, `amt`, `underpay`, `installment`, `extension`, `ip_pin`, `personal_mortgage`, `age_blind`, `schedule_1a`, `claimed_dependent`, `deduction_choice`, `jurisdiction`
+- **Married filing jointly** → `w2`, `se`, `payapps`, `rental`, `interest`, `capgain`, `crypto`, `foreign`, `retirement`, `hsa`, `education`, `estimates`, `dependents`, `unemployment`, `marketplace`, `eitc`, `amt`, `underpay`, `installment`, `extension`, `ip_pin`, `personal_mortgage`, `age_blind`, `schedule_1a`, `claimed_dependent`, `deduction_choice`, `jurisdiction`
+- **Married filing separately** → `w2`, `se`, `payapps`, `rental`, `interest`, `capgain`, `crypto`, `foreign`, `retirement`, `hsa`, `education`, `estimates`, `dependents`, `unemployment`, `marketplace`, `eitc`, `amt`, `underpay`, `installment`, `extension`, `ip_pin`, `personal_mortgage`, `age_blind`, `schedule_1a`, `claimed_dependent`, `deduction_choice`, `jurisdiction`, `mfs_spouse`
+- **Head of household** → `w2`, `se`, `payapps`, `rental`, `interest`, `capgain`, `crypto`, `foreign`, `retirement`, `hsa`, `education`, `estimates`, `dependents`, `unemployment`, `marketplace`, `eitc`, `amt`, `underpay`, `installment`, `extension`, `ip_pin`, `personal_mortgage`, `age_blind`, `schedule_1a`, `claimed_dependent`, `deduction_choice`, `jurisdiction`
+- **Qualifying surviving spouse** → `w2`, `se`, `payapps`, `rental`, `interest`, `capgain`, `crypto`, `foreign`, `retirement`, `hsa`, `education`, `estimates`, `dependents`, `unemployment`, `marketplace`, `eitc`, `amt`, `underpay`, `installment`, `extension`, `ip_pin`, `personal_mortgage`, `age_blind`, `schedule_1a`, `claimed_dependent`, `deduction_choice`, `jurisdiction`
+- **I don't know** → `w2`, `se`, `payapps`, `rental`, `interest`, `capgain`, `crypto`, `foreign`, `retirement`, `hsa`, `education`, `estimates`, `dependents`, `unemployment`, `marketplace`, `eitc`, `amt`, `underpay`, `installment`, `extension`, `ip_pin`, `personal_mortgage`, `age_blind`, `schedule_1a`, `claimed_dependent`, `deduction_choice`, `jurisdiction`
 
 ### W-2 wages
 
@@ -590,7 +630,7 @@ The filing notes call these Returned Documents: the copies of W-2s, 1099-INTs, a
 
 Information returns compared. Verify each statement on the IRS account (W-2, 1099-NEC, 1099-K, 1099-INT, 1099-DIV, 1099-B, 1099-G, 1095-A) is on the return in the exact amount shown. Not an instruction to add income.
 
-The filing notes say to report the exact amounts on the forms, and that even income under $600 is reportable. The IRS already has these copies, so a missing one is what the notes call an easy audit flag.
+The filing notes say to report the exact amounts on the forms, and that even income below the 1099 threshold ($600 for payments in 2025, $2,000 in 2026) is reportable. The IRS already has these copies, so a missing one is what the notes call an easy audit flag.
 
 #### Information returns not compared (`flag_info_returns`)
 
@@ -683,7 +723,7 @@ Leave this blank only by choosing unknown. The chart will not invent job names.
 
 Schedule SE — self-employment tax on sole-proprietor net profit. Half of that tax is Schedule 1 line 15. The filing notes place the tax on Schedule 2 and call the Social Security wage-base cap line 7; confirm both. Verify it. The i button outlines the calculation. Not a tax computation.
 
-Publication 334 (2025) says Schedule SE is filed when net earnings are $400 or more, and the 2025 Social Security wage base is $176,100. Net earnings were not entered here, so the $400 threshold is not applied as a conclusion. Schedule C instructions put one-half of the tax on Schedule 1 line 15. Schedule 2 and line 7 are named in the filing notes, not in that citation, so confirm them on the form.
+Publication 334 (2025) says Schedule SE is filed when net earnings are $400 or more, and the Social Security wage base is $176,100 for 2025 (SSA: $184,500 for 2026). Net earnings were not entered here, so the $400 threshold is not applied as a conclusion. Schedule C instructions put one-half of the tax on Schedule 1 line 15. Schedule 2 and line 7 are named in the filing notes, not in that citation, so confirm them on the form.
 
 Flows onto `form_1040`.
 
@@ -705,7 +745,7 @@ Flows onto `form_1040`.
 
 Does this activity claim qualified business income, a work-from-home share, or both?
 
-Form 8995 is the simpler form in the filing notes. Form 8995-A is for higher income, more than one business, or a specified service trade. The notes' 2024 taxable-income cutoffs are not applied here. Line 5 is where the notes show the 20% deduction. A work-from-home share of utilities is Schedule C line 25. Confirm both lines on the form. Every answer continues to the Schedule C screens the notes' audit triggers call for: vehicle, meals, and home-office records; workers paid $600 or more; whether a startup or freelance activity is a hobby under the hobby-loss rule; the de minimis safe harbor; and 1099-NEC box 2.
+Form 8995 is the simpler form in the filing notes. Form 8995-A is for higher income, more than one business, or a specified service trade. The checklist shows the QBI threshold for the selected year and status (2025: $197,300, or $394,600 married filing jointly; 2026: $201,750, or $403,500 jointly). Line 5 is where the notes show the 20% deduction. A work-from-home share of utilities is Schedule C line 25. Confirm both lines on the form. Every answer continues to the Schedule C screens the notes' audit triggers call for: vehicle, meals, and home-office records; workers paid at or above the reporting threshold ($600 for payments in 2025, $2,000 in 2026); whether a startup or freelance activity is a hobby under the hobby-loss rule; the de minimis safe harbor; and 1099-NEC box 2.
 
 - **Both** → `check_se_both`, `se_records`
 - **Qualified business income only** → `check_8995`, `se_records`
@@ -717,7 +757,7 @@ Form 8995 is the simpler form in the filing notes. Form 8995-A is for higher inc
 
 Verify Form 8995 or Form 8995-A. The filing notes deduct 20% of qualified business income, subject to limits, on line 5. Also verify Schedule C line 25 for the work share of utilities. Confirm both lines. This chart does not compute either amount.
 
-Form 8995-A is the notes' form for higher income, more than one business, or a specified service trade. The 2024 cutoffs are not applied. Line 25 is the work share of electric, phone, internet, water, and similar costs. On the QBI form the notes enter the business name (or Unclassified Establishments Unable to Classify) and the taxpayer identification number, which is the SSN for a sole proprietor; an EIN is used only for a pass-through entity reporting on a K-1.
+Form 8995-A is the notes' form for higher income, more than one business, or a specified service trade. At or below the QBI threshold for the year (2025: $197,300, or $394,600 jointly; 2026: $201,750, or $403,500 jointly), Form 8995 is generally used. Line 25 is the work share of electric, phone, internet, water, and similar costs. On the QBI form the notes enter the business name (or Unclassified Establishments Unable to Classify) and the taxpayer identification number, which is the SSN for a sole proprietor; an EIN is used only for a pass-through entity reporting on a K-1.
 
 Flows onto `form_1040`.
 
@@ -729,7 +769,7 @@ A neither answer does not start Form 8995 or a home-office share.
 
 #### Form 8995 (`check_8995`)
 
-Verify Form 8995 or Form 8995-A. The filing notes deduct 20% of qualified business income, subject to limits, on line 5. Confirm that line. Schedule C line 25 is not opened from this answer. The 2024 income cutoffs in the notes are not applied.
+Verify Form 8995 or Form 8995-A. The filing notes deduct 20% of qualified business income, subject to limits, on line 5. Confirm that line. Schedule C line 25 is not opened from this answer. The checklist shows the QBI threshold for the selected year.
 
 Use the form the prepared return already chose. This chart does not decide which of the two forms is required. The notes fill the business name (or Unclassified Establishments Unable to Classify) and the taxpayer identification number on the form: the SSN for a sole proprietor or an own-name rental, an EIN only for a pass-through entity reporting on a K-1.
 
@@ -775,11 +815,11 @@ Vehicle, meal, and home-office deductions unknown — verify the Schedule C expe
 
 No expense is assumed, and no log is assumed to exist.
 
-#### Workers paid $600 or more (`se_workers`)
+#### Workers paid at or above the reporting threshold (`se_workers`)
 
-Did this business pay an employee or an independent contractor $600 or more during the year?
+Did this business pay an employee or an independent contractor $600 or more during 2025, or $2,000 or more during 2026?
 
-The filing notes say a business that pays a worker $600 or more issues a W-2 to an employee (with a W-4 on file for withholding) or a 1099-NEC to a contractor (with a Form W-9 collected first for the name and TIN). Treating an employee as a contractor to skip payroll taxes is illegal in the notes. This question only asks whether such payments were made.
+Publication 15 (2026): Form 1099-NEC is required for payments of $600 or more made in 2025 and $2,000 or more made in 2026; the same threshold applies to a W-2 when no tax was withheld. The filing notes say a business that pays a worker at the threshold issues a W-2 to an employee (with a W-4 on file for withholding) or a 1099-NEC to a contractor (with a Form W-9 collected first for the name and TIN). Treating an employee as a contractor to skip payroll taxes is illegal in the notes. This question only asks whether such payments were made.
 
 - **Yes** → `check_se_workers`, `se_loss`
 - **No** → `note_se_workers_no`, `se_loss`
@@ -787,13 +827,13 @@ The filing notes say a business that pays a worker $600 or more issues a W-2 to 
 
 #### Forms W-2, W-9, and 1099-NEC issued (`check_se_workers`)
 
-Verify that each worker paid $600 or more received a W-2 or a 1099-NEC, that a Form W-9 is on file for each contractor, and that the Schedule C questions about Forms 1099 were answered. The Schedule C line letters are not named in the filing notes, so they stay flagged.
+Verify that each worker paid at or above the year's threshold ($600 in 2025, $2,000 in 2026) received a W-2 or a 1099-NEC, that a Form W-9 is on file for each contractor, and that the Schedule C questions about Forms 1099 were answered. The Schedule C line letters are not named in the filing notes, so they stay flagged.
 
 The notes' mnemonic: W-2 and W-4 are the employer-employee pair; W-9 and 1099-NEC are the contractor pair. Contract labor itself is a Schedule C expense line the notes do not number.
 
-#### No workers paid $600 or more (`note_se_workers_no`)
+#### No workers paid at the threshold (`note_se_workers_no`)
 
-No worker was paid $600 or more by this business
+No worker was paid at or above the reporting threshold by this business
 
 No W-2, W-9, or 1099-NEC is opened from this answer.
 
@@ -863,7 +903,7 @@ No election is assumed.
 
 Is box 2 (payer made direct sales totaling $5,000 or more of consumer products to recipient for resale) checked on any 1099-NEC for this business?
 
-The filing notes: 1099-NEC box 1 is nonemployee compensation of $600 or more; box 2 is an informational checkbox the payer ticks when it gave the recipient $5,000 or more of consumer products to resell, as in direct sales and multi-level marketing. The notes say the IRS uses it to watch for unreported resale income and for inventory write-offs with no sales.
+The filing notes: 1099-NEC box 1 is nonemployee compensation of $600 or more ($2,000 or more for payments made in 2026, per Publication 15); box 2 is an informational checkbox the payer ticks when it gave the recipient $5,000 or more of consumer products to resell, as in direct sales and multi-level marketing. The notes say the IRS uses it to watch for unreported resale income and for inventory write-offs with no sales.
 
 - **Yes, box 2 is checked** → `check_resale`
 - **No** → `note_resale_no`
@@ -1052,7 +1092,7 @@ The filing notes call a one-family rental, or a hands-off rental with a manager,
 
 Active rental: verify Form 8995 or Form 8995-A. The filing notes use Schedule E line 3 (rents), line 18 (depreciation), and line 21 (net income). Confirm line 21 on the form. The 20% figure is line 5 on the QBI form in the notes; confirm that line.
 
-A big operation is not automatically moved onto Schedule C from this chart. The notes' 2024 taxable-income cutoffs are not applied.
+A big operation is not automatically moved onto Schedule C from this chart. The checklist shows the QBI threshold for the selected year.
 
 Flows onto `form_1040`.
 
@@ -1992,6 +2032,112 @@ The filing notes name Form 1040-SR, an optional version of Form 1040 for taxpaye
 - **Both 65 or older and blind** → `deduction_result`
 - **I don't know** → `deduction_result`
 
+#### Schedule 1-A deductions (`schedule_1a`)
+
+Does the return claim any Schedule 1-A deduction: no tax on tips, no tax on overtime, car-loan interest, or the enhanced senior deduction?
+
+Schedule 1-A is new for 2025 and runs through 2028 (IRS FS-2025-03). It is taken whether or not the return itemizes. The 2025 form totals it on line 38, which goes to Form 1040 line 13b. A yes opens one question for each part.
+
+- **Yes** → `s1a_tips`, `s1a_overtime`, `s1a_car`, `s1a_senior`, `form_1040`
+- **No** → `note_s1a_no`
+- **I don't know** → `flag_s1a`
+
+#### No Schedule 1-A (`note_s1a_no`)
+
+No Schedule 1-A deduction claimed
+
+If a W-2 box 14 or a payer statement shows qualified tips or overtime, or a new US-assembled car was bought with a loan, confirm the deduction was not missed.
+
+#### Schedule 1-A unknown (`flag_s1a`)
+
+Schedule 1-A unknown — verify whether tips, overtime, car-loan interest, or the senior deduction were considered
+
+No Schedule 1-A amount is assumed.
+
+#### No tax on tips (`s1a_tips`)
+
+Does the return deduct qualified tips?
+
+Up to $25,000 of qualified tips in an occupation the IRS lists as customarily tipped. Reduced by $100 for each full $1,000 of modified AGI over $150,000 ($300,000 joint). Not for a specified service trade or business. Married filers must file jointly.
+
+- **Yes** → `check_s1a_tips`, `form_1040`
+- **No** → `note_s1a_part_no`
+- **I don't know** → `flag_s1a_part`
+
+#### No tax on overtime (`s1a_overtime`)
+
+Does the return deduct qualified overtime compensation?
+
+Only the FLSA-required premium (the “half” of time-and-a-half), up to $12,500 ($25,000 joint). Reduced by $100 for each full $1,000 of modified AGI over $150,000 ($300,000 joint). Married filers must file jointly.
+
+- **Yes** → `check_s1a_overtime`, `form_1040`
+- **No** → `note_s1a_part_no`
+- **I don't know** → `flag_s1a_part`
+
+#### Car-loan interest (`s1a_car`)
+
+Does the return deduct interest on a loan for a new personal-use vehicle?
+
+Up to $10,000 of interest on a loan originated after December 31, 2024 for a new personal-use vehicle with final assembly in the United States. Leases and used vehicles do not qualify. The VIN goes on the return. Reduced by $200 per $1,000 (or part) of modified AGI over $100,000 ($200,000 joint).
+
+- **Yes** → `check_s1a_car`, `form_1040`
+- **No** → `note_s1a_part_no`
+- **I don't know** → `flag_s1a_part`
+
+#### Enhanced senior deduction (`s1a_senior`)
+
+Does the return claim the enhanced deduction for someone 65 or older by the end of the year?
+
+$6,000 per qualifying person ($12,000 if both spouses qualify), reduced by 6% of modified AGI over $75,000 ($150,000 joint). It is separate from the standard deduction's age add-on. Married filers must file jointly.
+
+- **Yes** → `check_s1a_senior`, `form_1040`
+- **No** → `note_s1a_part_no`
+- **I don't know** → `flag_s1a_part`
+
+#### Schedule 1-A tips (`check_s1a_tips`)
+
+Verify Schedule 1-A Part II against the tips on the W-2 or payer statement. The checklist names the line and the limits for the year.
+
+Qualified tips are voluntary cash or charged tips. For a self-employed person the deduction cannot exceed the net profit from the business that earned them.
+
+Flows onto `form_1040`.
+
+#### Schedule 1-A overtime (`check_s1a_overtime`)
+
+Verify Schedule 1-A Part III uses only the overtime premium, not all overtime pay. The checklist names the line and the limits for the year.
+
+The premium must be required by the Fair Labor Standards Act and reported on a W-2, a 1099, or another specified statement.
+
+Flows onto `form_1040`.
+
+#### Schedule 1-A car-loan interest (`check_s1a_car`)
+
+Verify Schedule 1-A Part IV: the VIN, a loan after 2024, a new US-assembled personal vehicle, and that business-use interest on Schedule C or E is not counted twice.
+
+Final assembly is on the vehicle information label, or the plant of manufacture can be read from the VIN with NHTSA's VIN decoder.
+
+Flows onto `form_1040`.
+
+#### Schedule 1-A senior (`check_s1a_senior`)
+
+Verify Schedule 1-A Part V: each person claimed was 65 or older by year end and has a valid SSN. The checklist names the line and the phase-out for the year.
+
+This is in addition to the age add-on on the standard deduction, and it is available whether or not the return itemizes.
+
+Flows onto `form_1040`.
+
+#### Schedule 1-A part not claimed (`note_s1a_part_no`)
+
+That Schedule 1-A part is not claimed
+
+Nothing is added for that part.
+
+#### Schedule 1-A part unknown (`flag_s1a_part`)
+
+A Schedule 1-A part is unknown — read that part of the form
+
+No amount is assumed for that part.
+
 #### Claimed as a dependent (`claimed_dependent`)
 
 Can another taxpayer claim you as a dependent?
@@ -2034,7 +2180,7 @@ This is the number the software already computed. It is not a new itemized retur
 
 Itemized on Schedule A: verify Form 1098 for home mortgage interest, the state-and-local-tax cap on line 5e, charitable gifts with receipts from registered 501(c)(3)s, and Form 8283 for noncash donations over $500. The Schedule A total is the Form 1040 line 12e figure. Not a recommendation to itemize.
 
-2025 Schedule A line 5e: the state and local tax deduction is limited to $40,000, or $20,000 married filing separately, before the modified-AGI phase-down; the phase-down is not computed here. Form 8283 and the 501(c)(3) receipt rule come from the filing notes' audit triggers, which also say donations far above average for the income draw scrutiny. The home mortgage interest line is not named in the notes, so it stays flagged.
+2025 Schedule A line 5e: the state and local tax deduction is limited to $40,000 ($20,000 married filing separately), reduced above $500,000 modified AGI ($250,000 MFS). For 2026 the IRS gives $40,400 ($20,200 MFS), reduced above $505,000 ($252,500 MFS). Neither goes below $10,000 ($5,000 MFS). The phase-down is not computed here. Form 8283 and the 501(c)(3) receipt rule come from the filing notes' audit triggers, which also say donations far above average for the income draw scrutiny. The home mortgage interest line is not named in the notes, so it stays flagged.
 
 #### Jurisdiction (`jurisdiction`)
 
@@ -2135,11 +2281,6 @@ Line 11b is adjusted gross income and line 12e is the deduction on the 2025 form
 
 | Year | Status | Basic standard deduction | Age/blind add-on |
 | --- | --- | --- | --- |
-| 2024 | single | Not loaded — verify | Not loaded — verify |
-| 2024 | mfj | Not loaded — verify | Not loaded — verify |
-| 2024 | mfs | Not loaded — verify | Not loaded — verify |
-| 2024 | hoh | Not loaded — verify | Not loaded — verify |
-| 2024 | qss | Not loaded — verify | Not loaded — verify |
 | 2025 | single | $15,750 | $2,000 |
 | 2025 | mfj | $31,500 | $1,600 |
 | 2025 | mfs | $15,750 | $1,600 |
@@ -2151,7 +2292,7 @@ Line 11b is adjusted gross income and line 12e is the deduction on the 2025 form
 | 2026 | hoh | $24,150 | $2,050 |
 | 2026 | qss | $32,200 | $1,650 |
 
-The 2025 basic amounts are the post-OBBBA figures in the 2025 Form 1040 instructions and IR-2025-103. The 2026 basic amounts and the 2026 age add-on are from Rev. Proc. 2025-32. Tax year 2024 amounts are not loaded.
+The 2025 basic amounts are the post-OBBBA figures in the 2025 Form 1040 instructions and IR-2025-103. The 2026 basic amounts and the 2026 age add-on are from Rev. Proc. 2025-32. Tax year 2024 is not offered because no 2024 figures are loaded.
 
 | Year | Jurisdiction | Status | Standard deduction |
 | --- | --- | --- | --- |
@@ -2178,9 +2319,22 @@ The 2025 basic amounts are the post-OBBBA figures in the 2025 Form 1040 instruct
 
 Louisiana 2025 is La. R.S. 47:294 and the 2025 IT-540 instructions. Louisiana 2026 is LDR RIB 26-019; the 2026 IT-540 line number is not confirmed in that bulletin. California 2025 is the 2025 Form 540 instructions. California 2026 is the FTB indexing announcement (page updated September 30, 2026), not a final 2026 Form 540 booklet.
 
-State and local tax cap for 2025 Schedule A line 5e: $40,000 generally, $20,000 if married filing separately, before the modified-AGI phase-down. The phase-down is not computed here. A 2026 cap is not stored.
+State and local tax cap: 2025 Schedule A line 5e $40,000 generally, $20,000 if married filing separately, reduced above $500,000 modified AGI ($250,000 MFS). 2026: $40,400 ($20,200 MFS), reduced above $505,000 ($252,500 MFS). The phase-down is not computed here.
 
-Self-employment, Publication 334 (2025): 0.9235 of net profit, combined rate 0.153 (0.124 Social Security and 0.029 Medicare). Social Security wage base for 2025: $176,100. The 2024 and 2026 wage bases are not stored.
+Form 1099-NEC and no-withholding W-2 threshold (Pub. 15, 2026): $600 for payments made in 2025, $2,000 for payments made in 2026.
+
+| Year | Status | QBI threshold (Form 8995 at or below) | Phase-in range ends |
+| --- | --- | --- | --- |
+| 2025 | single | $197,300 | $247,300 |
+| 2025 | mfj | $394,600 | $494,600 |
+| 2025 | mfs | $197,300 | $247,300 |
+| 2026 | single | $201,750 | $276,750 |
+| 2026 | mfj | $403,500 | $553,500 |
+| 2026 | mfs | $201,775 | $276,775 |
+
+Schedule 1-A (2025 through 2028, FS-2025-03): tips up to $25,000, overtime up to $12,500 ($25,000 joint), both reduced above $150,000 modified AGI ($300,000 joint); car loan interest up to $10,000, reduced above $100,000 ($200,000 joint); seniors $6,000 per person 65 or older, reduced by 6% above $75,000 ($150,000 joint).
+
+Self-employment, Publication 334 (2025): 0.9235 of net profit, combined rate 0.153 (0.124 Social Security and 0.029 Medicare). Social Security wage base: $176,100 for 2025; $184,500 for 2026 (SSA).
 
 Form 1099-K for tax year 2025: a third party settlement organization is not required to file the form unless gross payments for goods or services exceed $20,000 and the number of transactions exceeds 200. The recalled trigger — over $20,000 and over 200 transactions, including the written “$200,00” — matches this sourced test (exceeds $20,000 and exceeds 200 transactions). It is not flagged as a conflict. Goods-and-services income remains reportable when no form is generated. No Louisiana or California 1099-K threshold is stored.
 
@@ -2268,7 +2422,7 @@ flowchart TD
   rental_participation["Day-to-day rental work, or passive?<br/>Checking Rental property 1"]
   group_filing_status_invest["Interest, capital gains, and digital assets<br/>4 topics"]
   group_filing_status_other["Other income, credits, and payments<br/>13 topics"]
-  group_filing_status_deductions["Standard deduction and itemizing<br/>5 topics"]
+  group_filing_status_deductions["Standard deduction and itemizing<br/>6 topics"]
   personal_mortgage["Personal mortgage<br/>No mortgage"]
   check_no_mortgage["No personal mortgage — verify Schedule A is not claiming home mortgage interest. This does not choose the standard deduction."]
   jurisdiction["Jurisdiction<br/>I don't know"]
@@ -2364,7 +2518,7 @@ flowchart TD
   check_capgain["Verify Form 1099-B, Form 8949, and Schedule D, including a capital-loss carryforward. The filing notes put the net gain or loss on Form 1040 line 7. Confirm line 7 on the form. Not an instruction to start those forms."]
   capgain_loss["Net capital loss, or a carryforward from last year?"]
   group_filing_status_other["Other income, credits, and payments<br/>13 topics"]
-  group_filing_status_deductions["Standard deduction and itemizing<br/>5 topics"]
+  group_filing_status_deductions["Standard deduction and itemizing<br/>6 topics"]
   jurisdiction["Jurisdiction<br/>I don't know"]
   deduction_result["Standard vs itemized — sourced amounts for the selected year, status, and jurisdiction. Verify Form 1040 line 12e. Not a recommendation to change the return."]
   year -->|"2025"| filing_status
@@ -2435,6 +2589,13 @@ Retrieved October 3, 2026, unless a page itself carries another date.
 - Publication 527 (2025), Residential Rental Property (Tax year 2025): https://www.irs.gov/pub/irs-pdf/p527.pdf
 - Publication 334 (2025), Tax Guide for Small Business (Tax year 2025): https://www.irs.gov/pub/irs-prior/p334--2025.pdf
 - IRS news release IR-2025-107 and Fact Sheet 2025-08 (Tax year 2025): https://www.irs.gov/newsroom/irs-issues-faqs-on-form-1099-k-threshold-under-the-one-big-beautiful-bill-dollar-limit-reverts-to-20000
+- Revenue Procedure 2024-40 (Tax year 2025 (retrieved October 21, 2026)): https://www.irs.gov/pub/irs-drop/rp-24-40.pdf
+- Revenue Procedure 2025-32 (QBI, dependent standard deduction, information-return threshold) (Tax year 2026 (retrieved October 21, 2026)): https://www.irs.gov/pub/irs-drop/rp-25-32.pdf
+- IRS: Correction to the state and local income tax deduction amount in the 2026 Form 1040-ES (Tax year 2026 (page updated March 16, 2026; retrieved October 21, 2026)): https://www.irs.gov/forms-pubs/correction-to-state-and-local-income-tax-deduction-amount-in-the-2026-form-1040-es
+- SSA, Contribution and Benefit Base (Earnings years 2025 to 2027 (retrieved October 21, 2026)): https://www.ssa.gov/oact/cola/cbb.html
+- Publication 15 (2026), Employer's Tax Guide (Payments made in 2025 and 2026 (retrieved October 21, 2026)): https://www.irs.gov/publications/p15
+- IRS Fact Sheet FS-2025-03: Tax deductions for working Americans and seniors (Tax years 2025 through 2028 (retrieved October 21, 2026)): https://www.irs.gov/newsroom/one-big-beautiful-bill-act-tax-deductions-for-working-americans-and-seniors
+- 2025 Schedule 1-A (Form 1040), Additional Deductions (Tax year 2025 (retrieved October 21, 2026)): https://www.irs.gov/pub/irs-pdf/f1040s1a.pdf
 - Louisiana Revised Statutes 47:294 and 2025 IT-540 instructions (Tax year 2025): https://www.legis.la.gov/legis/Law.aspx?d=101761
 - Louisiana Revenue Information Bulletin 26-019 (Tax year 2026): https://dam.ldr.la.gov/lawspolicies/RIB%2026-019.pdf
 - 2025 Instructions for California Form 540 (Tax year 2025): https://www.ftb.ca.gov/forms/2025/2025-540-instructions.html

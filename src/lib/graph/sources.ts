@@ -25,7 +25,7 @@ export const citations = {
     url: "https://www.irs.gov/pub/irs-drop/rp-25-32.pdf",
     yearLabel: "Tax year 2026",
     citation:
-      "Rev. Proc. 2025-32, section 3.14 (standard deduction). For taxable years beginning in 2026: $32,200 married filing jointly and surviving spouses; $24,150 heads of household; $16,100 unmarried individuals and married filing separately. Additional amount for aged or blind: $1,650, or $2,050 if unmarried and not a surviving spouse. Dependent limitation: greater of $1,350 or $450 plus earned income.",
+      "Rev. Proc. 2025-32, section 4.14 (standard deduction). For taxable years beginning in 2026: $32,200 married filing jointly and surviving spouses; $24,150 heads of household; $16,100 unmarried individuals and married filing separately. Additional amount for aged or blind: $1,650, or $2,050 if unmarried and not a surviving spouse. Dependent limitation: greater of $1,350 or $450 plus earned income.",
   } satisfies Citation,
   topic551: {
     title: "IRS Topic no. 551, Standard deduction",
@@ -96,6 +96,62 @@ export const citations = {
     yearLabel: "Tax year 2025",
     citation:
       "IR-2025-107 (October 23, 2025) and Fact Sheet 2025-08. A third party settlement organization is not required to file Form 1099-K unless the gross amount of reportable payment transactions to a payee exceeds $20,000 and the number of transactions exceeds 200. A platform may still send a form below that threshold. Income from goods or services is reportable whether or not a form is issued. Personal transfers are not the same as payments for goods or services. A state may set a lower threshold; no state threshold is stored in this tool.",
+  } satisfies Citation,
+  rp2024_40: {
+    title: "Revenue Procedure 2024-40",
+    url: "https://www.irs.gov/pub/irs-drop/rp-24-40.pdf",
+    yearLabel: "Tax year 2025 (retrieved October 21, 2026)",
+    checked: "2026-10-21",
+    citation:
+      "Rev. Proc. 2024-40, section 3.27 (Qualified Business Income). For taxable years beginning in 2025, the § 199A threshold amount is $394,600 for married individuals filing joint returns (phase-in range ends at $494,600) and $197,300 for married filing separately and all other returns (phase-in range ends at $247,300).",
+  } satisfies Citation,
+  rp2025_32_more: {
+    title: "Revenue Procedure 2025-32 (QBI, dependent standard deduction, information-return threshold)",
+    url: "https://www.irs.gov/pub/irs-drop/rp-25-32.pdf",
+    yearLabel: "Tax year 2026 (retrieved October 21, 2026)",
+    checked: "2026-10-21",
+    citation:
+      "Rev. Proc. 2025-32. Section 4.26: for taxable years beginning in 2026, the § 199A threshold amount is $403,500 for married filing jointly (phase-in range ends at $553,500), $201,775 for married filing separately (ends at $276,775), and $201,750 for all other returns (ends at $276,750). Section 4.14(2): a dependent's 2026 standard deduction cannot exceed the greater of $1,350 or $450 plus earned income. Section 2.15: for payments made after December 31, 2025, the base threshold under § 6041(a) is $2,000.",
+  } satisfies Citation,
+  irs_salt_2026: {
+    title: "IRS: Correction to the state and local income tax deduction amount in the 2026 Form 1040-ES",
+    url: "https://www.irs.gov/forms-pubs/correction-to-state-and-local-income-tax-deduction-amount-in-the-2026-form-1040-es",
+    yearLabel: "Tax year 2026 (page updated March 16, 2026; retrieved October 21, 2026)",
+    checked: "2026-10-21",
+    citation:
+      "For 2026, the limit on the deduction for state and local income, sales, and property taxes is $40,400 ($20,200 if married filing separately). The limit is reduced if modified adjusted gross income is more than $505,000 ($252,500 if married filing separately), but not below $10,000 ($5,000 if married filing separately).",
+  } satisfies Citation,
+  ssa_wage_base: {
+    title: "SSA, Contribution and Benefit Base",
+    url: "https://www.ssa.gov/oact/cola/cbb.html",
+    yearLabel: "Earnings years 2025 to 2027 (retrieved October 21, 2026)",
+    checked: "2026-10-21",
+    citation:
+      "Social Security Administration, Office of the Chief Actuary. Contribution and benefit base (the maximum earnings subject to the 12.4% Social Security portion): $176,100 for 2025, $184,500 for 2026, and $192,300 for 2027. Medicare (HI) has no taxable maximum.",
+  } satisfies Citation,
+  pub15_2026: {
+    title: "Publication 15 (2026), Employer's Tax Guide",
+    url: "https://www.irs.gov/publications/p15",
+    yearLabel: "Payments made in 2025 and 2026 (retrieved October 21, 2026)",
+    checked: "2026-10-21",
+    citation:
+      "Pub. 15 (2026). Form 1099-NEC reports payments of $600 or more made in 2025 ($2,000 or more for payments made in 2026) to people not treated as employees. For payments made after calendar year 2025, P.L. 119-21 raises the information-reporting threshold from $600 to $2,000, and the W-2 wage-reporting threshold to $2,000 when no federal income, Social Security, or Medicare tax was withheld. The threshold is adjusted for inflation after 2026.",
+  } satisfies Citation,
+  fs2025_03: {
+    title: "IRS Fact Sheet FS-2025-03: Tax deductions for working Americans and seniors",
+    url: "https://www.irs.gov/newsroom/one-big-beautiful-bill-act-tax-deductions-for-working-americans-and-seniors",
+    yearLabel: "Tax years 2025 through 2028 (retrieved October 21, 2026)",
+    checked: "2026-10-21",
+    citation:
+      "FS-2025-03 (July 14, 2025; updated July 25, 2025). Each deduction is effective for 2025 through 2028 and is available whether or not the taxpayer itemizes. No tax on tips: up to $25,000 of qualified tips; for the self-employed, not more than the net income from the trade or business; phases out above $150,000 modified AGI ($300,000 joint); not available in a specified service trade or business; SSN required and married taxpayers must file jointly. No tax on overtime: the FLSA-required premium portion, up to $12,500 ($25,000 joint); phases out above $150,000 ($300,000 joint); SSN and joint filing required. Car loan interest: up to $10,000 of interest on a loan originated after December 31, 2024 for a new, personal-use vehicle under 14,000 pounds with final assembly in the United States, secured by a lien; leases do not qualify; VIN required on the return; phases out above $100,000 ($200,000 joint). Seniors: $6,000 per individual 65 or older by the end of the year ($12,000 if both spouses qualify); phases out above $75,000 ($150,000 joint); SSN and joint filing required.",
+  } satisfies Citation,
+  schedule1a_2025: {
+    title: "2025 Schedule 1-A (Form 1040), Additional Deductions",
+    url: "https://www.irs.gov/pub/irs-pdf/f1040s1a.pdf",
+    yearLabel: "Tax year 2025 (retrieved October 21, 2026)",
+    checked: "2026-10-21",
+    citation:
+      "2025 Schedule 1-A. Part II no tax on tips: line 7 is the smaller of qualified tips or $25,000; above $150,000 ($300,000 married filing jointly) of line 3 modified AGI, the deduction drops $100 for each full $1,000 (line 11 rounds down); line 13 is the deduction. Part III overtime: line 15 caps at $12,500 ($25,000 MFJ), same $150,000/$300,000 start and $100 per full $1,000; line 21. Part IV car loan interest: line 24 caps at $10,000; above $100,000 ($200,000 MFJ) it drops $200 per $1,000 or part of $1,000 (line 28 rounds up); line 30. Part V seniors: $6,000 less 6% of modified AGI over $75,000 ($150,000 MFJ), per qualifying person born before January 2, 1961; line 37. Line 38 totals the parts and goes to Form 1040 line 13b.",
   } satisfies Citation,
   la_rs_294: {
     title: "Louisiana Revised Statutes 47:294 and 2025 IT-540 instructions",

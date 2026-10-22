@@ -1,6 +1,7 @@
 import { suggestionText } from "./allocate";
 import { citations } from "./sources";
 import { answerOf } from "./session";
+import { infoReturnThreshold, parseStatus, parseYear, qbiThreshold, saltCap, schedule1A } from "./thresholds";
 import { ten99kThreshold } from "./thresholds";
 import type { ChecklistItem, Session } from "./types";
 import { getNode } from "./nodes";
@@ -14,8 +15,104 @@ function yearIs2025(session: Session): boolean {
   return answerOf(session, "year") === "y2025";
 }
 
+function money(amount: number): string {
+  return `$${amount.toLocaleString("en-US")}`;
+}
+
+/** Checklist rows for each Schedule 1-A part the path reached, with the limits for the selected year and status. */
+function schedule1AItems(session: Session): ChecklistItem[] {
+  const year = parseYear(answerOf(session, "year"));
+  const status = parseStatus(answerOf(session, "filing_status"));
+  const items: ChecklistItem[] = [];
+  const on2025 = year === 2025;
+  const source = on2025 ? citations.schedule1a_2025 : citations.fs2025_03;
+  const certainty = on2025 ? "sourced" : "verify";
+  const lineNote = on2025 ? "" : " These line numbers are from the 2025 form; confirm them on the form for the year you selected.";
+  const mfj = status === "mfj";
+  const mfs = status === "mfs";
+  const joint = (who: string) =>
+    mfs ? ` Married filing separately cannot claim ${who}; verify the return did not take it.` : "";
+  const yearText = year ? `For ${year}` : "For 2025 through 2028";
+  if (has(session, "flag_s1a")) {
+    items.push({
+      id: "s1a-unknown",
+      form: "Schedule 1-A (Form 1040)",
+      summary: "Whether the return claims a Schedule 1-A deduction (tips, overtime, car-loan interest, or seniors) is unknown. Read the form; no amount is assumed.",
+      certainty: "verify",
+      source: citations.fs2025_03,
+    });
+  }
+  if (has(session, "check_s1a_tips")) {
+    const t = schedule1A.tips;
+    items.push({
+      id: "s1a-tips",
+      form: "Schedule 1-A (Form 1040), Part II",
+      line: "13",
+      summary: `${yearText}, the qualified tips deduction is up to ${money(t.max)}, reduced by $${t.perThousand} for each full $1,000 of modified AGI over ${money(mfj ? t.phaseOutOver.mfj : t.phaseOutOver.other)}${mfj ? "" : ` (${money(t.phaseOutOver.mfj)} if married filing jointly)`}. Verify the tips match the W-2, 1099, or Form 4137, the occupation is on the IRS list, the work is not in a specified service trade or business, and a self-employed amount does not exceed that business's net profit.${joint("the tips deduction")}${lineNote}`,
+      certainty,
+      source,
+    });
+  }
+  if (has(session, "check_s1a_overtime")) {
+    const o = schedule1A.overtime;
+    items.push({
+      id: "s1a-overtime",
+      form: "Schedule 1-A (Form 1040), Part III",
+      line: "21",
+      summary: `${yearText}, the qualified overtime deduction is only the FLSA premium portion, up to ${money(mfj ? o.max.mfj : o.max.other)}${mfj ? " on a joint return" : ` (${money(o.max.mfj)} if married filing jointly)`}, reduced by $${o.perThousand} for each full $1,000 of modified AGI over ${money(mfj ? o.phaseOutOver.mfj : o.phaseOutOver.other)}. Verify it against the overtime amount the employer reported, not total overtime pay.${joint("the overtime deduction")}${lineNote}`,
+      certainty,
+      source,
+    });
+  }
+  if (has(session, "check_s1a_car")) {
+    const c = schedule1A.carLoan;
+    items.push({
+      id: "s1a-car",
+      form: "Schedule 1-A (Form 1040), Part IV",
+      line: "22 (VIN) and 30",
+      summary: `${yearText}, car-loan interest is deductible up to ${money(c.max)}, reduced by $${c.perThousand} for each $1,000 or part of $1,000 of modified AGI over ${money(mfj ? c.phaseOutOver.mfj : c.phaseOutOver.other)}${mfj ? "" : ` (${money(c.phaseOutOver.mfj)} if married filing jointly)`}. Verify the VIN is on the return, the loan was originated after December 31, 2024 for a new personal-use vehicle with US final assembly, it is not a lease, and interest already deducted on Schedule C, E, or F is not counted again.${lineNote}`,
+      certainty,
+      source,
+    });
+  }
+  if (has(session, "check_s1a_senior")) {
+    const sr = schedule1A.senior;
+    items.push({
+      id: "s1a-senior",
+      form: "Schedule 1-A (Form 1040), Part V",
+      line: "37",
+      summary: `${yearText}, the enhanced senior deduction is ${money(sr.perPerson)} per person 65 or older by year end${mfj ? " (up to $12,000 if both spouses qualify)" : ""}, reduced by 6% of modified AGI over ${money(mfj ? sr.phaseOutOver.mfj : sr.phaseOutOver.other)}. Verify each person claimed has a valid SSN and was 65 or older by the end of the year.${joint("the senior deduction")}${lineNote}`,
+      certainty,
+      source,
+    });
+  }
+  if (has(session, "flag_s1a_part")) {
+    items.push({
+      id: "s1a-part-unknown",
+      form: "Schedule 1-A (Form 1040)",
+      summary: "At least one Schedule 1-A part is unknown. Read that part of the form; no amount is assumed for it.",
+      certainty: "verify",
+      source: citations.fs2025_03,
+    });
+  }
+  if (items.some((item) => item.id.startsWith("s1a-") && !item.id.endsWith("unknown"))) {
+    items.push({
+      id: "s1a-total",
+      form: "Schedule 1-A (Form 1040) and Form 1040",
+      line: "38 → Form 1040 line 13b",
+      summary: `Verify the Schedule 1-A total on line 38 carries to Form 1040 line 13b. It is taken in addition to the standard deduction or itemized deductions.${lineNote}`,
+      certainty,
+      source,
+    });
+  }
+  return items;
+}
+
 export function buildChecklist(session: Session): ChecklistItem[] {
   const items: ChecklistItem[] = [];
+  const taxYear = parseYear(answerOf(session, "year"));
+  const status = parseStatus(answerOf(session, "filing_status"));
+  const qbiNote = qbiThreshold(taxYear, status).note;
   const lineCertainty = yearIs2025(session) ? "sourced" : "verify";
   const yearNote = yearIs2025(session)
     ? ""
@@ -76,7 +173,7 @@ export function buildChecklist(session: Session): ChecklistItem[] {
       form: "Forms W-2, W-9, and 1099-NEC",
       line: "Schedule C Forms 1099 questions — line letters flagged",
       summary:
-        "A worker was paid $600 or more. Verify a W-2 (employee, W-4 on file) or a 1099-NEC (contractor, W-9 collected) was issued, and that the Schedule C questions about Forms 1099 were answered. The line letters are not named in the filing notes.",
+        `A worker was paid at or above the reporting threshold. ${infoReturnThreshold(taxYear).note} Verify a W-2 (employee, W-4 on file) or a 1099-NEC (contractor, W-9 collected) was issued, and that the Schedule C questions about Forms 1099 were answered. The line letters are not named in the filing notes.`,
       certainty: "verify",
     });
   }
@@ -137,7 +234,7 @@ export function buildChecklist(session: Session): ChecklistItem[] {
       form: "Form 8995 or Form 8995-A, and Schedule C line 25",
       line: "5 and 25 — confirm on the form",
       summary:
-        "Verify Form 8995 or Form 8995-A, including the 20% figure on line 5, and Schedule C line 25 for the work share of utilities. Neither amount is computed here.",
+        `Verify Form 8995 or Form 8995-A, including the 20% figure on line 5, and Schedule C line 25 for the work share of utilities. Neither amount is computed here. ${qbiNote}`,
       certainty: "verify",
     });
   }
@@ -148,7 +245,7 @@ export function buildChecklist(session: Session): ChecklistItem[] {
       line: "5 — confirm on the form",
       summary: has(session, "flag_qbi")
         ? "Qualified business income is unknown. Form 8995 is not assumed, and the 20% deduction is not computed."
-        : "Verify Form 8995 or Form 8995-A. The filing notes show the 20% deduction, subject to limits, on line 5. Confirm that line. The notes enter the business name (or Unclassified Establishments Unable to Classify) and the SSN as the taxpayer identification number for a sole proprietor; an EIN is used only for a pass-through entity on a K-1. The notes' 2024 income cutoffs are not applied.",
+        : "Verify Form 8995 or Form 8995-A. The filing notes show the 20% deduction, subject to limits, on line 5. Confirm that line. The notes enter the business name (or Unclassified Establishments Unable to Classify) and the SSN as the taxpayer identification number for a sole proprietor; an EIN is used only for a pass-through entity on a K-1. " + qbiNote,
       certainty: "verify",
     });
   }
@@ -241,7 +338,7 @@ export function buildChecklist(session: Session): ChecklistItem[] {
       form: "Form 8995 or Form 8995-A",
       line: "5 — confirm on the form",
       summary:
-        "Active rental: verify Form 8995 or Form 8995-A against Schedule E. Confirm line 21 on Schedule E and line 5 on the QBI form. The notes' 2024 income cutoffs are not applied.",
+        `Active rental: verify Form 8995 or Form 8995-A against Schedule E. Confirm line 21 on Schedule E and line 5 on the QBI form. ${qbiNote}`,
       certainty: "verify",
     });
   } else if (has(session, "flag_rental_qbi")) {
@@ -446,13 +543,13 @@ export function buildChecklist(session: Session): ChecklistItem[] {
     items.push({
       id: "sch-a",
       form: "Schedule A (Form 1040), Form 1098, and Form 8283",
-      line: "5e; other lines flagged",
-      summary:
-        "Itemized return. Verify Form 1098 for home mortgage interest, the 2025 line 5e state-and-local-tax cap ($40,000, or $20,000 married filing separately, before the modified-AGI phase-down), receipts from registered 501(c)(3)s for charitable gifts, and Form 8283 for noncash donations over $500 (filing notes). The Schedule A total is the Form 1040 line 12e figure. Not a recommendation to itemize.",
+      line: taxYear === 2026 ? "SALT cap line — confirm on the 2026 form; other lines flagged" : "5e; other lines flagged",
+      summary: `Itemized return. Verify Form 1098 for home mortgage interest, the state-and-local-tax cap (${saltCap(taxYear, status).note}), receipts from registered 501(c)(3)s for charitable gifts, and Form 8283 for noncash donations over $500 (filing notes). The Schedule A total is the Form 1040 line 12e figure.`,
       certainty: "verify",
-      source: citations.scheduleA_2025,
+      source: saltCap(taxYear, status).citation ?? citations.scheduleA_2025,
     });
   }
+  items.push(...schedule1AItems(session));
   if (has(session, "check_dependents")) {
     items.push({
       id: "deps",

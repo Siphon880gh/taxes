@@ -67,7 +67,6 @@ const california2026: Record<FilingStatus, number> = {
 };
 
 export function parseYear(answerId: string | undefined): TaxYear | null {
-  if (answerId === "y2024") return 2024;
   if (answerId === "y2025") return 2025;
   if (answerId === "y2026") return 2026;
   return null;
@@ -125,14 +124,6 @@ export function federalBasicStandard(
       note: "The federal standard deduction is not shown until both the tax year and the filing status are selected.",
     };
   }
-  if (year === 2024) {
-    return {
-      amount: null,
-      year,
-      unverified: true,
-      note: "Tax year 2024 standard deduction amounts are not loaded in this tool. Verify them on the 2024 Form 1040 instructions before comparing the return.",
-    };
-  }
   if (year === 2025) {
     return {
       amount: federal2025[status],
@@ -175,46 +166,50 @@ export function federalAdditionalAgeBlind(
         : "For 2025, Topic 551 sets the additional standard deduction at $1,600 for each qualifying age or blindness box when the filer is married or a qualifying surviving spouse.",
     };
   }
-  if (year === 2026) {
-    return {
-      amount: unmarried ? 2050 : 1650,
-      year,
-      citation: citations.rp2025_32,
-      unverified: false,
-      note: unmarried
-        ? "Rev. Proc. 2025-32: for 2026 the additional amount is $2,050 if unmarried and not a surviving spouse."
-        : "Rev. Proc. 2025-32: for 2026 the additional amount is $1,650 if married or a surviving spouse.",
-    };
-  }
   return {
-    amount: null,
+    amount: unmarried ? 2050 : 1650,
     year,
-    unverified: true,
-    note: "The 2024 additional standard deduction for age or blindness is not loaded. Verify it before using it.",
+    citation: citations.rp2025_32,
+    unverified: false,
+    note: unmarried
+      ? "Rev. Proc. 2025-32: for 2026 the additional amount is $2,050 if unmarried and not a surviving spouse."
+      : "Rev. Proc. 2025-32: for 2026 the additional amount is $1,650 if married or a surviving spouse.",
   };
 }
 
-export function saltCap(year: TaxYear | null, status: FilingStatus | null): MoneyFigure {
-  if (year !== 2025 || !status) {
+/** The state-and-local-tax cap and where its modified-AGI phase-down starts. */
+export function saltCap(year: TaxYear | null, status: FilingStatus | null): MoneyFigure & { phaseDownOver: number | null } {
+  if (!year || !status) {
     return {
       amount: null,
+      phaseDownOver: null,
       year,
       unverified: true,
-      note:
-        year === 2026
-          ? "A tax year 2026 state-and-local-tax cap was not verified for this tool. Do not reuse the 2025 cap as if it were the 2026 cap."
-          : "The state-and-local-tax cap is shown only for tax year 2025, where the Schedule A instructions were checked.",
+      note: "The state-and-local-tax cap is shown once the tax year and filing status are selected.",
     };
   }
   const mfs = status === "mfs";
+  if (year === 2025) {
+    return {
+      amount: mfs ? 20000 : 40000,
+      phaseDownOver: mfs ? 250000 : 500000,
+      year,
+      citation: citations.scheduleA_2025,
+      unverified: false,
+      note: mfs
+        ? "2025 Schedule A line 5e cap is $20,000 for married filing separately. It is reduced when modified AGI is more than $250,000 but not below $5,000. This tool does not compute the phase-down."
+        : "2025 Schedule A line 5e cap is $40,000. It is reduced when Form 1040 line 11b is more than $500,000 but not below $10,000. This tool does not compute the phase-down.",
+    };
+  }
   return {
-    amount: mfs ? 20000 : 40000,
+    amount: mfs ? 20200 : 40400,
+    phaseDownOver: mfs ? 252500 : 505000,
     year,
-    citation: citations.scheduleA_2025,
+    citation: citations.irs_salt_2026,
     unverified: false,
     note: mfs
-      ? "2025 Schedule A line 5e cap is $20,000 for married filing separately, before any modified-AGI phase-down. The floor of the phase-down is $5,000. This tool does not compute the phase-down."
-      : "2025 Schedule A line 5e cap is $40,000 before any modified-AGI phase-down. The phase-down starts when Form 1040 line 11b is more than $500,000 and does not go below $10,000. This tool does not compute the phase-down.",
+      ? "For 2026 the state-and-local-tax cap is $20,200 for married filing separately. It is reduced when modified AGI is more than $252,500 but not below $5,000. The 2026 Schedule A line number is not confirmed here. This tool does not compute the phase-down."
+      : "For 2026 the state-and-local-tax cap is $40,400. It is reduced when modified AGI is more than $505,000 but not below $10,000. The 2026 Schedule A line number is not confirmed here. This tool does not compute the phase-down.",
   };
 }
 
@@ -255,14 +250,6 @@ export function stateStandard(
       note: "Select a tax year and filing status before a state standard deduction is shown.",
     };
   }
-  if (year === 2024) {
-    return {
-      amount: null,
-      year,
-      unverified: true,
-      note: "Tax year 2024 state standard deductions are not loaded.",
-    };
-  }
   if (jurisdiction === "louisiana") {
     const table = year === 2025 ? louisiana2025 : louisiana2026;
     return {
@@ -299,11 +286,114 @@ export function socialSecurityWageBase(year: TaxYear | null): MoneyFigure {
       note: "For 2025, Publication 334 says only the first $176,100 of combined wages, tips, and net earnings is subject to the 12.4% Social Security portion of self-employment tax. The 2.9% Medicare portion has no wage base in that publication.",
     };
   }
+  if (year === 2026) {
+    return {
+      amount: 184500,
+      year,
+      citation: citations.ssa_wage_base,
+      unverified: false,
+      note: "For 2026, SSA's contribution and benefit base is $184,500: only that much of combined wages and net earnings is subject to the 12.4% Social Security portion. Medicare has no taxable maximum.",
+    };
+  }
   return {
     amount: null,
     year,
     unverified: true,
-    note: "The Social Security wage base stored here is the 2025 figure from Publication 334. A 2024 or 2026 wage base is not stored, so none is shown for the selected year.",
+    note: "The Social Security wage base is shown once the tax year is selected.",
+  };
+}
+
+/** Form 1099-NEC (and no-withholding W-2) reporting threshold for payments made in the tax year. */
+export function infoReturnThreshold(year: TaxYear | null): MoneyFigure {
+  if (year === 2026) {
+    return {
+      amount: 2000,
+      year,
+      citation: citations.pub15_2026,
+      unverified: false,
+      note: "For payments made in 2026, Form 1099-NEC is required at $2,000 or more, and a W-2 is required at $2,000 or more when no income, Social Security, or Medicare tax was withheld (any withholding still requires a W-2).",
+    };
+  }
+  return {
+    amount: 600,
+    year,
+    citation: citations.pub15_2026,
+    unverified: year == null,
+    note:
+      year === 2025
+        ? "For payments made in 2025, Form 1099-NEC is required at $600 or more, and a W-2 is required at $600 or more when no income, Social Security, or Medicare tax was withheld (any withholding still requires a W-2)."
+        : "The tax year is not selected. The threshold is $600 for payments made in 2025 and $2,000 for payments made in 2026.",
+  };
+}
+
+/** Dependent standard deduction floor: the greater of `floor` or earned income plus `plus`, capped at the basic amount. */
+export function dependentStandard(year: TaxYear | null): { floor: number; plus: number; year: TaxYear | null; citation: Citation; note: string } {
+  const citation = year === 2026 ? citations.rp2025_32_more : citations.topic551;
+  const label = year ?? "2025 and 2026";
+  return {
+    floor: 1350,
+    plus: 450,
+    year,
+    citation,
+    note: `For ${label}, a filer someone else can claim has a standard deduction of the greater of $1,350 or earned income plus $450, capped at the basic standard deduction (${year === 2026 ? "Rev. Proc. 2025-32" : "Topic 551"}).`,
+  };
+}
+
+/** Section 199A threshold: at or below it (taxable income before the QBI deduction), Form 8995 is generally used. */
+export function qbiThreshold(
+  year: TaxYear | null,
+  status: FilingStatus | null,
+): { threshold: number | null; phaseInEnd: number | null; year: TaxYear | null; citation?: Citation; note: string } {
+  if (!year || !status) {
+    return {
+      threshold: null,
+      phaseInEnd: null,
+      year,
+      note: "QBI income thresholds are shown once the tax year and filing status are selected: 2025 is $197,300 ($394,600 married filing jointly); 2026 is $201,750 ($403,500 married filing jointly, $201,775 married filing separately).",
+    };
+  }
+  const table =
+    year === 2025
+      ? { mfj: [394600, 494600], mfs: [197300, 247300], other: [197300, 247300] }
+      : { mfj: [403500, 553500], mfs: [201775, 276775], other: [201750, 276750] };
+  const [threshold, phaseInEnd] = status === "mfj" ? table.mfj : status === "mfs" ? table.mfs : table.other;
+  const money = (n: number) => `$${n.toLocaleString("en-US")}`;
+  return {
+    threshold,
+    phaseInEnd,
+    year,
+    citation: year === 2025 ? citations.rp2024_40 : citations.rp2025_32_more,
+    note: `For ${year}, the QBI threshold for ${statusLabel(status)} is ${money(threshold)} of taxable income before the QBI deduction (phase-in range ends at ${money(phaseInEnd)}). At or below the threshold, Form 8995 is generally used; above it, or for a patron of a cooperative, Form 8995-A. Taxable income is not entered here, so the form choice is not concluded.`,
+  };
+}
+
+/** Schedule 1-A deductions, 2025 through 2028 (FS-2025-03). Amounts are set by statute and are not indexed. */
+export const schedule1A = {
+  years: [2025, 2026] as TaxYear[],
+  tips: { max: 25000, phaseOutOver: { mfj: 300000, other: 150000 }, perThousand: 100, round: "down" as const },
+  overtime: { max: { mfj: 25000, other: 12500 }, phaseOutOver: { mfj: 300000, other: 150000 }, perThousand: 100, round: "down" as const },
+  carLoan: { max: 10000, phaseOutOver: { mfj: 200000, other: 100000 }, perThousand: 200, round: "up" as const },
+  senior: { perPerson: 6000, phaseOutOver: { mfj: 150000, other: 75000 }, rate: 0.06 },
+  citation: citations.fs2025_03,
+  form2025: citations.schedule1a_2025,
+};
+
+/** Enhanced senior deduction (Schedule 1-A Part V), 2025 through 2028. */
+export function seniorDeduction(year: TaxYear | null, status: FilingStatus | null): MoneyFigure {
+  if (!year) {
+    return { amount: null, year, unverified: true, note: "The enhanced senior deduction is shown once the tax year is selected." };
+  }
+  const mfj = status === "mfj";
+  const over = mfj ? "$150,000" : "$75,000";
+  return {
+    amount: schedule1A.senior.perPerson,
+    year,
+    citation: year === 2025 ? citations.schedule1a_2025 : citations.fs2025_03,
+    unverified: false,
+    note:
+      status === "mfs"
+        ? `Tax year ${year} has an enhanced senior deduction of up to $6,000 per person 65 or older, but married taxpayers must file jointly to claim it, so a married-filing-separately return should not show it.`
+        : `Tax year ${year} also has an enhanced senior deduction of up to $6,000 per person 65 or older${mfj ? " ($12,000 if both spouses qualify)" : ""}, claimed on Schedule 1-A Part V and reduced by 6% of modified AGI over ${over}. MAGI was not entered, so the phaseout is not computed. It is separate from the standard deduction's age add-on and is available whether or not the return itemizes.`,
   };
 }
 

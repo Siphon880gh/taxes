@@ -167,7 +167,6 @@ function NumberEntry({
 }
 
 const YEARS = [
-  { id: "y2024", label: "2024" },
   { id: "y2025", label: "2025" },
   { id: "y2026", label: "2026" },
 ] as const;
