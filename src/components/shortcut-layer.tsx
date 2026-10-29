@@ -8,6 +8,8 @@ export type ShortcutEntry = {
   label: string;
   index: number;
   run: () => void;
+  /** Drawn first and highlighted in the held-modifier list (for example the widget-mode switch). */
+  accent?: boolean;
 };
 
 type ShortcutContextValue = {
@@ -124,6 +126,12 @@ export function ShortcutLayer({ children }: { children: ReactNode }) {
       {children}
       <div className={show ? "shortcut-panel is-shown" : "shortcut-panel"} aria-hidden={show ? undefined : true}>
         <div className="shortcut-panel-card">
+          {letters.filter((item) => item.accent).map((item) => (
+            <span key={item.id} className="shortcut-row is-accent">
+              <kbd>{item.key.toUpperCase()}</kbd>
+              <span>{item.label}</span>
+            </span>
+          ))}
           {legacyShortcuts.map((item) => (
             <span key={item.label + item.keys.join()} className="shortcut-row">
               {item.keys.map((key) => (
@@ -132,7 +140,7 @@ export function ShortcutLayer({ children }: { children: ReactNode }) {
               <span>{item.label}</span>
             </span>
           ))}
-          {letters.map((item) => (
+          {letters.filter((item) => !item.accent).map((item) => (
             <span key={item.id} className="shortcut-row">
               <kbd>{item.key.toUpperCase()}</kbd>
               <span>{item.label}</span>
@@ -144,7 +152,7 @@ export function ShortcutLayer({ children }: { children: ReactNode }) {
   );
 }
 
-export function useShortcut(id: string, key: string, label: string, index: number, run: () => void, enabled = true) {
+export function useShortcut(id: string, key: string, label: string, index: number, run: () => void, enabled = true, accent = false) {
   const context = useContext(ShortcutContext);
   const runRef = useRef(run);
   runRef.current = run;
@@ -152,9 +160,9 @@ export function useShortcut(id: string, key: string, label: string, index: numbe
   const unregister = context?.unregister;
   useEffect(() => {
     if (!register || !unregister || !enabled || !key) return;
-    register({ id, key, label, index, run: () => runRef.current() });
+    register({ id, key, label, index, run: () => runRef.current(), accent });
     return () => unregister(id);
-  }, [enabled, id, index, key, label, register, unregister]);
+  }, [accent, enabled, id, index, key, label, register, unregister]);
 }
 
 export function ShortcutText({ text, index }: { text: string; index: number }) {

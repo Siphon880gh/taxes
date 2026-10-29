@@ -59,6 +59,18 @@ function matchNodeId(elementId: string, known: Set<string>): string | null {
 }
 
 const lensZooms = [1, 1.5, 2, 3, 4, 6];
+// The bottom-right widget is either a magnifier around the pointer or an overview map of the whole chart.
+type WidgetMode = "magnifier" | "overview";
+const widgetModeKey = "taxes.chart-widget-mode.v1";
+const widgetSize = { width: 352, height: 136 };
+
+function readWidgetMode(): WidgetMode {
+  try {
+    return window.localStorage.getItem(widgetModeKey) === "overview" ? "overview" : "magnifier";
+  } catch {
+    return "magnifier";
+  }
+}
 
 const boundedZoomMin = 0.05;
 const boundedZoomMax = 2;
@@ -161,6 +173,11 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
   const [lensPoint, setLensPoint] = useState<{ x: number; y: number } | null>(null);
   const [lensZoom, setLensZoom] = useState(2);
   const [magnifierOpen, setMagnifierOpen] = useState(true);
+  const [widgetMode, setWidgetMode] = useState<WidgetMode>("magnifier");
+  const [natural, setNatural] = useState({ width: 0, height: 0 });
+  const [viewRect, setViewRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const overviewDrag = useRef<number | null>(null);
+  const [widgetBottom, setWidgetBottom] = useState<number | null>(null);
   const [viewportMaxHeight, setViewportMaxHeight] = useState<number | null>(null);
   const [panning, setPanning] = useState(false);
   const [showCommentCues, setShowCommentCues] = useState(true);
@@ -347,6 +364,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
         width: naturalWidth,
         height: Math.max(naturalHeight, 280),
       });
+      setNatural({ width: naturalWidth, height: naturalHeight });
       const available = viewportRef.current?.clientWidth ?? 0;
       const fittedZoom = zoomThatFitsWidth(naturalWidth, available);
       // A new answer resizes the question dock before Mermaid replaces the SVG.
@@ -574,6 +592,59 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
     window.setTimeout(() => {
       svg.querySelectorAll("g.node.is-flash").forEach((node) => node.classList.remove("is-flash"));
     }, 1500);
+  }
+
+  // The overview map draws the part of the chart the viewport shows; it repaints on scroll, zoom and resize.
+  function readViewRect() {
+    const viewport = viewportRef.current;
+    const canvas = canvasRef.current;
+    if (!viewport || !canvas) return;
+    const scale = zoomRef.current || 1;
+    const viewBounds = viewport.getBoundingClientRect();
+    const canvasBounds = canvas.getBoundingClientRect();
+    setViewRect({
+      x: (viewBounds.left - canvasBounds.left) / scale,
+      y: (viewBounds.top - canvasBounds.top) / scale,
+      width: viewport.clientWidth / scale,
+      height: viewport.clientHeight / scale,
+    });
+  }
+
+  function overviewFit() {
+    const width = natural.width || box.width;
+    const height = natural.height || box.height;
+    if (!width || !height) return null;
+    const scale = Math.min(widgetSize.width / width, widgetSize.height / height);
+    return { scale, left: (widgetSize.width - width * scale) / 2, top: (widgetSize.height - height * scale) / 2 };
+  }
+
+  // Click or drag on the overview map to move the chart there.
+  function jumpFromOverview(event: PointerEvent<HTMLDivElement>) {
+    const fit = overviewFit();
+    const viewport = viewportRef.current;
+    const canvas = canvasRef.current;
+    if (!fit || !viewport || !canvas) return;
+    const widget = event.currentTarget.getBoundingClientRect();
+    const x = (event.clientX - widget.left - fit.left) / fit.scale;
+    const y = (event.clientY - widget.top - fit.top) / fit.scale;
+    const scale = zoomRef.current || 1;
+    const viewBounds = viewport.getBoundingClientRect();
+    const canvasBounds = canvas.getBoundingClientRect();
+    const canvasLeft = canvasBounds.left - viewBounds.left + viewport.scrollLeft;
+    const canvasTop = canvasBounds.top - viewBounds.top + viewport.scrollTop;
+    viewport.scrollTo({ left: canvasLeft + x * scale - viewport.clientWidth / 2, top: canvasTop + y * scale - viewport.clientHeight / 2 });
+    readViewRect();
+  }
+
+  function switchWidgetMode() {
+    setWidgetMode((mode) => {
+      const next: WidgetMode = mode === "overview" ? "magnifier" : "overview";
+      try {
+        window.localStorage.setItem(widgetModeKey, next);
+      } catch {}
+      return next;
+    });
+    setMagnifierOpen(true);
   }
 
   function stepLens(direction: -1 | 1) {
@@ -866,6 +937,34 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
   useShortcut("fit-zoom", "f", "Fit zoom", 0, fitZoom, shortcutsEnabled);
   useShortcut("fit-current", "t", "Fit current", 2, fitCurrent, shortcutsEnabled && Boolean(selectedId));
   useShortcut("level-nodes", "l", "Level's nodes", 0, onToggleLevel, shortcutsEnabled);
+  useShortcut("widget-mode", "\\", "Magnifier ⇄ overview map", -1, switchWidgetMode, shortcutsEnabled, true);
+  useShortcut("widget-toggle", "w", "Hide / show the widget (either mode)", 0, () => setMagnifierOpen((open) => !open), shortcutsEnabled);
+
+  useEffect(() => {
+    setWidgetMode(readWidgetMode());
+  }, []);
+
+  // Keep the widget above the fixed bottom dock so its buttons and the overview map stay reachable.
+  useEffect(() => {
+    const dock = document.querySelector<HTMLElement>(".bottom-frames");
+    if (!dock) return;
+    const place = () => setWidgetBottom(Math.max(0, window.innerHeight - dock.getBoundingClientRect().top) + 16);
+    place();
+    const observer = new ResizeObserver(place);
+    observer.observe(dock);
+    window.addEventListener("resize", place);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", place);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (widgetMode !== "overview" || !magnifierOpen) return;
+    readViewRect();
+    window.addEventListener("resize", readViewRect);
+    return () => window.removeEventListener("resize", readViewRect);
+  }, [widgetMode, magnifierOpen, zoom, box.width, box.height, freeFrame]);
 
   const chartTools = (
     <>
@@ -943,6 +1042,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
           onPointerMove={onViewportPointerMove}
           onPointerUp={endPan}
           onPointerCancel={endPan}
+          onScroll={widgetMode === "overview" && magnifierOpen ? readViewRect : undefined}
           onPointerLeave={(event) => {
             setLensPoint(null);
             const pan = panRef.current;
@@ -1062,17 +1162,90 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
             <ShortcutText text="Level's nodes" index={0} /> ({levelNodes.length}) <span aria-hidden="true">{levelExpanded ? "−" : "+"}</span>
           </button>
         </div>
-        <div className={magnifierOpen ? "chart-magnifier" : "chart-magnifier is-collapsed"} aria-live="polite" aria-label={magnifierOpen ? "Magnified chart area under the pointer" : "Magnifier"}>
+        <div
+          className={[
+            "chart-magnifier",
+            magnifierOpen ? "" : "is-collapsed",
+            widgetMode === "overview" ? "is-overview" : "",
+          ].filter(Boolean).join(" ")}
+          data-mode={widgetMode}
+          style={widgetBottom != null ? { bottom: widgetBottom } : undefined}
+          aria-live="polite"
+          aria-label={
+            !magnifierOpen ? (widgetMode === "overview" ? "Overview map" : "Magnifier")
+              : widgetMode === "overview" ? "Overview map of the whole chart" : "Magnified chart area under the pointer"
+          }
+        >
           <button
             type="button"
             className="chart-magnifier-collapse"
             aria-expanded={magnifierOpen}
-            aria-label={magnifierOpen ? "Hide the magnifier" : "Expand the magnifier"}
+            aria-label={magnifierOpen ? "Hide the widget (W)" : "Expand the widget (W)"}
+            title={magnifierOpen ? "Hide (W)" : "Expand (W)"}
             onClick={() => setMagnifierOpen((open) => !open)}
           >
             {magnifierOpen ? "Hide" : "Expand"}
           </button>
           {magnifierOpen ? (
+            <button
+              type="button"
+              className="chart-magnifier-mode"
+              aria-pressed={widgetMode === "overview"}
+              title={widgetMode === "overview" ? "Switch to the magnifier (\\)" : "Switch to the overview map (\\)"}
+              onClick={switchWidgetMode}
+            >
+              <kbd aria-hidden="true">{"\\"}</kbd> {widgetMode === "overview" ? "Overview" : "Magnifier"}
+            </button>
+          ) : null}
+          {magnifierOpen && widgetMode === "overview" ? (
+            (() => {
+              const fit = overviewFit();
+              if (!fit || !lensMarkup) return <span className="chart-magnifier-empty" aria-hidden="true">⌕</span>;
+              const rect = (x: number, y: number, width: number, height: number) => ({
+                left: fit.left + x * fit.scale,
+                top: fit.top + y * fit.scale,
+                width: width * fit.scale,
+                height: height * fit.scale,
+              });
+              return (
+                <div
+                  className="chart-overview-stage"
+                  onPointerDown={(event) => {
+                    overviewDrag.current = event.pointerId;
+                    event.currentTarget.setPointerCapture(event.pointerId);
+                    jumpFromOverview(event);
+                  }}
+                  onPointerMove={(event) => {
+                    if (overviewDrag.current === event.pointerId) jumpFromOverview(event);
+                  }}
+                  onPointerUp={() => {
+                    overviewDrag.current = null;
+                  }}
+                  onPointerCancel={() => {
+                    overviewDrag.current = null;
+                  }}
+                >
+                  <div
+                    className="chart-magnifier-content"
+                    style={{ transform: `translate(${fit.left}px, ${fit.top}px) scale(${fit.scale})` }}
+                    dangerouslySetInnerHTML={{ __html: lensMarkup }}
+                  />
+                  {viewRect ? <span className="chart-overview-view" style={rect(viewRect.x, viewRect.y, viewRect.width, viewRect.height)} /> : null}
+                  {lensPoint ? (
+                    <span
+                      className="chart-overview-pointer"
+                      style={rect(
+                        lensPoint.x - widgetSize.width / (2 * lensZoom),
+                        lensPoint.y - widgetSize.height / (2 * lensZoom),
+                        widgetSize.width / lensZoom,
+                        widgetSize.height / lensZoom,
+                      )}
+                    />
+                  ) : null}
+                </div>
+              );
+            })()
+          ) : magnifierOpen ? (
           <>
           {lensPoint && lensMarkup ? (
             <div className="chart-magnifier-content" style={{ transform: `scale(${lensZoom}) translate(${352 / (2 * lensZoom) - lensPoint.x}px, ${136 / (2 * lensZoom) - lensPoint.y}px)` }} dangerouslySetInnerHTML={{ __html: lensMarkup }} />
@@ -1091,7 +1264,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
           </>
           ) : (
             <button type="button" className="chart-magnifier-tile" onClick={() => setMagnifierOpen(true)}>
-              <p className="truncate font-medium text-stone-900">Magnifier</p>
+              <p className="truncate font-medium text-stone-900">{widgetMode === "overview" ? "Overview map" : "Magnifier"}</p>
             </button>
           )}
         </div>

@@ -604,7 +604,8 @@ export function CheckerApp() {
   ];
   const focusTab = shownDockTabs.includes(dockTab) ? dockTab : shownDockTabs[0];
   const showInfoTab = Boolean(selected?.tipId);
-  const choiceTaken = new Set<string>(["e", "i", "f", "t", "c", "l"]);
+  // "w" hides or shows the chart widget (magnifier or overview map), so answer letters skip it.
+  const choiceTaken = new Set<string>(["e", "i", "f", "t", "c", "l", "w"]);
   if (!dockCollapsed || checklistOpen) choiceTaken.add("h");
   if (dockShowsExpand || checklistShowsExpand || headerShowsExpand) choiceTaken.add("x");
   if (showAdd) choiceTaken.add("d");
