@@ -23,32 +23,38 @@ export function PromptBuilder({
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copiedPrompt, setCopiedPrompt] = useState<string | null>(null);
   const explanation = node.prompt || node.help || node.chart;
   const dialogRef = useRef<HTMLDivElement>(null);
   useDialogFocus(true, dialogRef);
+  const chatReady = copiedPrompt !== null && copiedPrompt === prompt;
+  const chatWhy = copiedPrompt === null ? "Copy the prompt first" : "Prompt changed, copy again";
 
   useEffect(() => {
     setStep("build");
     setDraft("");
     setError(null);
     setCopied(false);
+    setCopiedPrompt(null);
   }, [node.id]);
 
   async function copyPrompt() {
     try {
       await navigator.clipboard.writeText(prompt);
       setCopied(true);
+      setCopiedPrompt(prompt);
     } catch {
       setCopied(false);
     }
   }
 
   function openIn(url: string) {
-    void copyPrompt().then(() => window.open(url, "_blank", "noopener,noreferrer"));
+    if (!chatReady) return;
+    window.open(url, "_blank", "noopener,noreferrer");
   }
 
   useShortcut("copy-prompt", "y", "Copy prompt", 3, () => void copyPrompt(), step === "build");
-  useShortcut("open-chatgpt", "g", "ChatGPT", 4, () => openIn(CHATGPT_URL), step === "build");
+  useShortcut("open-chatgpt", "g", "ChatGPT", 4, () => openIn(CHATGPT_URL), step === "build" && chatReady);
   useShortcut("prompt-back", "k", "Back", 3, () => { setStep("build"); setError(null); }, step === "import");
   useShortcut("prompt-next", "j", "Next: Import JSON", 13, () => { setError(null); setStep("import"); }, step === "build");
 
@@ -81,12 +87,31 @@ export function PromptBuilder({
                 {copied ? "Copied" : <ShortcutText text="Copy prompt" index={3} />}
               </button>
               <span className="text-sm text-stone-600">Open in</span>
-              <button type="button" className="prompt-service" onClick={() => openIn(CHATGPT_URL)}>
+              <button
+                type="button"
+                className={`prompt-service${chatReady ? "" : " is-disabled"}`}
+                onClick={() => openIn(CHATGPT_URL)}
+                disabled={!chatReady}
+                aria-disabled={!chatReady}
+                title={chatReady ? undefined : chatWhy}
+              >
                 <ChatGptMark /> <ShortcutText text="ChatGPT" index={4} />
               </button>
-              <button type="button" className="prompt-service" onClick={() => openIn(CLAUDE_URL)}>
+              <button
+                type="button"
+                className={`prompt-service${chatReady ? "" : " is-disabled"}`}
+                onClick={() => openIn(CLAUDE_URL)}
+                disabled={!chatReady}
+                aria-disabled={!chatReady}
+                title={chatReady ? undefined : chatWhy}
+              >
                 <ClaudeMark /> Claude
               </button>
+              {!chatReady ? (
+                <span className={`prompt-handoff-hint${copiedPrompt !== null ? " is-stale" : ""}`} aria-live="polite">
+                  {chatWhy}
+                </span>
+              ) : null}
             </div>
           </>
         ) : (

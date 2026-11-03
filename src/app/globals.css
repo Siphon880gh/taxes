@@ -1089,6 +1089,29 @@ button.question-dock-tile {
   color: #7c2d12;
 }
 
+.prompt-service.is-disabled,
+.prompt-service:disabled {
+  opacity: 0.4;
+  filter: grayscale(1);
+  cursor: not-allowed;
+  color: #44403c;
+}
+
+.prompt-service.is-disabled:hover,
+.prompt-service:disabled:hover {
+  color: #44403c;
+}
+
+.prompt-handoff-hint {
+  flex-basis: 100%;
+  font-size: 0.75rem;
+  color: #78716c;
+}
+
+.prompt-handoff-hint.is-stale {
+  color: #92400e;
+}
+
 .prompt-footer {
   display: flex;
   justify-content: space-between;
