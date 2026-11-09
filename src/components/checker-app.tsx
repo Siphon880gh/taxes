@@ -5,6 +5,7 @@ import { MermaidView } from "@/components/mermaid-view";
 import { DocumentSorter, SUMMARIES_SKILL_NOTE } from "@/components/document-sorter";
 import { OwedAuditPanel } from "@/components/owed-audit-panel";
 import { PromptBuilder } from "@/components/prompt-builder";
+import { HarnessHelp } from "@/components/harness-help";
 import { pickShortcutLetter, ShortcutLayer, ShortcutText, ShortcutTip, useShortcut } from "@/components/shortcut-layer";
 import { decodeNumbers, encodeNumbers, numberEntryError, suggestionText } from "@/lib/graph/allocate";
 import { DISCLAIMER } from "@/lib/disclaimer";
@@ -822,6 +823,8 @@ export function CheckerApp() {
             <button type="button" aria-pressed={frameMode === "audit"} onClick={() => showFrame("audit")}>
               Return & Owe Audit
             </button>
+            <span className="frame-switch-divider" aria-hidden="true" />
+            <HarnessHelp />
           </div>
           <button
             type="button"

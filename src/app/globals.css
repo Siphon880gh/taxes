@@ -1514,3 +1514,145 @@ button.question-dock-tile {
   stroke-width: 3px !important;
   stroke-dasharray: 4 2;
 }
+
+/* "Add / edit with AI" helper in the bottom frame's tab strip (harness-first: no built-in AI). */
+.frame-switch button.harness-help-toggle {
+  border-color: #9a3412;
+  background: #9a3412;
+  color: #fffdf8;
+  font-weight: 600;
+}
+
+.frame-switch button.harness-help-toggle:hover,
+.frame-switch button.harness-help-toggle[aria-expanded="true"] {
+  background: #7c2d12;
+  border-color: #7c2d12;
+}
+
+.harness-help-toggle:focus-visible,
+.harness-help-panel button:focus-visible {
+  outline: 2px solid #1c1917;
+  outline-offset: 2px;
+}
+
+.harness-help-short {
+  display: none;
+}
+
+@media (max-width: 639px) {
+  .harness-help-label {
+    display: none;
+  }
+
+  .harness-help-short {
+    display: inline;
+  }
+}
+
+.harness-help-panel {
+  position: fixed;
+  left: 0.75rem;
+  z-index: 38;
+  width: min(25rem, calc(100vw - 1.5rem));
+  min-height: 8rem;
+  overflow-y: auto;
+  border: 1px solid #d6d3d1;
+  border-radius: 0.5rem;
+  background: #fffdf8;
+  padding: 0.9rem 1rem;
+  color: #1c1917;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  box-shadow: 0 12px 30px rgb(28 25 23 / 0.18);
+}
+
+.harness-help-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.harness-help-panel h2 {
+  margin: 0 0 0.35rem;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.harness-help-panel ol {
+  margin: 0.5rem 0;
+  padding-left: 1.25rem;
+  list-style: decimal;
+}
+
+.harness-help-panel ol > li {
+  margin-bottom: 0.45rem;
+}
+
+.harness-help-panel ul {
+  margin: 0.3rem 0 0;
+  padding-left: 1rem;
+  list-style: disc;
+}
+
+.harness-help-panel code,
+.harness-help-panel kbd {
+  font-size: 0.82em;
+  overflow-wrap: anywhere;
+}
+
+.harness-help-panel kbd {
+  border: 1px solid currentColor;
+  border-radius: 0.25rem;
+  padding: 0 0.3rem;
+}
+
+.harness-help-copyrow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.3rem;
+}
+
+.harness-help-copyrow code {
+  border: 1px solid #d6d3d1;
+  border-radius: 0.375rem;
+  background: #f5f5f4;
+  padding: 0.1rem 0.5rem;
+  font-weight: 700;
+}
+
+.harness-help-copyrow button {
+  border: 1px solid #9a3412;
+  border-radius: 999px;
+  background: #fffdf8;
+  padding: 0.1rem 0.75rem;
+  color: #7c2d12;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.harness-help-close {
+  min-width: 2rem;
+  min-height: 2rem;
+  border-radius: 0.375rem;
+  font-size: 1.2rem;
+  line-height: 1;
+  color: #57534e;
+}
+
+.harness-help-close:hover {
+  background: #f5f5f4;
+}
+
+.harness-help-status {
+  margin: 0;
+  color: #57534e;
+  font-size: 0.8rem;
+}
+
+.harness-help-status:empty {
+  display: none;
+}
