@@ -2,12 +2,22 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import {
+  cdCommand,
+  cleanPath,
+  loadHarness,
+  saveHarness,
+  type HarnessMode,
+  type HarnessTile,
+} from "@/lib/harness-path";
 
 /**
  * "Add / edit with AI" helper in the bottom frame's tab strip.
  * This app has no built-in AI (it keeps the app free). The panel points people at this app's folder so they can open it
  * in Cursor, Claude Code or another AI harness and run the local skills with their own tokens. Purely informational.
  * The folder name is fixed here because the static build cannot read its own folder name.
+ * Two accordion tiles (one open at a time): how it works, and a folder path this browser remembers, shown as the path
+ * or a cd command. Path, mode and last-opened tile persist in localStorage under harnessAi:app/taxes:*.
  */
 export const APP_FOLDER = "taxes";
 
@@ -25,6 +35,12 @@ export function HarnessHelp() {
   const toggleRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLElement>(null);
   const copyRef = useRef<HTMLButtonElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const firstTileRef = useRef<HTMLButtonElement>(null);
+  const focusTileRef = useRef<HarnessTile | null>("about");
+  const [tile, setTile] = useState<HarnessTile | null>("about");
+  const [path, setPath] = useState("");
+  const [mode, setMode] = useState<HarnessMode>("path");
 
   useEffect(() => {
     if (!open) return;
@@ -33,7 +49,9 @@ export function HarnessHelp() {
       if (strip) setBottom(Math.max(0, window.innerHeight - strip.getBoundingClientRect().top) + 8);
     };
     place();
-    copyRef.current?.focus({ preventScroll: true });
+    const focusTarget =
+      focusTileRef.current === "path" ? inputRef : focusTileRef.current === "about" ? copyRef : firstTileRef;
+    focusTarget.current?.focus({ preventScroll: true });
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       event.stopPropagation();
@@ -64,6 +82,52 @@ export function HarnessHelp() {
     }
   };
 
+  const shown = mode === "command" ? cdCommand(path) : path;
+
+  const copyShown = async () => {
+    if (!shown) return;
+    try {
+      await navigator.clipboard.writeText(shown);
+      setStatus(
+        mode === "command"
+          ? "Copied the cd command. Paste it into a terminal."
+          : "Copied the folder path. Paste it into your AI tool’s Open Folder.",
+      );
+    } catch {
+      setStatus("Copy failed. Select the text and copy it.");
+    }
+  };
+
+  const openPanel = () => {
+    const saved = loadHarness("openTile");
+    const nextTile: HarnessTile = saved === "path" ? "path" : "about";
+    focusTileRef.current = nextTile;
+    setTile(nextTile);
+    setPath(loadHarness("path") ?? "");
+    setMode(loadHarness("mode") === "command" ? "command" : "path");
+    setStatus("");
+    setOpen(true);
+  };
+
+  const toggleTile = (name: HarnessTile) => {
+    if (tile === name) {
+      setTile(null); // collapsing keeps the last opened tile remembered
+      return;
+    }
+    setTile(name);
+    saveHarness("openTile", name);
+  };
+
+  const changePath = (value: string) => {
+    setPath(value);
+    saveHarness("path", cleanPath(value));
+  };
+
+  const changeMode = (next: HarnessMode) => {
+    setMode(next);
+    saveHarness("mode", next);
+  };
+
   const close = () => {
     setOpen(false);
     toggleRef.current?.focus();
@@ -80,8 +144,8 @@ export function HarnessHelp() {
         aria-label="Add or edit with AI: how to use your own AI tool"
         title="Add / edit with AI"
         onClick={() => {
-          setStatus("");
-          setOpen((value) => !value);
+          if (open) setOpen(false);
+          else openPanel();
         }}
       >
         <span aria-hidden="true">✦</span> <span className="harness-help-label">Add / edit with AI</span>
@@ -104,33 +168,148 @@ export function HarnessHelp() {
                   ×
                 </button>
               </div>
-              <p>This app has no built-in AI, which keeps it free. Use the AI tool you already have, with your own tokens:</p>
-              <ol>
-                <li>
-                  Open system search (<kbd>⌘</kbd> <kbd>Space</kbd> for Spotlight on a Mac, or the Windows search box) and find the
-                  folder named:
+              <div className="harness-help-acc">
+                <h3>
+                  <button
+                    ref={firstTileRef}
+                    type="button"
+                    id="harness-help-t-about"
+                    className="harness-help-tile"
+                    aria-expanded={tile === "about"}
+                    aria-controls="harness-help-p-about"
+                    onClick={() => toggleTile("about")}
+                  >
+                    <span>How to add or edit with AI</span>
+                    <svg className="harness-help-chev" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                  </button>
+                </h3>
+                <div
+                  id="harness-help-p-about"
+                  className="harness-help-body"
+                  role="region"
+                  aria-labelledby="harness-help-t-about"
+                  hidden={tile !== "about"}
+                >
+                  <p>This app has no built-in AI, which keeps it free. Use the AI tool you already have, with your own tokens:</p>
+                  <ol>
+                    <li>
+                      Open system search (<kbd>⌘</kbd> <kbd>Space</kbd> for Spotlight on a Mac, or the Windows search box) and find the
+                      folder named:
+                      <span className="harness-help-copyrow">
+                        <code>{APP_FOLDER}</code>
+                        <button ref={copyRef} type="button" onClick={copy} aria-label={`Copy folder name ${APP_FOLDER}`}>
+                          Copy
+                        </button>
+                      </span>
+                    </li>
+                    <li>
+                      Open that folder in <strong>Cursor</strong>, <strong>Claude Code</strong>, or your favorite AI harness.
+                    </li>
+                    <li>
+                      Put your tax documents in <code>sorter/stage/</code> (or use Document Sorter), then ask it to run a skill
+                      from <code>.agents/skills/</code>:
+                      <ul>
+                        {SKILLS.map(([name, what]) => (
+                          <li key={name}>
+                            <code>{name}</code>: {what}
+                          </li>
+                        ))}
+                      </ul>
+                    </li>
+                  </ol>
+                  <p className="harness-help-hint">
+                    Tip: save the folder path under <strong>Your folder path</strong> so you can skip the search next time.
+                  </p>
+                </div>
+                <h3>
+                  <button
+                    type="button"
+                    id="harness-help-t-path"
+                    className="harness-help-tile"
+                    aria-expanded={tile === "path"}
+                    aria-controls="harness-help-p-path"
+                    onClick={() => toggleTile("path")}
+                  >
+                    <span>Your folder path</span>
+                    <svg className="harness-help-chev" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                  </button>
+                </h3>
+                <div
+                  id="harness-help-p-path"
+                  className="harness-help-body"
+                  role="region"
+                  aria-labelledby="harness-help-t-path"
+                  hidden={tile !== "path"}
+                >
+                  <p>
+                    We can remember your folder path for you here, so next time you can copy it, or a ready-made{" "}
+                    <code>cd</code> command, without searching. It stays in this browser only.
+                  </p>
+                  <label className="harness-help-field-label" htmlFor="harness-help-path">
+                    Full path to your <code>{APP_FOLDER}</code> folder
+                  </label>
                   <span className="harness-help-copyrow">
-                    <code>{APP_FOLDER}</code>
-                    <button ref={copyRef} type="button" onClick={copy} aria-label={`Copy folder name ${APP_FOLDER}`}>
+                    <input
+                      ref={inputRef}
+                      id="harness-help-path"
+                      className="harness-help-input"
+                      type="text"
+                      autoComplete="off"
+                      autoCapitalize="off"
+                      spellCheck={false}
+                      placeholder={`/Users/you/…/${APP_FOLDER}`}
+                      value={path}
+                      onChange={(event) => changePath(event.target.value)}
+                    />
+                    <button
+                      type="button"
+                      aria-label="Clear saved folder path"
+                      onClick={() => {
+                        changePath("");
+                        setStatus("Cleared the saved folder path.");
+                        inputRef.current?.focus();
+                      }}
+                    >
+                      Clear
+                    </button>
+                  </span>
+                  <p className="harness-help-hint">
+                    Mac: right-click the folder in Finder, hold <kbd>Option</kbd>, choose <em>Copy … as Pathname</em>.
+                    Windows: <kbd>Shift</kbd> + right-click, <em>Copy as path</em>.
+                  </p>
+                  <div className="harness-help-switchrow">
+                    <span className={mode === "path" ? "is-on" : undefined} onClick={() => changeMode("path")}>
+                      Path
+                    </span>
+                    <button
+                      type="button"
+                      role="switch"
+                      className="harness-help-switch"
+                      aria-checked={mode === "command"}
+                      aria-label="Show as a cd command"
+                      onClick={() => changeMode(mode === "command" ? "path" : "command")}
+                    />
+                    <span className={mode === "command" ? "is-on" : undefined} onClick={() => changeMode("command")}>
+                      Command
+                    </span>
+                  </div>
+                  <span className="harness-help-copyrow">
+                    <code className={shown ? "harness-help-out" : "harness-help-out is-empty"} aria-live="polite">
+                      {shown || "Type or paste the folder path above."}
+                    </code>
+                    <button type="button" disabled={!shown} onClick={copyShown}>
                       Copy
                     </button>
                   </span>
-                </li>
-                <li>
-                  Open that folder in <strong>Cursor</strong>, <strong>Claude Code</strong>, or your favorite AI harness.
-                </li>
-                <li>
-                  Put your tax documents in <code>sorter/stage/</code> (or use Document Sorter), then ask it to run a skill
-                  from <code>.agents/skills/</code>:
-                  <ul>
-                    {SKILLS.map(([name, what]) => (
-                      <li key={name}>
-                        <code>{name}</code>: {what}
-                      </li>
-                    ))}
-                  </ul>
-                </li>
-              </ol>
+                  {shown ? (
+                    <p className="harness-help-hint">
+                      {mode === "command"
+                        ? "Paste the command into a terminal, then start your AI harness there (for example claude)."
+                        : "Paste the path into your AI tool’s Open Folder, or switch to Command for a cd line."}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
               <p className="harness-help-status" role="status" aria-live="polite">
                 {status}
               </p>
