@@ -21,6 +21,14 @@ import {
  */
 export const APP_FOLDER = "taxes";
 
+/** Tile 1 says plainly what this panel feeds the app: primary input (its main content) or supplementary. */
+const INPUT_ROLE: "primary" | "supplementary" = "primary";
+const INPUT_WHAT = (
+  <>
+    your tax documents (W-2s, 1099s, receipts and statements) placed in <code>sorter/stage/</code>
+  </>
+);
+
 const SKILLS = [
   ["tax-document-classification", "sorts the files in sorter/stage/ into tax-prep folders"],
   ["tax-document-summaries", "writes sorter/stage/Summaries.md for a tax professional"],
@@ -245,6 +253,16 @@ export function HarnessHelp() {
                   aria-labelledby="harness-help-t-about"
                   hidden={tile !== "about"}
                 >
+                  <p className="harness-help-role">
+                    <span className={`harness-help-badge harness-help-badge--${INPUT_ROLE}`}>
+                      {INPUT_ROLE === "primary" ? "Primary" : "Supplementary"}
+                    </span>{" "}
+                    {INPUT_ROLE === "primary" ? (
+                      <>This is where the app’s main content comes from: {INPUT_WHAT}.</>
+                    ) : (
+                      <>Optional extra: {INPUT_WHAT} the app can use to do more.</>
+                    )}
+                  </p>
                   <p>This app has no built-in AI, which keeps it free. Use the AI tool you already have, with your own tokens:</p>
                   <ol>
                     <li>

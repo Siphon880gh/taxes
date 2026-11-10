@@ -1827,3 +1827,34 @@ button.question-dock-tile {
   width: 1em;
   height: 1em;
 }
+
+.harness-help-panel p.harness-help-role {
+  margin: 0 0 0.6rem;
+  border-radius: 0.5rem;
+  background: #f5f5f4;
+  padding: 0.5rem 0.6rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.harness-help-badge {
+  display: inline-block;
+  margin-right: 0.25rem;
+  border-radius: 999px;
+  padding: 0.05rem 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  vertical-align: 1px;
+}
+
+.harness-help-badge--primary {
+  background: #9a3412;
+  color: #fffdf8;
+}
+
+.harness-help-badge--supplementary {
+  border: 1px dashed #57534e;
+  color: #1c1917;
+}
