@@ -1813,3 +1813,17 @@ button.question-dock-tile {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+.harness-help-copyrow button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.35em;
+  white-space: nowrap;
+}
+
+.harness-help-ico {
+  flex: none;
+  width: 1em;
+  height: 1em;
+}
