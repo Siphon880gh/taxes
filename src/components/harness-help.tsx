@@ -82,7 +82,8 @@ export function HarnessHelp() {
     }
   };
 
-  const shown = mode === "command" ? cdCommand(path) : path;
+  const clean = cleanPath(path);
+  const shown = mode === "command" ? cdCommand(clean) : clean;
 
   const copyShown = async () => {
     if (!shown) return;
