@@ -1858,3 +1858,9 @@ button.question-dock-tile {
   border: 1px dashed #57534e;
   color: #1c1917;
 }
+
+.harness-help-badge--complete {
+  border: 1.5px solid #9a3412;
+  background: #fffdf8;
+  color: #1c1917;
+}

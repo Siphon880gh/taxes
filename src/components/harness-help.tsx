@@ -21,8 +21,12 @@ import {
  */
 export const APP_FOLDER = "taxes";
 
-/** Tile 1 says plainly what this panel feeds the app: primary input (its main content) or supplementary. */
-const INPUT_ROLE: "primary" | "supplementary" = "primary";
+/**
+ * Tile 1 says plainly what this panel feeds the app: primary input (its main content), complete (main content already
+ * generated and shipped; more is optional) or supplementary (an optional extra).
+ */
+const INPUT_ROLE: "primary" | "complete" | "supplementary" = "primary";
+const ROLE_BADGE = { primary: "Primary", complete: "Complete · add more", supplementary: "Supplementary" } as const;
 const INPUT_WHAT = (
   <>
     your tax documents (W-2s, 1099s, receipts and statements) placed in <code>sorter/stage/</code>
@@ -254,11 +258,11 @@ export function HarnessHelp() {
                   hidden={tile !== "about"}
                 >
                   <p className="harness-help-role">
-                    <span className={`harness-help-badge harness-help-badge--${INPUT_ROLE}`}>
-                      {INPUT_ROLE === "primary" ? "Primary" : "Supplementary"}
-                    </span>{" "}
+                    <span className={`harness-help-badge harness-help-badge--${INPUT_ROLE}`}>{ROLE_BADGE[INPUT_ROLE]}</span>{" "}
                     {INPUT_ROLE === "primary" ? (
                       <>This is where the app’s main content comes from: {INPUT_WHAT}.</>
+                    ) : INPUT_ROLE === "complete" ? (
+                      <>This app’s main content is complete: {INPUT_WHAT}. You can still generate more if you want.</>
                     ) : (
                       <>Optional extra: {INPUT_WHAT} the app can use to do more.</>
                     )}
