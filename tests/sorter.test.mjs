@@ -287,6 +287,140 @@ with tarfile.open(sys.argv[1], "w:gz") as tf:
   assert.equal(hiddenWork.folders, false);
 });
 
+test("api.php AI reorganize: .env parsing, no-key warning, validated plan, one-time apply", { skip: hasPhp ? false : "php is not installed" }, async () => {
+  await ready();
+  const http = await import("node:http");
+  const envFile = path.join(tmp, ".env");
+  const stageDir = path.join(sorterDir, "stage");
+  fs.rmSync(stageDir, { recursive: true, force: true });
+  fs.mkdirSync(path.join(stageDir, "inbox"), { recursive: true });
+  fs.writeFileSync(path.join(stageDir, "inbox", "w2.pdf"), "w2");
+  fs.writeFileSync(path.join(stageDir, "1099.pdf"), "1099");
+  fs.writeFileSync(path.join(stageDir, "Summaries.md"), "# notes");
+
+  // No .env: not configured, and the uploads folder is named.
+  fs.rmSync(envFile, { force: true });
+  const none = await (await app(`${base}?action=ai-status`)).json();
+  assert.equal(none.ok, true);
+  assert.equal(none.configured, false);
+  assert.equal(none.reason, "No OPENAI_API_KEY or ANTHROPIC_API_KEY in .env.");
+  assert.equal(none.folder, fs.realpathSync(stageDir));
+  const noCookie = await fetch(`${base}?action=ai-status`, { headers: { Origin: APP_ORIGIN, "X-Taxes-App": "1" } });
+  assert.equal(noCookie.status, 403, "the AI actions keep the app-only gate");
+  const refused = await app(base, { method: "POST", body: form("ai-plan", {}) });
+  assert.equal(refused.status, 409);
+
+  // A fake provider that answers with a plan full of bad moves and two good ones.
+  const seen = [];
+  const plan = {
+    summary: "Sorted by form",
+    moves: [
+      { path: "inbox/w2.pdf", category: "Income - Wages", reason: "W-2" },
+      { path: "1099.pdf", category: "../outside" },
+      { path: "../api.php", category: "Deductions" },
+      { path: "missing.pdf", category: "Deductions" },
+      { path: "Summaries.md", category: "Deductions" },
+      { path: "1099.pdf", category: ".hidden" },
+      { path: "1099.pdf", category: "Income - Investments/", reason: "1099" },
+      { path: "inbox/w2.pdf", category: "Deductions" },
+    ],
+  };
+  const fake = http.createServer((req, res) => {
+    let raw = "";
+    req.on("data", (chunk) => (raw += chunk));
+    req.on("end", () => {
+      seen.push({ url: req.url, headers: req.headers, body: JSON.parse(raw) });
+      const text = JSON.stringify(plan);
+      const reply = req.url.endsWith("/chat/completions")
+        ? { choices: [{ message: { content: text } }] }
+        : { content: [{ type: "text", text: "```json\n" + text + "\n```" }] };
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(reply));
+    });
+  });
+  await new Promise((resolve) => fake.listen(0, "127.0.0.1", resolve));
+  const fakeUrl = `http://127.0.0.1:${fake.address().port}`;
+  try {
+    fs.writeFileSync(
+      envFile,
+      [
+        "# AI settings",
+        "SERVER_URL_UPLOAD_API_PHP=http://localhost:8888/sorter/api.php",
+        "export AI_PROVIDER=chatgpt   # alias for openai",
+        'AI_MODEL="test-model # kept"',
+        "OPENAI_API_KEY='sk-test-openai'",
+        `OPENAI_BASE_URL=${fakeUrl}/v1/`,
+        "",
+      ].join("\n"),
+    );
+    const statusResponse = await app(`${base}?action=ai-status`);
+    const statusText = await statusResponse.text();
+    assert.doesNotMatch(statusText, /sk-test/);
+    const status = JSON.parse(statusText);
+    assert.equal(status.configured, true);
+    assert.equal(status.provider, "openai");
+    assert.equal(status.model, "test-model # kept");
+
+    const planned = await (await app(base, { method: "POST", body: form("ai-plan", {}) })).json();
+    assert.equal(planned.ok, true, planned.error);
+    assert.deepEqual(
+      planned.moves.map((m) => [m.path, m.category]),
+      [
+        ["inbox/w2.pdf", "Income - Wages"],
+        ["1099.pdf", "Income - Investments"],
+      ],
+    );
+    assert.equal(planned.skipped, 6);
+    assert.equal(planned.summary, "Sorted by form");
+    assert.equal(seen[0].url, "/v1/chat/completions");
+    assert.equal(seen[0].headers.authorization, "Bearer sk-test-openai");
+    assert.equal(seen[0].body.model, "test-model # kept");
+    const prompt = JSON.stringify(seen[0].body.messages);
+    assert.match(prompt, /inbox\/w2\.pdf/);
+    assert.doesNotMatch(prompt, /Summaries\.md/);
+
+    const apply = (moves, token, keep) => {
+      const payload = form("ai-apply", {});
+      payload.append("plan", JSON.stringify(moves));
+      payload.append("token", token);
+      payload.append("keep", keep);
+      return app(base, { method: "POST", body: payload });
+    };
+    const tampered = planned.moves.map((m) => ({ ...m, category: "../escape" }));
+    assert.equal((await apply(tampered, planned.token, "0,1")).status, 409);
+    assert.equal(fs.existsSync(path.join(sorterDir, "escape")), false);
+
+    const applied = await (await apply(planned.moves, planned.token, "0")).json();
+    assert.equal(applied.ok, true, applied.error);
+    assert.deepEqual(applied.moved.map((m) => m.path), ["Income - Wages/w2.pdf"]);
+    assert.equal(fs.existsSync(path.join(stageDir, "Income - Wages", "w2.pdf")), true);
+    assert.equal(fs.existsSync(path.join(stageDir, "1099.pdf")), true, "unchecked moves stay put");
+    const replay = await apply(planned.moves, planned.token, "1");
+    assert.equal(replay.status, 409, "a plan token works once");
+    assert.equal(fs.existsSync(path.join(stageDir, "1099.pdf")), true);
+
+    // Claude: provider alias, x-api-key header, and a fenced JSON reply.
+    fs.writeFileSync(envFile, `AI_PROVIDER=claude\nANTHROPIC_API_KEY=sk-ant-test\nANTHROPIC_BASE_URL=${fakeUrl}\n`);
+    const claudeStatus = await (await app(`${base}?action=ai-status`)).json();
+    assert.equal(claudeStatus.provider, "anthropic");
+    assert.equal(claudeStatus.model, "claude-sonnet-4-5");
+    const claudePlan = await (await app(base, { method: "POST", body: form("ai-plan", {}) })).json();
+    assert.equal(claudePlan.ok, true, claudePlan.error);
+    assert.deepEqual(claudePlan.moves.map((m) => m.path), ["1099.pdf"]);
+    const last = seen[seen.length - 1];
+    assert.equal(last.url, "/v1/messages");
+    assert.equal(last.headers["x-api-key"], "sk-ant-test");
+
+    fs.writeFileSync(envFile, "AI_PROVIDER=anthropic\nOPENAI_API_KEY=sk-test\n");
+    const missing = await (await app(`${base}?action=ai-status`)).json();
+    assert.equal(missing.configured, false);
+    assert.equal(missing.reason, "ANTHROPIC_API_KEY is not set in .env.");
+  } finally {
+    fake.close();
+    fs.rmSync(envFile, { force: true });
+  }
+});
+
 function form(action, fields) {
   const payload = new FormData();
   payload.append("action", action);

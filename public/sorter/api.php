@@ -9,6 +9,7 @@
 //      action needs a valid, unexpired cookie.
 //   4. POSTs also need the CSRF token the handshake returned, in X-Taxes-Csrf.
 // Anything else gets 403 {"ok":false,"error":"forbidden"}. Responses are never cached.
+// Optional AI reorganize (ai-status, ai-plan, ai-apply): keys from the app's .env, see .example.env.
 declare(strict_types=1);
 
 const MAX_UPLOAD_BYTES = 64 * 1024 * 1024;
@@ -791,6 +792,400 @@ function uploads_of(array $files): array
     return $out;
 }
 
+// ---------------------------------------------------------------------------------------------------------------
+// "Ask AI to reorganize": optional. Keys come from the app's .env (see .example.env) and stay on this server.
+// GET ?action=ai-status says whether a key is set and names the uploads folder. POST ai-plan asks the provider for a
+// move plan built from file names only and returns it with a signed, one-time token. POST ai-apply checks the token
+// and moves the files the user kept with place_file().
+
+const AI_PLAN_TTL = 30 * 60;
+const AI_MAX_FILES = 2000;
+const AI_MAX_MOVES = 500;
+const AI_KEEP_IN_PLACE = ["AGENTS.md", "Summaries.md", "Owed Audit.md"];
+const AI_DEFAULT_MODELS = ["openai" => "gpt-4.1-mini", "anthropic" => "claude-sonnet-4-5"];
+const AI_FOLDERS = [
+    "_Last year's return", "_This year's return", "_Needs Human Review", "_Proof of identity", "Credits", "Deductions",
+    "Estimated tax payments", "Income - Investments", "Income - Other", "Income - Partnerships and S-corps",
+    "Income - Rental", "Income - Retirement", "Income - Self-employment", "Income - Wages", "Records - Statements",
+    "Regulations - Health Insurance", "Retirement & HSA", "zz_Duplicates",
+];
+
+function ai_cut(string $text, int $length): string
+{
+    return function_exists("mb_substr") ? mb_substr($text, 0, $length) : substr($text, 0, $length);
+}
+
+/** KEY=value lines: blank lines and # comments skipped, optional "export ", quotes, inline " #" comments. */
+function parse_env(string $text): array
+{
+    $out = [];
+    foreach (preg_split("/\r\n|\n|\r/", $text) ?: [] as $line) {
+        $line = trim($line);
+        if ($line === "" || $line[0] === "#") {
+            continue;
+        }
+        if (preg_match('/^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/', $line, $m) !== 1) {
+            continue;
+        }
+        $value = $m[2];
+        if ($value !== "" && ($value[0] === '"' || $value[0] === "'")) {
+            $quote = $value[0];
+            $end = strpos($value, $quote, 1);
+            while ($quote === '"' && $end !== false && $value[$end - 1] === "\\") {
+                $end = strpos($value, $quote, $end + 1);
+            }
+            $inner = $end === false ? substr($value, 1) : substr($value, 1, $end - 1);
+            $value = $quote === '"' ? strtr($inner, ["\\n" => "\n", "\\\"" => "\"", "\\\\" => "\\"]) : $inner;
+        } else {
+            $value = trim((string) preg_replace('/\s+#.*$/', "", $value));
+        }
+        $out[$m[1]] = $value;
+    }
+    return $out;
+}
+
+/** The first .env found: beside this script, the app folder above it, or the app folder above out/ (deployed copy). */
+function env_file(): ?string
+{
+    $candidates = [__DIR__ . "/.env", dirname(__DIR__) . "/.env"];
+    if (basename(dirname(__DIR__)) === "out") {
+        $candidates[] = dirname(__DIR__, 2) . "/.env";
+    }
+    foreach ($candidates as $file) {
+        if (is_file($file) && is_readable($file)) {
+            return $file;
+        }
+    }
+    return null;
+}
+
+function env_value(string $name): string
+{
+    static $values = null;
+    if ($values === null) {
+        $file = env_file();
+        $values = $file === null ? [] : parse_env((string) file_get_contents($file));
+    }
+    $value = $values[$name] ?? getenv($name);
+    return is_string($value) ? trim($value) : "";
+}
+
+/** Provider, model, key and base URL, or a reason when no usable key is set. The key never leaves this file. */
+function ai_settings(): array
+{
+    $keys = ["openai" => env_value("OPENAI_API_KEY"), "anthropic" => env_value("ANTHROPIC_API_KEY")];
+    $wanted = strtolower(env_value("AI_PROVIDER"));
+    $aliases = ["chatgpt" => "openai", "gpt" => "openai", "claude" => "anthropic"];
+    $wanted = $aliases[$wanted] ?? $wanted;
+    if ($wanted !== "" && !isset($keys[$wanted])) {
+        return ["configured" => false, "reason" => "AI_PROVIDER must be openai or anthropic."];
+    }
+    $provider = $wanted !== "" ? $wanted : ($keys["openai"] !== "" ? "openai" : ($keys["anthropic"] !== "" ? "anthropic" : ""));
+    if ($provider === "" || $keys[$provider] === "") {
+        $reason = $wanted === "anthropic" ? "ANTHROPIC_API_KEY is not set in .env."
+            : ($wanted === "openai" ? "OPENAI_API_KEY is not set in .env." : "No OPENAI_API_KEY or ANTHROPIC_API_KEY in .env.");
+        return ["configured" => false, "reason" => $reason];
+    }
+    $model = env_value("AI_MODEL");
+    $base = $provider === "openai" ? env_value("OPENAI_BASE_URL") : env_value("ANTHROPIC_BASE_URL");
+    return [
+        "configured" => true,
+        "provider" => $provider,
+        "model" => $model !== "" ? $model : AI_DEFAULT_MODELS[$provider],
+        "key" => $keys[$provider],
+        "base" => rtrim($base !== "" ? $base : ($provider === "openai" ? "https://api.openai.com/v1" : "https://api.anthropic.com"), "/"),
+    ];
+}
+
+function ai_status_payload(string $stage): array
+{
+    $settings = ai_settings();
+    $folder = str_replace("\\", "/", (string) realpath($stage));
+    $body = ["ok" => true, "configured" => $settings["configured"], "folder" => $folder, "root" => "sorter/stage"];
+    if ($settings["configured"]) {
+        return $body + ["provider" => $settings["provider"], "model" => $settings["model"]];
+    }
+    return $body + ["reason" => $settings["reason"]];
+}
+
+/** Files the AI may move: every listed document except the app's own notes. */
+function ai_movable_files(string $stage): array
+{
+    $out = [];
+    foreach (list_stage($stage) as $file) {
+        if (!in_array(basename($file["path"]), AI_KEEP_IN_PLACE, true)) {
+            $out[] = $file;
+        }
+    }
+    return $out;
+}
+
+/** A folder path under the upload root, or "" when it is unsafe: no leading /, no empty, . or .. or dot segments. */
+function ai_clean_category($value): string
+{
+    if (!is_string($value)) {
+        return "";
+    }
+    $value = trim(str_replace("\\", "/", $value));
+    $value = rtrim($value, "/");
+    if ($value === "" || str_contains($value, "\0") || str_starts_with($value, "/") || strlen($value) > 200
+        || preg_match('/^[A-Za-z]:/', $value) === 1) {
+        return "";
+    }
+    $parts = explode("/", $value);
+    if (count($parts) > 6) {
+        return "";
+    }
+    foreach ($parts as $index => $part) {
+        $part = trim($part);
+        if ($part === "" || $part === "." || $part === ".." || $part[0] === ".") {
+            return "";
+        }
+        $parts[$index] = $part;
+    }
+    return implode("/", $parts);
+}
+
+/**
+ * Keeps the moves that name a listed file and a safe folder under the upload root; drops the rest.
+ * $files: [["path" => ..., "category" => ...], ...] as list_stage() returns them.
+ */
+function ai_validate_plan($raw, array $files): array
+{
+    if (!is_array($raw) || !isset($raw["moves"]) || !is_array($raw["moves"])) {
+        fail("The AI reply was not a move plan. Try again.", 502);
+    }
+    $current = [];
+    foreach ($files as $file) {
+        $current[(string) $file["path"]] = (string) ($file["category"] ?? "");
+    }
+    $moves = [];
+    $seen = [];
+    $skipped = 0;
+    foreach ($raw["moves"] as $move) {
+        $path = is_array($move) && is_string($move["path"] ?? null) ? str_replace("\\", "/", trim($move["path"])) : "";
+        $category = is_array($move) ? ai_clean_category($move["category"] ?? null) : "";
+        $unsafe = $path === "" || str_contains("/" . $path . "/", "/../") || str_starts_with($path, "/");
+        if ($unsafe || $category === "" || !array_key_exists($path, $current) || isset($seen[$path])
+            || count($moves) >= AI_MAX_MOVES) {
+            $skipped += 1;
+            continue;
+        }
+        if ($current[$path] === $category) {
+            continue;
+        }
+        $seen[$path] = true;
+        $reason = is_string($move["reason"] ?? null) ? trim($move["reason"]) : "";
+        $moves[] = ["path" => $path, "category" => $category, "reason" => ai_cut($reason, 240)];
+    }
+    $summary = is_string($raw["summary"] ?? null) ? ai_cut(trim($raw["summary"]), 600) : "";
+    return ["moves" => $moves, "skipped" => $skipped, "summary" => $summary];
+}
+
+function ai_prompt(array $files, array $categories): array
+{
+    $system = "You reorganize a folder of tax documents into category folders. You only see file paths and sizes.\n"
+        . "Reply with JSON only, no prose, in this shape: {\"summary\": string, \"moves\": [{\"path\": string, \"category\": string, \"reason\": string}]}.\n"
+        . "- path: copy it exactly from the file list.\n"
+        . "- category: the destination folder, relative to the upload root, with / between levels. No leading /, no . or .. segments, no segment that starts with a dot.\n"
+        . "- Prefer existing folders, then these standard folders: " . implode("; ", AI_FOLDERS) . ".\n"
+        . "- Keep a top-level tax-year folder (for example \"Tax Year 2025 - ...\") as the parent when files already sit under one.\n"
+        . "- Use _Needs Human Review when the name gives no clue. Leave out files that are already in the right folder.\n"
+        . "- Only move files. Do not rename them.";
+    $list = array_map(static fn(array $f): string => $f["path"] . "  (" . (int) $f["bytes"] . " bytes)", array_slice($files, 0, AI_MAX_FILES));
+    $user = "Existing folders:\n" . ($categories === [] ? "(none)" : implode("\n", $categories))
+        . "\n\nFiles:\n" . implode("\n", $list);
+    return [$system, $user];
+}
+
+function ai_http_post(string $url, array $headers, array $body): array
+{
+    $json = json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    $headers[] = "Content-Type: application/json";
+    if (function_exists("curl_init")) {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $json,
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CONNECTTIMEOUT => 15,
+            CURLOPT_TIMEOUT => 120,
+        ]);
+        $text = curl_exec($ch);
+        $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+        if ($text === false) {
+            fail("Could not reach the AI provider: " . $error, 502);
+        }
+    } else {
+        $context = stream_context_create(["http" => [
+            "method" => "POST",
+            "header" => implode("\r\n", $headers),
+            "content" => $json,
+            "timeout" => 120,
+            "ignore_errors" => true,
+        ]]);
+        $text = @file_get_contents($url, false, $context);
+        if ($text === false) {
+            fail("Could not reach the AI provider.", 502);
+        }
+        $status = preg_match('{^HTTP/\S+\s+(\d{3})}', (string) ($http_response_header[0] ?? ""), $m) === 1 ? (int) $m[1] : 0;
+    }
+    $decoded = json_decode((string) $text, true);
+    if ($status < 200 || $status > 299) {
+        $message = is_array($decoded) ? (string) ($decoded["error"]["message"] ?? "") : "";
+        fail("The AI provider answered HTTP " . $status . ($message !== "" ? ": " . ai_cut($message, 300) : "."), 502);
+    }
+    if (!is_array($decoded)) {
+        fail("The AI provider sent an unreadable reply.", 502);
+    }
+    return $decoded;
+}
+
+/** The JSON object inside a model reply (tolerates ```json fences and text around it). */
+function ai_json_from_text(string $text): ?array
+{
+    $start = strpos($text, "{");
+    $end = strrpos($text, "}");
+    if ($start === false || $end === false || $end < $start) {
+        return null;
+    }
+    $decoded = json_decode(substr($text, $start, $end - $start + 1), true);
+    return is_array($decoded) ? $decoded : null;
+}
+
+function ai_request_plan(array $settings, array $files, array $categories): array
+{
+    [$system, $user] = ai_prompt($files, $categories);
+    if ($settings["provider"] === "openai") {
+        $reply = ai_http_post($settings["base"] . "/chat/completions", ["Authorization: Bearer " . $settings["key"]], [
+            "model" => $settings["model"],
+            "response_format" => ["type" => "json_object"],
+            "messages" => [["role" => "system", "content" => $system], ["role" => "user", "content" => $user]],
+        ]);
+        $text = (string) ($reply["choices"][0]["message"]["content"] ?? "");
+    } else {
+        $reply = ai_http_post($settings["base"] . "/v1/messages", ["x-api-key: " . $settings["key"], "anthropic-version: 2023-06-01"], [
+            "model" => $settings["model"],
+            "max_tokens" => 8000,
+            "system" => $system,
+            "messages" => [["role" => "user", "content" => $user]],
+        ]);
+        $text = "";
+        foreach (is_array($reply["content"] ?? null) ? $reply["content"] : [] as $block) {
+            if (is_array($block) && ($block["type"] ?? "") === "text") {
+                $text .= (string) ($block["text"] ?? "");
+            }
+        }
+    }
+    $plan = ai_json_from_text($text);
+    if ($plan === null) {
+        fail("The AI reply was not a move plan. Try again.", 502);
+    }
+    return $plan;
+}
+
+function ai_plan_hash(array $moves): string
+{
+    $pairs = array_map(static fn(array $m): array => [(string) $m["path"], (string) $m["category"]], $moves);
+    return hash("sha256", (string) json_encode($pairs, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+}
+
+function ai_plan_token(string $session, array $moves): string
+{
+    $payload = (time() + AI_PLAN_TTL) . "." . bin2hex(random_bytes(12));
+    return $payload . "." . sign("ai-plan", $session . "|" . $payload . "|" . ai_plan_hash($moves));
+}
+
+/** Checks the token against this session and plan, then records its nonce so it works once. */
+function ai_spend_token(string $token, string $session, array $moves): void
+{
+    if (preg_match('/^(\d{1,12})\.([0-9a-f]{24})\.([0-9a-f]{64})$/', $token, $m) !== 1) {
+        fail("This plan is no longer valid. Ask AI again.", 409);
+    }
+    $payload = $m[1] . "." . $m[2];
+    if (!hash_equals(sign("ai-plan", $session . "|" . $payload . "|" . ai_plan_hash($moves)), $m[3]) || (int) $m[1] < time()) {
+        fail("This plan is no longer valid. Ask AI again.", 409);
+    }
+    $file = __DIR__ . "/.ai-plans-used.json";
+    $handle = fopen($file, "c+");
+    if ($handle === false) {
+        fail("sorter error", 500);
+    }
+    try {
+        flock($handle, LOCK_EX);
+        $used = json_decode((string) stream_get_contents($handle), true);
+        $used = is_array($used) ? array_filter($used, static fn($expires): bool => is_int($expires) && $expires >= time()) : [];
+        if (isset($used[$m[2]])) {
+            fail("This plan was already applied. Ask AI again.", 409);
+        }
+        $used[$m[2]] = (int) $m[1];
+        ftruncate($handle, 0);
+        rewind($handle);
+        fwrite($handle, (string) json_encode($used));
+        fflush($handle);
+    } finally {
+        flock($handle, LOCK_UN);
+        fclose($handle);
+    }
+    @chmod($file, 0600);
+}
+
+function ai_plan(string $session, string $stage): array
+{
+    $settings = ai_settings();
+    if (!$settings["configured"]) {
+        fail("AI is not set up: " . $settings["reason"], 409);
+    }
+    $files = ai_movable_files($stage);
+    if ($files === []) {
+        fail("Nothing is staged to reorganize.");
+    }
+    $plan = ai_validate_plan(ai_request_plan($settings, $files, list_categories($stage)), $files);
+    return $plan + [
+        "token" => ai_plan_token($session, $plan["moves"]),
+        "provider" => $settings["provider"],
+        "model" => $settings["model"],
+    ];
+}
+
+/** Applies the moves at the indexes in $keep from a plan returned by ai_plan(). */
+function ai_apply(string $session, string $planJson, string $token, string $keep, string $stage): array
+{
+    $decoded = json_decode($planJson, true);
+    if (!is_array($decoded)) {
+        fail("bad plan");
+    }
+    $moves = [];
+    foreach ($decoded as $move) {
+        if (!is_array($move) || !is_string($move["path"] ?? null) || !is_string($move["category"] ?? null)) {
+            fail("bad plan");
+        }
+        $moves[] = ["path" => $move["path"], "category" => $move["category"]];
+    }
+    ai_spend_token($token, $session, $moves);
+    $indexes = $keep === "" ? [] : array_map("intval", explode(",", $keep));
+    $moved = [];
+    $failed = [];
+    foreach (array_unique($indexes) as $index) {
+        if (!isset($moves[$index])) {
+            continue;
+        }
+        $move = $moves[$index];
+        try {
+            if (ai_clean_category($move["category"]) === "" || in_array(basename($move["path"]), AI_KEEP_IN_PLACE, true)) {
+                fail("bad move");
+            }
+            $moved[] = ["from" => $move["path"]] + place_file($move["path"], $move["category"], $stage);
+        } catch (RuntimeException $error) {
+            $failed[] = ["path" => $move["path"], "error" => $error->getMessage()];
+        }
+    }
+    return ["moved" => $moved, "failed" => $failed];
+}
+
 $method = (string) ($_SERVER["REQUEST_METHOD"] ?? "GET");
 if ($method === "OPTIONS") {
     if (!origin_is_allowed((string) ($_SERVER["HTTP_ORIGIN"] ?? ""))) {
@@ -821,6 +1216,9 @@ try {
     }
     ensure_dir($stage);
     if ($method === "GET") {
+        if (($_GET["action"] ?? "") === "ai-status") {
+            respond(200, ai_status_payload($stage));
+        }
         if (isset($_GET["owed"])) {
             $result = read_owed_audit((string) $_GET["owed"], $stage);
             respond(200, ["ok" => true] + $result);
@@ -836,6 +1234,13 @@ try {
     }
     if ($action === "place") {
         $result = place_file((string) ($_POST["path"] ?? ""), (string) ($_POST["category"] ?? ""), $stage);
+        respond(200, ["ok" => true] + $result);
+    }
+    if ($action === "ai-plan") {
+        respond(200, ["ok" => true] + ai_plan($session, $stage));
+    }
+    if ($action === "ai-apply") {
+        $result = ai_apply($session, (string) ($_POST["plan"] ?? ""), (string) ($_POST["token"] ?? ""), (string) ($_POST["keep"] ?? ""), $stage);
         respond(200, ["ok" => true] + $result);
     }
     if ($action === "remove") {
