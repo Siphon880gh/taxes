@@ -539,6 +539,11 @@ function save_upload(array $file, string $stage): array
     }
 }
 
+/** Reports the owed-audit skill writes next to the documents. The app opens them; the sorter never lists or moves them. */
+const OWED_AUDIT_NAME = "Owed Audit.md";
+const RENT_BREAKDOWN_NAME = "Owe Audit Breakdown - Rent.md";
+const OWED_REPORT_NAMES = [OWED_AUDIT_NAME, RENT_BREAKDOWN_NAME];
+
 function list_stage(string $stage): array
 {
     $files = [];
@@ -563,7 +568,7 @@ function list_stage(string $stage): array
                 continue;
             }
             $path = substr(str_replace("\\", "/", $abs), strlen($root) + 1);
-            if (basename($path) === "Owed Audit.md" || $path === "AGENTS.md") {
+            if (in_array(basename($path), OWED_REPORT_NAMES, true) || $path === "AGENTS.md") {
                 continue;
             }
             $parent = dirname($path);
@@ -619,14 +624,16 @@ function document_folders_present(string $stage): bool
     return false;
 }
 
-function owed_audit_paths(string $stage): array
+/** Paths under stage/ of every file named exactly $name (Owed Audit.md by default). */
+function owed_audit_paths(string $stage, string $name = OWED_AUDIT_NAME): array
 {
     $found = [];
     if (!is_dir($stage)) {
         return $found;
     }
     $root = rtrim(str_replace("\\", "/", (string) realpath($stage)), "/");
-    $walk = function (string $dir) use (&$walk, &$found, $root): void {
+    $report = $name;
+    $walk = function (string $dir) use (&$walk, &$found, $root, $report): void {
         foreach (scandir($dir) ?: [] as $name) {
             if ($name === "." || $name === ".." || $name === "" || $name[0] === ".") {
                 continue;
@@ -639,7 +646,7 @@ function owed_audit_paths(string $stage): array
                 $walk($abs);
                 continue;
             }
-            if ($name === "Owed Audit.md" && is_file($abs)) {
+            if ($name === $report && is_file($abs)) {
                 $found[] = substr(str_replace("\\", "/", $abs), strlen($root) + 1);
             }
         }
@@ -652,16 +659,17 @@ function owed_audit_paths(string $stage): array
 function read_owed_audit(string $rel, string $stage): array
 {
     $rel = str_replace("\\", "/", $rel);
-    if (basename($rel) !== "Owed Audit.md") {
-        fail("only Owed Audit.md can be opened");
+    $name = basename($rel);
+    if (!in_array($name, OWED_REPORT_NAMES, true)) {
+        fail("only Owed Audit.md or Owe Audit Breakdown - Rent.md can be opened");
     }
     $abs = stage_file($rel, $stage);
     if (is_link($abs) || !is_file($abs)) {
-        fail("Owed Audit.md was not found", 404);
+        fail($name . " was not found", 404);
     }
     $markdown = file_get_contents($abs);
     if ($markdown === false) {
-        fail("could not read Owed Audit.md", 500);
+        fail("could not read " . $name, 500);
     }
     $root = rtrim(str_replace("\\", "/", (string) realpath($stage)), "/");
     return [
@@ -680,6 +688,7 @@ function status_payload(string $stage): array
         "summaries" => is_file($stage . "/Summaries.md"),
         "folders" => document_folders_present($stage),
         "owedAudits" => owed_audit_paths($stage),
+        "rentBreakdowns" => owed_audit_paths($stage, RENT_BREAKDOWN_NAME),
     ];
 }
 
@@ -967,7 +976,7 @@ function pdf_hints_payload(string $stage): array
 const AI_PLAN_TTL = 30 * 60;
 const AI_MAX_FILES = 2000;
 const AI_MAX_MOVES = 500;
-const AI_KEEP_IN_PLACE = ["AGENTS.md", "Summaries.md", "Owed Audit.md"];
+const AI_KEEP_IN_PLACE = ["AGENTS.md", "Summaries.md", "Owed Audit.md", "Owe Audit Breakdown - Rent.md"];
 const AI_DEFAULT_MODELS = ["openai" => "gpt-4.1-mini", "anthropic" => "claude-sonnet-4-5"];
 const AI_FOLDERS = [
     "_Last year's return", "_This year's return", "_Needs Human Review", "_Proof of identity", "Credits", "Deductions",

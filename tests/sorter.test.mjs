@@ -243,6 +243,24 @@ with tarfile.open(sys.argv[1], "w:gz") as tf:
   const opened = await (await app(`${base}?owed=${encodeURIComponent("Tax Year/Owed Audit.md")}`)).json();
   assert.equal(opened.ok, true);
   assert.match(opened.markdown, /\$4/);
+  assert.deepEqual(withAudit.rentBreakdowns, [], "no rent breakdown yet");
+  fs.writeFileSync(path.join(sorterDir, "stage", "Tax Year", "Owe Audit Breakdown - Rent.md"), "| Piece | From rental |\n|---|---|\n| Income tax | $610 |\n");
+  fs.writeFileSync(path.join(sorterDir, "stage", "Tax Year", "Owe Audit Breakdown - Rent (copy).md"), "not this one");
+  const withRent = await (await app(base)).json();
+  assert.deepEqual(withRent.rentBreakdowns, ["Tax Year/Owe Audit Breakdown - Rent.md"], "exact name only");
+  assert.deepEqual(withRent.owedAudits, ["Tax Year/Owed Audit.md"]);
+  assert.equal(withRent.files.some((file) => file.path === "Tax Year/Owe Audit Breakdown - Rent.md"), false, "the report is not a document");
+  const rent = await (await app(`${base}?owed=${encodeURIComponent("Tax Year/Owe Audit Breakdown - Rent.md")}`)).json();
+  assert.equal(rent.ok, true);
+  assert.equal(rent.path, "Tax Year/Owe Audit Breakdown - Rent.md");
+  assert.match(rent.markdown, /\$610/);
+  const copy = await (await app(`${base}?owed=${encodeURIComponent("Tax Year/Owe Audit Breakdown - Rent (copy).md")}`)).json();
+  assert.equal(copy.ok, false, "only the exact report names can be opened");
+  const climb = await (await app(`${base}?owed=${encodeURIComponent("../Owe Audit Breakdown - Rent.md")}`)).json();
+  assert.equal(climb.ok, false);
+  const noCookieRent = await fetch(`${base}?owed=${encodeURIComponent("Tax Year/Owe Audit Breakdown - Rent.md")}`, { headers: { Origin: APP_ORIGIN, "X-Taxes-App": "1" } });
+  assert.equal(noCookieRent.status, 403, "opening a report keeps the app-only gate");
+  fs.rmSync(path.join(sorterDir, "stage", "Tax Year", "Owe Audit Breakdown - Rent (copy).md"));
   const refused = await (await app(`${base}?owed=${encodeURIComponent("notes/readme.txt")}`)).json();
   assert.equal(refused.ok, false);
   const blocked = await app(base, {
@@ -391,6 +409,7 @@ test("api.php AI reorganize: .env parsing, no-key warning, validated plan, one-t
   fs.writeFileSync(path.join(stageDir, "1099.pdf"), "1099");
   fs.writeFileSync(path.join(stageDir, "Summaries.md"), "# notes");
   fs.writeFileSync(path.join(stageDir, "AGENTS.md"), "# guide");
+  fs.writeFileSync(path.join(stageDir, "inbox", "Owe Audit Breakdown - Rent.md"), "# rent");
   fs.writeFileSync(path.join(stageDir, "inbox", ".DS_Store"), "");
   const listed = await (await app(base)).json();
   assert.equal(listed.files.some((f) => f.path === "AGENTS.md"), false, "the uploads guide is not a document");
@@ -479,6 +498,7 @@ test("api.php AI reorganize: .env parsing, no-key warning, validated plan, one-t
     assert.doesNotMatch(prompt, /Wage and Tax Statement 2026/, "only the hint goes out, not the PDF text");
     assert.match(prompt, /1099\.pdf  \(4 bytes\)\\n|1099\.pdf  \(4 bytes\)"/, "a file that is not a readable PDF gets no hint");
     assert.doesNotMatch(prompt, /Summaries\.md/);
+    assert.doesNotMatch(prompt, /Owe Audit Breakdown/, "the rent breakdown stays where the skill wrote it");
     assert.doesNotMatch(prompt, /\.DS_Store/);
 
     const apply = (moves, token, keep) => {
