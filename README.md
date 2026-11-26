@@ -36,7 +36,7 @@ The return year offers 2025 and 2026, the two years with figures loaded and sour
 
 The site is a hybrid: a static build plus one PHP endpoint, served side by side from the same PHP host.
 
-- `npm run build` writes the static app to `out/`. The build rewrites asset paths so the same `out/` works at `/weng/app/taxes/out/` on localhost and at `/app/taxes/out/` on the web host. It also copies `public/sorter/` into `out/sorter/`, so `out/sorter/api.php` ships with the build, as before.
+- `npm run build` writes the static app to `out/`. The build rewrites asset paths to the page's own `.../out/` folder at runtime, so the same `out/` works wherever it is served (MAMP on localhost or the web host) and no folder path is baked into it. It also copies `public/sorter/` into `out/sorter/`, so `out/sorter/api.php` ships with the build, as before.
 - `sorter/api.php` is the document sorter's endpoint. It reads and writes `sorter/stage/` beside itself, and it is open: no login and no localhost check.
 
 On the web host the layout is:

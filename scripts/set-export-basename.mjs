@@ -2,9 +2,9 @@ import { readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const outDir = path.resolve("out");
-const localBase = "/weng/app/taxes/out";
-const remoteBase = "/app/taxes/out";
-const baseExpr = `(location.hostname==="localhost"||location.hostname==="127.0.0.1"?"${localBase}":"${remoteBase}")`;
+// The base is read from the page's own URL at runtime: everything up to and including the last "/out" segment
+// (for example /app/taxes/out), or "" when the page is not under an out/ folder. No server path is baked in.
+const baseExpr = `(function(p){var i=p.lastIndexOf("/out/");return i!==-1?p.slice(0,i+4):/\\/out$/.test(p)?p:""})(location.pathname)`;
 const runtimeMarker = "window.__TAX_BASE__";
 const turbopackNeedle = 'let t="/_next/"';
 
@@ -84,5 +84,5 @@ if (htmlCount === 0 || runtimeCount === 0) {
 }
 
 console.log(
-  `Prefixed ${htmlCount} HTML files and ${runtimeCount} chunk runtimes for ${localBase} on localhost and ${remoteBase} otherwise.`,
+  `Prefixed ${htmlCount} HTML files and ${runtimeCount} chunk runtimes with the page's own .../out base.`,
 );
