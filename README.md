@@ -92,7 +92,11 @@ Once those folders exist and `sorter/stage/Summaries.md` is not there yet, the t
 
 The same tab can also place files into those categories by hand after upload. Staged files are grouped under their category folder, with a filter by name, form, or folder.
 
-**Documents this path calls for.** The tab lists the source documents the chart's answers so far call for (for example a Form W-2 once W-2 wages are on the path, Form 1099-NEC for Schedule C, rental records for Schedule E, Form 1095-A for Form 8962) and marks each one on file when a folder or file name in `sorter/stage` matches it. It goes by names only and never opens the files, so a document with a generic name shows as not found until it is renamed or sorted. The rules live in [`src/lib/document-coverage.ts`](src/lib/document-coverage.ts).
+**Documents this path calls for.** The tab lists the source documents the chart's answers so far call for (for example a Form W-2 once W-2 wages are on the path, Form 1099-NEC for Schedule C, rental records for Schedule E, Form 1095-A for Form 8962) and marks each one on file when a staged document matches it. The rules live in [`src/lib/document-coverage.ts`](src/lib/document-coverage.ts).
+
+**Reading inside PDFs.** `sorter/api.php` (POST `action=pdf-hints`, behind the same app-only checks) opens each staged PDF read-only with [smalot/pdfparser](https://github.com/smalot/pdfparser) 2.13.1 (pure PHP, LGPL-3.0), reads the first four pages, and returns only short form tags such as `W-2`, `1099-NEC`, `1099-B`, `1098`, or `1095-A`, never the text. A PDF whose text names a form counts by that form, so `scan-0001.pdf` can satisfy Form W-2. A PDF with no text layer (a scan or phone photo), or any other file type, falls back to folder and file names. Each card shows what was read, the filter matches it, and "Ask AI to reorganize" gets the same tags as `reads as: W-2` after each file in its plan input. Nothing in `sorter/stage` is moved or written; answers are cached by path, size, and modified time in the system temp folder.
+
+The library is vendored with Composer into `public/sorter/vendor` (see the root `composer.json`, platform pinned to PHP 7.4), and the build copies it to `out/sorter/vendor`. Upload that folder with `out/`. `api.php` looks for it beside itself, then in `../public/sorter/vendor` and `../out/sorter/vendor`; without it the sorter keeps working and goes by names only. The `.htaccess` files and the nginx rules deny `vendor/` over HTTP like everything else in `sorter/`.
 
 ### Ask AI to reorganize
 
