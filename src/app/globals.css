@@ -2217,3 +2217,49 @@ button.question-dock-tile {
     grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
   }
 }
+
+/* Tax Pro Costs: estimate breakdown */
+.estimate-breakdown {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: #292524;
+}
+
+.estimate-breakdown summary {
+  cursor: pointer;
+  font-weight: 500;
+  color: #9a3412;
+}
+
+.estimate-breakdown table {
+  margin: 0.5rem 0 0.25rem;
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.estimate-breakdown th,
+.estimate-breakdown td {
+  border-bottom: 1px solid #e7e5e4;
+  padding: 0.25rem 0.5rem 0.25rem 0;
+  text-align: left;
+  vertical-align: top;
+}
+
+.estimate-breakdown td {
+  white-space: nowrap;
+  text-align: right;
+}
+
+.estimate-breakdown thead th:not(:first-child) {
+  text-align: right;
+}
+
+.estimate-breakdown tbody th {
+  font-weight: 400;
+}
+
+.estimate-breakdown tfoot th,
+.estimate-breakdown tfoot td {
+  border-bottom: 0;
+  font-weight: 600;
+}

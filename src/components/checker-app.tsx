@@ -182,6 +182,12 @@ const YEARS = [
   { id: "y2026", label: "2026" },
 ] as const;
 
+/** "$834" or "$834–$959" for a low/high pair. */
+function dollarSpan(low: number, high: number): string {
+  const fmt = (amount: number) => `$${amount.toLocaleString("en-US")}`;
+  return low === high ? fmt(low) : `${fmt(low)}–${fmt(high)}`;
+}
+
 function tipBody(tipId: string, session: Session): TipBody | null {
   const tip = tips[tipId];
   if (!tip?.readMore) return null;
@@ -1112,6 +1118,7 @@ export function CheckerApp() {
                   )}
                   {cost.framing ? <p className="mt-3 text-sm text-stone-800">{cost.framing}</p> : null}
                   {cost.quoteNote ? <p className="mt-2 text-sm font-medium text-stone-900">{cost.quoteNote}</p> : null}
+                  {cost.diyComparison ? <p className="mt-2 text-sm text-stone-800">{cost.diyComparison}</p> : null}
                   {cost.estimate ? (
                     <div className="pro-estimate" role="note" aria-label="Estimated tax pro fee">
                       <p className="pro-estimate-label">Estimate · not a quote</p>
@@ -1128,6 +1135,36 @@ export function CheckerApp() {
                             : `The $${session.quote.toLocaleString("en-US")} quote is ${cost.estimate.quotePosition} this ${cost.estimate.low === cost.estimate.high ? "estimate" : "range"}.`}
                         </p>
                       ) : null}
+                      <details className="estimate-breakdown">
+                        <summary>How this estimate adds up</summary>
+                        <table>
+                          <caption className="sr-only">NSA 2023 averages and the same amounts raised by CPI-U</caption>
+                          <thead>
+                            <tr>
+                              <th scope="col">Piece</th>
+                              <th scope="col">NSA 2023</th>
+                              <th scope="col">With inflation (×{cost.estimate.cpiFactor.toFixed(3)})</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {cost.estimate.parts.map((part) => (
+                              <tr key={part.label}>
+                                <th scope="row">{part.label}</th>
+                                <td>{dollarSpan(part.y2023.low, part.y2023.high)}</td>
+                                <td>{dollarSpan(part.adjusted.low, part.adjusted.high)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr>
+                              <th scope="row">Estimate</th>
+                              <td />
+                              <td>{dollarSpan(cost.estimate.low, cost.estimate.high)}</td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                        <p className="text-xs text-stone-600">Each line is rounded on its own, so the lines can add up a dollar or two away from the estimate, which is rounded once from the full total.</p>
+                      </details>
                       <p className="mt-1 text-sm text-stone-700">{cost.estimate.note}</p>
                       <p className="mt-1 text-sm text-stone-700">
                         {cost.estimate.inflationThrough}
