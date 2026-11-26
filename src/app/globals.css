@@ -535,35 +535,6 @@ body {
   flex-direction: column;
 }
 
-.checklist-frame {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  max-height: min(48vh, 34rem);
-  overflow: hidden;
-  border-top: 1px solid #d6d3d1;
-  background: rgb(244 239 230 / 0.97);
-  box-shadow: 0 -8px 24px rgb(28 25 23 / 0.12);
-}
-
-/* Collapsed, the frame is just its two-row tab bar; the bar's tools hold Expand. */
-.checklist-frame.is-collapsed {
-  height: auto;
-  max-height: none;
-}
-
-.checklist-frame.is-collapsed .question-dock-tile {
-  display: none;
-}
-
-.checklist-frame-inner {
-  width: min(40rem, 100%);
-  flex: 1 1 auto;
-  min-height: 0;
-  margin-inline: auto;
-  overflow-y: auto;
-  padding: 0.5rem 1rem 0.85rem;
-}
 
 /*
  * The bottom tab bar, two rows at every width: labels (from src/lib/flow.ts) on the first, each over its own
@@ -597,13 +568,13 @@ body {
 
 /* Lone columns line up with the columns inside the routes' box (its bottom padding and border). */
 .frame-switch > .tab-col {
-  padding-bottom: calc(0.3rem + 1px);
+  padding-bottom: calc(0.4rem + 1px);
 }
 
 .tab-label {
   color: #57534e;
-  font-size: 0.72rem;
-  line-height: 1.2;
+  font-size: 1.05rem;
+  line-height: 1.3;
   white-space: nowrap;
 }
 
@@ -615,29 +586,29 @@ body {
   gap: 0.4rem 0.6rem;
   border: 1px dashed #a8a29e;
   border-radius: 0.5rem;
-  padding: 0.55rem 0.5rem 0.3rem;
+  padding: 0.85rem 0.7rem 0.4rem;
 }
 
 .tab-group-label {
   position: absolute;
-  top: -0.6rem;
+  top: -0.8rem;
   left: 0.45rem;
   background: #f4efe6;
-  padding: 0 0.3rem;
+  padding: 0 0.4rem;
   color: #7c2d12;
-  font-size: 0.72rem;
+  font-size: 1.05rem;
   font-weight: 600;
-  line-height: 1.1rem;
+  line-height: 1.4rem;
   white-space: nowrap;
 }
 
 .frame-switch button {
   border: 1px solid #d6d3d1;
-  border-radius: 0.375rem;
+  border-radius: 0.5rem;
   background: #fffdf8;
-  padding: 0.1rem 0.45rem;
+  padding: 0.5rem 0.95rem;
   color: #44403c;
-  font-size: 0.8rem;
+  font-size: 1.2rem;
   line-height: 1.3;
 }
 
@@ -662,46 +633,6 @@ body {
 }
 
 
-.question-dock {
-  --dock-scale: 1;
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  max-height: min(48vh, 34rem);
-  overflow: hidden;
-  border-top: 1px solid #d6d3d1;
-  background: rgb(244 239 230 / 0.97);
-  box-shadow: 0 -8px 24px rgb(28 25 23 / 0.12);
-  font-size: calc(1rem * var(--dock-scale));
-}
-
-.question-dock h2 {
-  font-size: 1.5em;
-  line-height: 1.2;
-}
-
-.question-dock h3,
-.question-dock .text-sm {
-  font-size: 0.875em;
-}
-
-.question-dock .text-xs {
-  font-size: 0.75em;
-}
-
-.question-dock .btn-primary,
-.question-dock .btn-secondary,
-.question-dock .btn-unknown,
-.question-dock input,
-.question-dock label {
-  font-size: 0.95em;
-}
-
-.question-dock .add-instance {
-  width: 2em;
-  height: 2em;
-  font-size: 1.3em;
-}
 
 .instance-switch {
   display: flex;
@@ -710,146 +641,29 @@ body {
   margin-top: 0.75rem;
 }
 
-.dock-tabs {
-  display: flex;
-  gap: 0.35rem;
-  margin-top: 0.85rem;
-  border-bottom: 1px solid #d6d3d1;
-}
 
-.dock-tab {
-  border: 0;
-  border-bottom: 2px solid transparent;
-  background: transparent;
-  padding: 0.35rem 0.7rem;
-  color: #57534e;
-  font-size: 0.95em;
-}
-
-.dock-tab-on {
-  border-bottom-color: #9a3412;
-  color: #7c2d12;
-  font-weight: 650;
-}
-
-.dock-tab-noted {
-  color: #7c2d12;
-}
-
-.dock-tab-mark {
-  display: inline-block;
-  width: 0.45rem;
-  height: 0.45rem;
-  margin-left: 0.4rem;
-  border-radius: 999px;
-  background: #9a3412;
-  vertical-align: 0.08em;
-}
-
-.question-dock-resize {
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
-  z-index: 2;
-  flex: 0 0 auto;
-  height: 0.7rem;
-  border: 0;
-  background: transparent;
-  cursor: ns-resize;
-  touch-action: none;
-}
-
-.question-dock-resize::after {
-  content: "";
-  position: absolute;
-  top: 0.22rem;
-  left: 50%;
-  width: 2.75rem;
-  height: 0.22rem;
-  transform: translateX(-50%);
-  border-radius: 999px;
-  background: #a8a29e;
-}
-
-.question-dock-resize:focus-visible {
-  outline: 2px solid #9a3412;
-  outline-offset: -2px;
-}
-
-.question-dock-collapse {
-  position: absolute;
-  top: 0.35rem;
-  right: 0.75rem;
-  z-index: 3;
-  border: 1px solid #d6d3d1;
-  border-radius: 0.375rem;
-  background: #fffdf8;
-  padding: 0.1rem 0.55rem;
-  color: #44403c;
-  font-size: 0.8rem;
-}
-
-.question-dock.is-collapsed {
-  min-height: 3rem;
-}
-
-.question-dock-tile {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 0;
-  padding: 0.85rem 5.5rem 0.35rem;
-  text-align: center;
-}
-
-.question-dock-tile p {
-  width: 100%;
-  text-align: center;
-}
-
-button.question-dock-tile {
-  width: 100%;
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-  font: inherit;
-}
-
-.question-dock-inner {
-  width: min(40rem, 100%);
-  flex: 1 1 auto;
-  min-height: 0;
-  margin-inline: auto;
-  overflow-y: auto;
-  padding: 2rem 1rem 0.85rem;
-}
-
-@media (min-width: 640px) {
-  .question-dock-inner,
-  .checklist-frame-inner {
-    padding: 2rem 1.5rem 0.85rem;
-  }
-
-  .checklist-frame-inner {
-    padding-top: 2.6rem;
-  }
-}
-
-@media (min-width: 1100px) {
-  .question-dock-inner,
-  .checklist-frame-inner {
-    width: min(40rem, calc(100% - 48rem));
-    margin-inline: auto;
-  }
-}
-
-.chart-magnifier {
+/* Pills, then the magnifier, fixed just above the steps bar. The side panel stops above this rail. */
+.chart-rail {
   position: fixed;
   right: 1rem;
   bottom: 1rem;
-  z-index: 30;
+  z-index: 35;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
   width: 22rem;
+  pointer-events: none;
+}
+
+.chart-rail.is-crowded .chart-magnifier {
+  display: none;
+}
+
+.chart-magnifier {
+  position: relative;
+  align-self: stretch;
+  width: 100%;
   height: 8.5rem;
   overflow: hidden;
   pointer-events: none;
@@ -921,10 +735,6 @@ button.question-dock-tile {
   pointer-events: auto;
 }
 
-/* No room between the sticky Path library and the bottom dock: hide rather than cover the library's buttons. */
-.chart-magnifier.is-crowded {
-  visibility: hidden;
-}
 
 .chart-magnifier-collapse {
   position: absolute;
@@ -1022,6 +832,10 @@ button.question-dock-tile {
   .chart-magnifier,
   .chart-level-navigator {
     display: none;
+  }
+
+  .chart-rail {
+    width: min(22rem, calc(100vw - 2rem));
   }
 }
 
@@ -1600,11 +1414,11 @@ button.question-dock-tile {
 /* "Add / edit with AI" helper: a utility beside Hide, not one of the flow's tabs (harness-first: no built-in AI). */
 .frame-tools button.harness-help-toggle {
   border: 1px solid #d6d3d1;
-  border-radius: 0.375rem;
+  border-radius: 0.5rem;
   background: #fffdf8;
-  padding: 0.1rem 0.5rem;
+  padding: 0.5rem 0.95rem;
   color: #7c2d12;
-  font-size: 0.8rem;
+  font-size: 1.2rem;
   font-weight: 600;
   line-height: 1.3;
 }
@@ -2485,12 +2299,12 @@ button.question-dock-tile {
  */
 .tab-step {
   display: inline-block;
-  margin-right: 0.3rem;
+  margin-right: 0.35rem;
   border-radius: 999px;
   background: #e7e5e4;
-  padding: 0 0.32rem;
+  padding: 0 0.4rem;
   color: #292524;
-  font-size: 0.72rem;
+  font-size: 1rem;
   font-weight: 700;
 }
 
@@ -2500,9 +2314,9 @@ button.question-dock-tile {
 }
 
 .tab-count {
-  margin-left: 0.35rem;
+  margin-left: 0.45rem;
   color: #57534e;
-  font-size: 0.75rem;
+  font-size: 1.05rem;
   font-variant-numeric: tabular-nums;
 }
 
@@ -2513,12 +2327,9 @@ button.question-dock-tile {
   align-items: center;
   gap: 0.4rem;
   margin-left: auto;
-  padding-bottom: calc(0.3rem + 1px);
+  padding-bottom: calc(0.4rem + 1px);
 }
 
-.frame-tools .question-dock-collapse {
-  position: static;
-}
 
 
 /* End of each panel: where to go next in the flow. */
@@ -2573,7 +2384,7 @@ button.question-dock-tile {
 }
 
 
-/* The steps bar, fixed to the bottom of the screen on every route (inside .bottom-frames, under the answer panel). */
+/* The steps bar, fixed to the bottom of the screen on every route. */
 .flow-frame {
   position: relative;
   border-top: 1px solid #d6d3d1;
@@ -2619,19 +2430,18 @@ button.question-dock-tile {
 }
 
 /*
- * The Checklist: a button in the bottom bar's tools (fixed to the screen on every route) opens it as a side panel,
- * sliding in from the right on wide screens and as a full-height sheet on a phone.
+ * Forms Needed on routes other than Path guide. On Path guide the same list is a pill above the magnifier.
  */
 .frame-tools button.checklist-open {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.4rem;
   border: 1px solid #9a3412;
-  border-radius: 0.375rem;
+  border-radius: 0.5rem;
   background: #fffdf8;
-  padding: 0.1rem 0.55rem;
+  padding: 0.5rem 0.95rem;
   color: #7c2d12;
-  font-size: 0.8rem;
+  font-size: 1.2rem;
   font-weight: 600;
   line-height: 1.3;
 }
@@ -2642,83 +2452,180 @@ button.question-dock-tile {
 }
 
 .checklist-open-icon {
-  font-size: 0.95rem;
+  font-size: 1.15rem;
   line-height: 1;
 }
 
-.checklist-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 39;
-  background: rgb(28 25 23 / 0.35);
-}
-
-.checklist-drawer {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
+/*
+ * Node Answer, Node Comment, and Forms Needed. The sheet slides in from the right and runs from
+ * under the page header down to the steps bar. The pills and magnifier stay on top of its lower corner.
+ * --side-panel-top is the header's bottom edge. --chart-rail-height pads the sheet so the last line
+ * can scroll clear of that rail. --bottom-frames-height keeps the sheet above the steps bar.
+ */
+.node-pills {
   display: flex;
   flex-direction: column;
-  width: min(34rem, 100vw);
-  overflow-y: auto;
+  align-items: flex-end;
+  gap: 0.5rem;
+  width: auto;
+  max-width: 100%;
+  pointer-events: auto;
+}
+
+.node-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.55rem;
+  width: auto;
+  min-height: 3rem;
+  border: 1px solid #d6d3d1;
+  border-radius: 999px;
+  background: #fffdf8;
+  box-shadow: 0 4px 14px rgb(28 25 23 / 0.14);
+  padding: 0.55rem 1.05rem;
+  color: #44403c;
+  font-size: 1.2rem;
+  font-weight: 650;
+  line-height: 1.3;
+  cursor: pointer;
+}
+
+.node-pill-primary {
+  border-color: #9a3412;
+  background: #9a3412;
+  color: #fffdf8;
+}
+
+.node-pill[aria-pressed="true"]:not(.node-pill-primary) {
+  border-color: #9a3412;
+  background: #fff7ed;
+  color: #7c2d12;
+}
+
+.node-pill-primary[aria-pressed="true"] {
+  box-shadow: inset 0 0 0 2px #fffdf8, 0 4px 14px rgb(28 25 23 / 0.14);
+}
+
+.node-pill-noted {
+  border-color: #9a3412;
+}
+
+.node-pill:focus-visible {
+  outline: 2px solid #1c1917;
+  outline-offset: 2px;
+}
+
+.node-pill-check {
+  width: 1.45rem;
+  height: 1.45rem;
+  flex: none;
+}
+
+.node-pill-check circle {
+  fill: #fffdf8;
+  stroke: #a8a29e;
+  stroke-width: 1.6;
+}
+
+.node-pill-check path {
+  fill: none;
+  stroke: #a8a29e;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.node-pill-check.is-done circle {
+  fill: #15803d;
+  stroke: #15803d;
+}
+
+.node-pill-check.is-done path {
+  stroke: #fff;
+}
+
+.node-pill-cue {
+  width: 0.7rem;
+  height: 0.7rem;
+  flex: none;
+  border-radius: 999px;
+  background: #9a3412;
+  box-shadow: 0 0 0 3px #ffedd5;
+}
+
+.node-pill-count {
+  color: #57534e;
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+}
+
+.node-pill[aria-pressed="true"] .node-pill-count {
+  color: #7c2d12;
+}
+
+.node-sidepanel {
+  position: fixed;
+  top: var(--side-panel-top, 0px);
+  right: 0;
+  bottom: var(--bottom-frames-height, 0px);
+  z-index: 34;
+  display: flex;
+  flex-direction: column;
+  width: min(28rem, 100%);
+  overflow: hidden;
   border-left: 1px solid #d6d3d1;
   background: #f4efe6;
-  box-shadow: -12px 0 32px rgb(28 25 23 / 0.2);
-  padding: 0 1.25rem 2rem;
-  animation: checklist-in 160ms ease-out;
+  box-shadow: -12px 0 32px rgb(28 25 23 / 0.18);
+  transform: translateX(100%);
+  visibility: hidden;
+  pointer-events: none;
+  transition: transform 180ms ease-out, visibility 0s linear 180ms;
 }
 
-.checklist-drawer:focus {
-  outline: none;
+.node-sidepanel.is-open {
+  transform: none;
+  visibility: visible;
+  pointer-events: auto;
+  transition: transform 180ms ease-out, visibility 0s;
 }
 
-.checklist-drawer-head {
-  position: sticky;
-  top: 0;
-  z-index: 1;
+.node-sidepanel-head {
   display: flex;
+  flex: 0 0 auto;
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.75rem;
   background: #f4efe6;
-  padding: 1.1rem 0 0.4rem;
+  padding: 1rem 1.15rem 0.35rem;
 }
 
-@keyframes checklist-in {
-  from {
-    transform: translateX(100%);
-  }
+.node-sidepanel-head h2 {
+  min-width: 0;
+}
 
-  to {
-    transform: none;
-  }
+.node-sidepanel-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0.35rem 1.15rem calc(var(--chart-rail-height, 0px) + 1.25rem);
+}
+
+.node-info {
+  margin-top: 1rem;
+  border-top: 1px solid #d6d3d1;
+  padding-top: 0.85rem;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .checklist-drawer {
-    animation: none;
+  .node-sidepanel {
+    transition: none;
   }
 }
 
 @media (max-width: 639px) {
-  .checklist-drawer {
-    width: 100vw;
-    border-left: 0;
-    padding-inline: 1rem;
-  }
-}
-
-/*
- * On a phone, the sticky Path library, the answer panel and the steps bar would cover the whole chart, so while the
- * answer panel is open the library scrolls with the page and the panel stays shorter.
- */
-@media (max-width: 719px) {
-  body:has(.bottom-frames .question-dock) .library-stack {
-    position: static;
-  }
-
-  .bottom-frames .question-dock {
-    max-height: 40vh !important;
+  .node-sidepanel {
+    width: 100%;
   }
 }

@@ -34,8 +34,8 @@ function cues(props: Props) {
   }
   const self =
     checklist.total === 0
-      ? "No checklist yet; answer the first chart question"
-      : `${checklist.done} of ${checklist.total} checklist items confirmed${openCount ? ` · ${openCount} open ${openCount === 1 ? "question" : "questions"}` : ""}`;
+      ? "No forms yet; answer the first chart question"
+      : `${checklist.done} of ${checklist.total} forms confirmed${openCount ? ` · ${openCount} open ${openCount === 1 ? "question" : "questions"}` : ""}`;
   return { staged, empty: overview?.staged === 0, summaries, audit, self };
 }
 
@@ -133,19 +133,19 @@ export function StartPanel(props: Props) {
                 </button>
               ) : null}
               <button type="button" className="btn-secondary" onClick={onOpenChecklist}>
-                Open Checklist
+                Open Forms Needed
               </button>
             </RouteCard>
           </ul>
         </li>
       </ol>
-      <aside className="flow-chart-note" aria-label="About the path chart and the Checklist">
+      <aside className="flow-chart-note" aria-label="About the path chart and Forms Needed">
         <h3>Path guide (2c) is the guided path</h3>
         <p>
-          Its chart asks one question at a time, starting with Filing status, and each answer adds the forms and lines that the Checklist and Tax Pro Costs (2a)
+          Its chart asks one question at a time, starting with Filing status, and each answer adds the forms and lines that Forms Needed and Tax Pro Costs (2a)
           use. Answer it whenever you like, before or after sorting; the more you answer, the more complete your path gets.
         </p>
-        <p>The Checklist button in the bottom bar opens that list from any route.</p>
+        <p>Forms Needed opens that list from any route.</p>
       </aside>
     </div>
   );

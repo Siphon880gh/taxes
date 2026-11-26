@@ -22,7 +22,6 @@ const ShortcutContext = createContext<ShortcutContextValue | null>(null);
 
 const legacyShortcuts: { keys: string[]; label: string }[] = [
   { keys: ["Esc"], label: "Close dialog" },
-  { keys: ["↑", "↓"], label: "Resize the bottom panel" },
   { keys: ["Arrows"], label: "Scroll the chart" },
   { keys: ["⌘ or Shift", "scroll"], label: "Zoom within bounds" },
   { keys: ["⌘", "Shift", "scroll"], label: "Zoom to any area" },

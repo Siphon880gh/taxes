@@ -3,7 +3,7 @@
  *   Step 1  gather and sort documents (Document Sorter)
  *   Step 2  pick one route: (a) "Hand it to a pro:", (b) "AI calculate now:", (c) "Guide me on forms:".
  * Route (c), Path guide, is the only one that shows the path chart and its Path library; it works any time, with or
- * without documents. The Checklist is not a route: its button in the bar opens it as a side panel from anywhere.
+ * without documents. Forms Needed is not a route: a pill on Path guide, or a button on the other routes, opens it as a side panel.
  */
 
 export type FrameMode = "start" | "sorter" | "costs" | "audit" | "guide";
@@ -87,22 +87,22 @@ export const ROUTES: Route[] = [
     label: "Path guide",
     mode: "guide",
     summary:
-      "Opens the path chart and its Path library. Click a box to answer it or leave a comment; each answer adds forms and lines to the Checklist. Open it any time, even before any documents are staged.",
+      "Opens the path chart and its Path library. Click a box to answer it or leave a comment; each answer adds forms and lines to Forms Needed. Open it any time, even before any documents are staged.",
   },
 ];
 
 /** One line under each panel heading: where this panel sits in the flow. */
 export const PANEL_LEDES: Record<FrameMode, string> = {
-  start: "Sort your documents first, then pick the route that fits. Path guide (2c) and the Checklist work any time.",
+  start: "Sort your documents first, then pick the route that fits. Path guide (2c) and Forms Needed work any time.",
   sorter: "Step 1 · Upload your tax documents and sort them into folders. Every route reads them from here.",
   costs: `Step 2a · ${ROUTE_LEADS.costs} give the preparer Summaries.md, then check their quote against typical fees.`,
   audit: `Step 2b · ${ROUTE_LEADS.audit} the owed-audit skill checks the return's amount owed against your documents.`,
-  guide: `Step 2c · ${ROUTE_LEADS.guide} the path chart asks one question at a time. Click a box to answer it or comment on it; the Checklist keeps the forms and lines your answers add.`,
+  guide: `Step 2c · ${ROUTE_LEADS.guide} the path chart asks one question at a time. Click a box to answer it or comment on it; Forms Needed keeps the forms and lines your answers add.`,
 };
 
-/** Under the Checklist side panel's heading; the panel opens from the bottom bar on every route. */
+/** Under the Forms Needed heading. The list opens from the Path guide pills, or from the other routes. */
 export const CHECKLIST_LEDE =
-  "The forms and lines your answers on the path call for. Tick each one off as you confirm it on the return. Open it from any route.";
+  "The forms and lines your answers on the path call for. Tick each one off as you confirm it on the return. Open Forms Needed from any route.";
 
 export type StageOverview = { staged: number; summaries: boolean };
 

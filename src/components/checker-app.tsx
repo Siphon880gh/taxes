@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { MermaidView } from "@/components/mermaid-view";
 import { DocumentSorter, SUMMARIES_SKILL_NOTE } from "@/components/document-sorter";
 import { OwedAuditPanel } from "@/components/owed-audit-panel";
@@ -16,7 +16,6 @@ import { documentCoverage } from "@/lib/document-coverage";
 import { auditTab } from "@/lib/owed-reports";
 import { CHECKLIST_LEDE, flowSegments, PANEL_LEDES, rememberedRoute, ROUTE_LEADS, ROUTE_STORAGE_KEY, showsPath, spokenPrefix, type FrameMode } from "@/lib/flow";
 import { useOwedReports } from "@/lib/use-owed-reports";
-import { useDialogFocus } from "@/lib/use-dialog-focus";
 import type { PdfHints } from "@/lib/pdf-hints";
 import {
   checklistMarkdown,
@@ -118,10 +117,18 @@ function asksForAnswer(node: GraphNode): boolean {
   return node.kind === "question" && Boolean(node.answers?.length || node.textInput || node.numberInputs);
 }
 
-function firstDockTab(node: GraphNode): "answer" | "info" | "comments" {
-  if (asksForAnswer(node)) return "answer";
-  if (node.tipId) return "info";
+function panelForNode(node: GraphNode): "answer" | "comments" {
+  if (asksForAnswer(node) || node.tipId || node.kind === "check") return "answer";
   return "comments";
+}
+
+function AnswerMark({ answered }: { answered: boolean }) {
+  return (
+    <svg className={answered ? "node-pill-check is-done" : "node-pill-check"} viewBox="0 0 16 16" aria-hidden="true">
+      <circle cx="8" cy="8" r="6.25" />
+      <path d="M4.6 8.2 6.9 10.5 11.4 5.7" />
+    </svg>
+  );
 }
 
 function NumberEntry({
@@ -265,41 +272,24 @@ export function CheckerApp() {
   const mainRef = useRef<HTMLElement>(null);
   const framesRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState("");
-  const [dockTab, setDockTab] = useState<"answer" | "info" | "comments">("answer");
-  const dockRef = useRef<HTMLElement>(null);
-  const dockBaseHeight = useRef<number | null>(null);
-  const dockHeightBeforeCollapse = useRef<number | null>(null);
-  const [dockHeight, setDockHeight] = useState<number | null>(null);
-  /** The answer / comments panel stays closed until a box on the chart (or "Answer next") is picked. */
-  const [dockCollapsed, setDockCollapsed] = useState(true);
-  /** The Checklist side panel, opened from the Checklist button fixed in the bottom bar on every route. */
-  const [checklistPanelOpen, setChecklistPanelOpen] = useState(false);
-  const checklistPanelRef = useRef<HTMLDivElement>(null);
-  useDialogFocus(checklistPanelOpen, checklistPanelRef);
+  /** Right-hand sheet: the selected node's answer, its comment, or Forms Needed. */
+  const [sidePanel, setSidePanel] = useState<null | "answer" | "comments" | "forms">(null);
+  const lastPanel = useRef<"answer" | "comments" | "forms">("answer");
+  if (sidePanel) lastPanel.current = sidePanel;
+  const panelMode = sidePanel ?? lastPanel.current;
+  const focusPanel = useRef(false);
+  const [infoFocus, setInfoFocus] = useState(0);
   /** After a route change: the page goes back to the top and focus moves to the new route's heading or panel. */
   const [routeFocus, setRouteFocus] = useState<{ key: number; target: "guide" | "panel" | "question" | "node" } | null>(null);
   const routePanelRef = useRef<HTMLElement>(null);
   const [fitFocus, setFitFocus] = useState<{ key: number; ids: string[]; answeredId: string } | null>(null);
   const fitFocusKey = useRef(0);
-  const dockScale =
-    dockHeight == null || !dockBaseHeight.current
-      ? 1
-      : Math.min(1.65, Math.max(0.85, dockHeight / dockBaseHeight.current));
-
-  function clampDockHeight(next: number) {
-    const max = Math.min(window.innerHeight * 0.72, 42 * 16);
-    return Math.min(max, Math.max(9 * 16, next));
-  }
-
-  function collapseDock() {
-    // A height the user dragged to comes back next time; otherwise the panel opens at its natural height.
-    if (!dockCollapsed) dockHeightBeforeCollapse.current = dockHeight;
-    setDockCollapsed(true);
-  }
-
-  function expandDock() {
-    setDockCollapsed(false);
-    if (dockHeightBeforeCollapse.current != null) setDockHeight(dockHeightBeforeCollapse.current);
+  function toggleSide(next: "answer" | "comments" | "forms") {
+    setSidePanel((current) => {
+      if (current === next) return null;
+      focusPanel.current = true;
+      return next;
+    });
   }
 
   function focusRoute(target: "guide" | "panel" | "question" | "node") {
@@ -316,12 +306,12 @@ export function CheckerApp() {
   }
 
   /**
-   * Guide me on forms (route 2c): the path chart and its Path library. Nothing is picked for you: the answer /
-   * comments panel opens when a box is clicked (or "Answer next" is pressed). Focus lands on the guide's heading.
+   * Guide me on forms (route 2c): the path chart and its Path library. Nothing is picked for you: the side
+   * panel opens when a box is clicked (or "Answer next" is pressed). Focus lands on the guide's heading.
    */
   function openGuide() {
     setAuditHint(null);
-    if (!showsPath(frameMode)) collapseDock();
+    if (!showsPath(frameMode) && sidePanel !== "forms") setSidePanel(null);
     setFrameMode("guide");
     focusRoute("guide");
   }
@@ -335,10 +325,9 @@ export function CheckerApp() {
     setAuditHint(null);
     setFrameMode("guide");
     setSelectedId(id);
-    setDockTab(firstDockTab(getNode(id)));
+    setSidePanel(panelForNode(getNode(id)));
     setLevelExpanded(false);
     setTopCollapsed(true);
-    expandDock();
     focusRoute("question");
   }
 
@@ -365,41 +354,6 @@ export function CheckerApp() {
     setAuditHint(auditState.hint);
   }
 
-
-  function resizeDock(event: ReactPointerEvent<HTMLButtonElement>) {
-    const dock = dockRef.current;
-    if (!dock) return;
-    const collapsedAtStart = dockCollapsed;
-    const startY = event.clientY;
-    const startHeight = collapsedAtStart
-      ? dockHeightBeforeCollapse.current ?? dock.getBoundingClientRect().height
-      : dock.getBoundingClientRect().height;
-    if (dockBaseHeight.current == null) dockBaseHeight.current = startHeight;
-    event.currentTarget.setPointerCapture(event.pointerId);
-    const move = (ev: PointerEvent) => {
-      if (collapsedAtStart) setDockCollapsed(false);
-      setDockHeight(clampDockHeight(startHeight + (startY - ev.clientY)));
-    };
-    const stop = () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", stop);
-    };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", stop);
-  }
-
-  function nudgeDock(event: React.KeyboardEvent<HTMLButtonElement>) {
-    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
-    event.preventDefault();
-    const dock = dockRef.current;
-    if (!dock) return;
-    if (dockCollapsed) setDockCollapsed(false);
-    const current = dockCollapsed
-      ? dockHeightBeforeCollapse.current ?? dockHeight ?? dock.getBoundingClientRect().height
-      : dockHeight ?? dock.getBoundingClientRect().height;
-    if (dockBaseHeight.current == null) dockBaseHeight.current = current;
-    setDockHeight(clampDockHeight(current + (event.key === "ArrowUp" ? 28 : -28)));
-  }
 
   const view = useMemo(() => chartView(session, expandedGroups), [session, expandedGroups]);
   const source = useMemo(() => mermaidSource(session, expandedGroups), [session, expandedGroups]);
@@ -519,12 +473,17 @@ export function CheckerApp() {
     const page = mainRef.current;
     if (!frames || !page) return;
     const fit = () => {
-      page.style.paddingBottom = `${Math.ceil(frames.getBoundingClientRect().height) + 12}px`;
+      const height = Math.ceil(frames.getBoundingClientRect().height);
+      page.style.paddingBottom = `${height + 12}px`;
+      document.documentElement.style.setProperty("--bottom-frames-height", `${height}px`);
     };
     fit();
     const observer = new ResizeObserver(fit);
     observer.observe(frames);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      document.documentElement.style.removeProperty("--bottom-frames-height");
+    };
   }, []);
 
   useEffect(() => {
@@ -537,9 +496,8 @@ export function CheckerApp() {
   }, [frameMode]);
 
   useEffect(() => {
-    if (!modalId && !purposeOpen && !promptOpen && !owedDialog && !checklistPanelOpen) return;
+    if (!modalId && !purposeOpen && !promptOpen && !owedDialog) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setChecklistPanelOpen(false);
       if (event.key === "Escape") setModalId(null);
       if (event.key === "Escape") setPurposeOpen(false);
       if (event.key === "Escape") setPromptOpen(false);
@@ -547,7 +505,41 @@ export function CheckerApp() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [modalId, purposeOpen, promptOpen, owedDialog, checklistPanelOpen]);
+  }, [modalId, purposeOpen, promptOpen, owedDialog]);
+
+  useEffect(() => {
+    if (!sidePanel || modalId || purposeOpen || promptOpen || owedDialog) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSidePanel(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [sidePanel, modalId, purposeOpen, promptOpen, owedDialog]);
+
+  useEffect(() => {
+    if (!sidePanel || !focusPanel.current) return;
+    focusPanel.current = false;
+    document.getElementById("question-heading")?.focus({ preventScroll: true });
+  }, [sidePanel]);
+
+  useEffect(() => {
+    if (!infoFocus || sidePanel !== "answer") return;
+    document.getElementById("node-info")?.scrollIntoView({ block: "nearest" });
+  }, [infoFocus, sidePanel]);
+
+  useEffect(() => {
+    if (sidePanel !== "answer" && sidePanel !== "comments") return;
+    const frame = requestAnimationFrame(() => {
+      const node = document.querySelector<SVGGElement>("svg g.node.is-selected");
+      const viewport = document.querySelector<HTMLElement>(".chart-viewport");
+      const panel = document.querySelector<HTMLElement>(".node-sidepanel");
+      if (!node || !viewport || !panel) return;
+      const box = node.getBoundingClientRect();
+      const coverLeft = window.innerWidth - panel.getBoundingClientRect().width - 16;
+      if (box.right > coverLeft) viewport.scrollLeft += box.right - coverLeft + 24;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [sidePanel, selectedId]);
 
   const nodeTips = useMemo(
     () =>
@@ -609,7 +601,6 @@ export function CheckerApp() {
     const next = withStoredQuote(blankSession());
     setSession(next);
     setSelectedId("filing_status");
-    setDockTab(firstDockTab(getNode("filing_status")));
     setToastId(null);
     setImportError(null);
     setModalId(null);
@@ -663,7 +654,7 @@ export function CheckerApp() {
     changeConfirmed([]);
     setQuoteDraft(null);
     setFrameMode("start");
-    setDockCollapsed(true);
+    setSidePanel(null);
     loadBlank();
   }
 
@@ -673,7 +664,6 @@ export function CheckerApp() {
     setSession(next);
     const firstOpen = openQuestions(next)[0] ?? "form_1040";
     setSelectedId(firstOpen);
-    setDockTab(firstDockTab(getNode(firstOpen)));
     setToastId(null);
     setImportError(null);
     setModalId(null);
@@ -687,7 +677,6 @@ export function CheckerApp() {
     setSession(next);
     const nextId = openQuestions(next)[0] ?? (next.revealed.includes("filing_status") ? "filing_status" : next.revealed[0] ?? "year");
     setSelectedId(nextId);
-    setDockTab(firstDockTab(getNode(nextId)));
     setToastId(null);
     setImportError(null);
     setModalId(null);
@@ -738,7 +727,6 @@ export function CheckerApp() {
     if (!next.revealed.includes(selectedId)) {
       const nextId = openQuestions(next)[0] ?? nodeId;
       setSelectedId(nextId);
-      setDockTab(firstDockTab(getNode(nextId)));
       setLevelExpanded(false);
     }
   }
@@ -753,10 +741,10 @@ export function CheckerApp() {
     const node = nodeId ? getNode(nodeId) : null;
     if (node?.tipId) {
       setSelectedId(node.id);
-      setDockTab("info");
+      setSidePanel("answer");
+      setInfoFocus((count) => count + 1);
       setTopCollapsed(true);
       setToastId(null);
-      expandDock();
       return;
     }
     setToastId(tipId);
@@ -773,9 +761,8 @@ export function CheckerApp() {
     }
     if ((nodeLevels.get(id) ?? 0) !== selectedLevel) setLevelExpanded(false);
     setSelectedId(id);
-    setDockTab(firstDockTab(getNode(id)));
+    setSidePanel(panelForNode(getNode(id)));
     setTopCollapsed(true);
-    expandDock();
     focusRoute("node");
   }
 
@@ -791,7 +778,6 @@ export function CheckerApp() {
     if (!next.revealed.includes(selectedId)) {
       const nextId = next.revealed.includes(scope) ? scope : openQuestions(next)[0] ?? "filing_status";
       setSelectedId(nextId);
-      setDockTab(firstDockTab(getNode(nextId)));
     }
     setLevelExpanded(false);
   }
@@ -808,7 +794,7 @@ export function CheckerApp() {
           <p className="text-sm text-stone-800" role="status">
             {checklistStats.done} of {checklistStats.total} confirmed on the return
           </p>
-          <progress className="checklist-progress" max={checklistStats.total} value={checklistStats.done} aria-label="Checklist items confirmed" />
+          <progress className="checklist-progress" max={checklistStats.total} value={checklistStats.done} aria-label="Forms Needed items confirmed" />
           <div className="flex flex-wrap gap-2">
             <button type="button" className="btn-secondary" onClick={downloadChecklist}>
               Download .md
@@ -826,7 +812,7 @@ export function CheckerApp() {
                 : `Documents on file: ${coverage.found} of ${coverage.expected.length} this path calls for${coverage.missing ? ` (${coverage.missing} not found yet)` : ""}.`}
             </span>
             <button type="button" className="btn-secondary" onClick={() => {
-                setChecklistPanelOpen(false);
+                setSidePanel(null);
                 showFrame("sorter");
               }}>
               {stagedPaths == null ? "Check in Document Sorter" : "Open Document Sorter"}
@@ -867,39 +853,29 @@ export function CheckerApp() {
     );
   }
 
-  const dialogOpen = Boolean(promptOpen || purposeOpen || modalId || owedDialog || checklistPanelOpen);
+  const dialogOpen = Boolean(promptOpen || purposeOpen || modalId || owedDialog);
   const pageKeys = !dialogOpen;
-  const dockShown = showsPath(frameMode) && !dockCollapsed;
   const headerShowsExpand = topCollapsed;
-  const showAdd = Boolean(selected && repeatable && stored?.answerId === "yes" && !dockCollapsed);
-  const answerFormOpen = Boolean(
-    selected?.kind === "question" &&
-    asksForAnswer(selected) &&
-    dockTab !== "comments" &&
-    !(selected.tipId && dockTab === "info") &&
-    !dockCollapsed,
-  );
+  const nodePanelOpen = sidePanel === "answer" || sidePanel === "comments";
+  const showAdd = Boolean(selected && repeatable && stored?.answerId === "yes" && sidePanel === "answer");
+  const answerFormOpen = Boolean(selected?.kind === "question" && asksForAnswer(selected) && sidePanel === "answer");
   const showTextAnswer = Boolean(answerFormOpen && selected?.textInput);
   const showNumberAnswer = Boolean(answerFormOpen && selected?.numberInputs);
-  const showAnswerTab = Boolean(selected && asksForAnswer(selected));
-  // The dock tab that takes Tab focus (roving tabindex): the open tab if it is shown, else the first shown tab.
-  const shownDockTabs = [
-    ...(showAnswerTab ? (["answer"] as const) : []),
-    ...(selected?.tipId ? (["info"] as const) : []),
-    "comments" as const,
-  ];
-  const focusTab = shownDockTabs.includes(dockTab) ? dockTab : shownDockTabs[0];
   const showInfoTab = Boolean(selected?.tipId);
+  const nodeAnswered = Boolean(stored);
+  const hasComment = Boolean(selectedComment?.trim());
   // "w" hides or shows the chart widget (magnifier or overview map), so answer letters skip it.
   const choiceTaken = new Set<string>(["e", "i", "f", "t", "c", "l", "w"]);
-  if (dockShown) choiceTaken.add("h");
+  if (sidePanel) choiceTaken.add("h");
   if (headerShowsExpand) choiceTaken.add("x");
   if (showAdd) choiceTaken.add("d");
   if (showTextAnswer || showNumberAnswer) choiceTaken.add("u");
-  if (showAnswerTab) choiceTaken.add("a");
-  if (showInfoTab) choiceTaken.add("n");
-  if (selected) choiceTaken.add("o");
-  if (selected && !dockCollapsed) choiceTaken.add("s");
+  if (showsPath(frameMode) && selected) {
+    choiceTaken.add("a");
+    choiceTaken.add("o");
+  }
+  if (showInfoTab && showsPath(frameMode)) choiceTaken.add("n");
+  if (selected && nodePanelOpen) choiceTaken.add("s");
   if (!topCollapsed) {
     choiceTaken.add("b");
   }
@@ -917,11 +893,14 @@ export function CheckerApp() {
   useShortcut("import", "i", "Import", 0, () => importInput.current?.click(), pageKeys);
   useShortcut("about", "b", "About", 1, () => setPurposeOpen(true), pageKeys && !topCollapsed);
   useShortcut("header-expand", "x", "Expand", 1, () => setTopCollapsed(false), pageKeys && headerShowsExpand);
-  useShortcut("dock-toggle", "h", "Hide", 0, collapseDock, pageKeys && dockShown);
-  useShortcut("answer-tab", "a", "Answer", 0, () => setDockTab("answer"), pageKeys && showAnswerTab && !dockCollapsed);
-  useShortcut("info-tab", "n", "Information", 1, () => setDockTab("info"), pageKeys && showInfoTab && !dockCollapsed);
-  useShortcut("comments-tab", "o", "Comments", 1, () => setDockTab("comments"), pageKeys && Boolean(selected) && !dockCollapsed);
-  useShortcut("ask-ai", "s", "Ask AI", 1, () => setPromptOpen(true), pageKeys && Boolean(selected) && !dockCollapsed);
+  useShortcut("side-hide", "h", "Hide", 0, () => setSidePanel(null), pageKeys && sidePanel != null);
+  useShortcut("node-answer", "a", "Node Answer", 5, () => setSidePanel("answer"), pageKeys && showsPath(frameMode) && Boolean(selected));
+  useShortcut("node-info", "n", "Information", 1, () => {
+    setSidePanel("answer");
+    setInfoFocus((count) => count + 1);
+  }, pageKeys && showInfoTab && showsPath(frameMode));
+  useShortcut("node-comment", "o", "Node Comment", 6, () => setSidePanel("comments"), pageKeys && showsPath(frameMode) && Boolean(selected));
+  useShortcut("ask-ai", "s", "Ask AI", 1, () => setPromptOpen(true), pageKeys && Boolean(selected) && nodePanelOpen);
   useShortcut("add-another", "d", "Add another", 1, addAnotherInstance, pageKeys && showAdd);
   useShortcut("use-answer", "u", "Use this answer", 0, () => {
     if (!selected?.textInput) return;
@@ -1140,7 +1119,7 @@ export function CheckerApp() {
                 What this path turns up
               </h2>
                 <p className="text-sm text-stone-600">
-                  Click a box to answer it. The <span className="info-dot info-dot-inline">i</span> opens a note and does not answer the question.
+                  Click a box to open Node Answer. The <span className="info-dot info-dot-inline">i</span> opens a note and does not answer the question.
                 </p>
             </div> : null}
             <MermaidView
@@ -1148,7 +1127,53 @@ export function CheckerApp() {
               nodeIds={view.ids}
               nodeTips={nodeTips}
               edgeTips={visibleEdgeTips}
-              selectedId={dockCollapsed ? null : selectedId}
+              selectedId={selectedId}
+              rail={
+                <div className="node-pills" role="group" aria-label="Node panels">
+                  <button
+                    type="button"
+                    className="node-pill node-pill-primary"
+                    aria-pressed={sidePanel === "answer"}
+                    aria-controls="node-sidepanel"
+                    title={nodeAnswered ? "Answered" : "Not answered yet"}
+                    onClick={() => toggleSide("answer")}
+                  >
+                    <span><ShortcutText text="Node Answer" index={5} /></span>
+                    <AnswerMark answered={nodeAnswered} />
+                    <span className="sr-only">{nodeAnswered ? ", answered" : ", not answered"}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={hasComment ? "node-pill node-pill-noted" : "node-pill"}
+                    aria-pressed={sidePanel === "comments"}
+                    aria-controls="node-sidepanel"
+                    onClick={() => toggleSide("comments")}
+                  >
+                    <span><ShortcutText text="Node Comment" index={6} /></span>
+                    {hasComment ? <span className="node-pill-cue" aria-hidden="true" /> : null}
+                    {hasComment ? <span className="sr-only">, has a comment</span> : null}
+                  </button>
+                  <button
+                    type="button"
+                    className="node-pill"
+                    aria-pressed={sidePanel === "forms"}
+                    aria-controls="node-sidepanel"
+                    onClick={() => toggleSide("forms")}
+                  >
+                    <span>Forms Needed</span>
+                    {checklistStats.total > 0 ? (
+                      <span className="node-pill-count">
+                        <span aria-hidden="true">
+                          {checklistStats.done}/{checklistStats.total}
+                        </span>
+                        <span className="sr-only">
+                          , {checklistStats.done} of {checklistStats.total} confirmed
+                        </span>
+                      </span>
+                    ) : null}
+                  </button>
+                </div>
+              }
               commentedNodeIds={visibleCommentNodeIds(session)}
               onSelect={selectNode}
               onTip={showTip}
@@ -1197,7 +1222,7 @@ export function CheckerApp() {
               onOpen={showFrame}
               onOpenAudit={() => void openAuditTab()}
               onAnswerNext={() => answerNext(open[0])}
-              onOpenChecklist={() => setChecklistPanelOpen(true)}
+              onOpenChecklist={() => toggleSide("forms")}
             />
           ) : frameMode === "costs" ? (
             <>
@@ -1416,38 +1441,19 @@ export function CheckerApp() {
           </section>
         )}
 
-        {/* Fixed to the bottom of the screen: the answer / comments panel (Path guide, after a box is clicked) over the steps bar. */}
-        <div ref={framesRef} className="bottom-frames">
-        {showsPath(frameMode) && !dockCollapsed ? (
-          <aside
-            ref={dockRef}
-            className="question-dock"
-            aria-label="Selected chart node"
-            style={{ height: dockHeight ?? undefined, maxHeight: dockHeight ?? undefined, ["--dock-scale" as string]: dockScale }}
-          >
-            <button
-              type="button"
-              className="question-dock-resize"
-              aria-label="Resize the answer and comments panel"
-              onPointerDown={resizeDock}
-              onKeyDown={nudgeDock}
-            />
-            <button
-              type="button"
-              className="question-dock-collapse"
-              aria-label="Hide the answer and comments panel"
-              onClick={collapseDock}
-            >
-              <ShortcutText text="Hide" index={0} />
-            </button>
-            <div className="question-dock-inner flex flex-col gap-4">
-              <section className="panel" aria-labelledby="question-heading">
-                <div className="flex items-start justify-between gap-3">
-                  <h2 id="question-heading" tabIndex={-1} className="font-display text-2xl text-stone-900">
-                    {selected ? selected.title : "Pick a box"}
-                  </h2>
-                  <div className="flex items-center gap-2">
-                    {selected ? (
+        <aside
+          id="node-sidepanel"
+          className={sidePanel ? "node-sidepanel is-open" : "node-sidepanel"}
+          aria-labelledby="question-heading"
+          inert={sidePanel ? undefined : true}
+          aria-hidden={sidePanel ? undefined : true}
+        >
+          <div className="node-sidepanel-head">
+            <h2 id="question-heading" tabIndex={-1} className="font-display text-2xl text-stone-900">
+              {panelMode === "forms" ? "Forms Needed" : selected ? selected.title : "Pick a box"}
+            </h2>
+            <div className="flex items-center gap-2">
+              {panelMode !== "forms" && selected ? (
                       <ShortcutTip label="Ask AI" index={1}>
                       <button type="button" className="ai-open" aria-label={`Ask AI about ${selected.title}`} onClick={() => setPromptOpen(true)}>
                         <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
@@ -1456,15 +1462,27 @@ export function CheckerApp() {
                       </button>
                       </ShortcutTip>
                     ) : null}
-                    {repeatable && stored?.answerId === "yes" ? (
+                    {panelMode === "answer" && repeatable && stored?.answerId === "yes" ? (
                       <ShortcutTip label="Add another" index={1}>
                       <button type="button" className="add-instance" onClick={addAnotherInstance} aria-label={`Add another ${repeatable.singular}`} title={`Add another ${repeatable.singular}`}>
                         +
                       </button>
                       </ShortcutTip>
                     ) : null}
+                    <button type="button" className="btn-secondary" onClick={() => setSidePanel(null)}>
+                      <ShortcutText text="Hide" index={sidePanel ? 0 : -1} />
+                    </button>
                   </div>
                 </div>
+          <div className="node-sidepanel-body flex flex-col gap-4">
+            {panelMode === "forms" ? (
+              <>
+                <p className="panel-lede">{CHECKLIST_LEDE}</p>
+                {checklistBody()}
+              </>
+            ) : (
+            <>
+              <section className="panel">
                 {(() => {
                   const scope = selected ? instanceScope(selected.id) ?? (repeatableNodes[selected.id] ? selected.id : null) : null;
                   const names = scope ? session.instances[scope] ?? [] : [];
@@ -1488,7 +1506,7 @@ export function CheckerApp() {
                     </div>
                   );
                 })()}
-                {selected?.kind === "check" ? (
+                {panelMode === "answer" && selected?.kind === "check" ? (
                   <>
                     <p className="mt-2 text-stone-800">{suggestionText(selected.id, session) ?? selected.help ?? selected.chart}</p>
                     {suggestionText(selected.id, session) && selected.help ? (
@@ -1499,33 +1517,8 @@ export function CheckerApp() {
                     </p>
                   </>
                 ) : null}
-                {selected ? (
-                  <div className="dock-tabs" role="tablist" aria-label="Answer, information, or comments" onKeyDown={onTabListKeyDown}>
-                    {asksForAnswer(selected) ? (
-                      <button type="button" role="tab" aria-selected={dockTab === "answer"} tabIndex={focusTab === "answer" ? 0 : -1} className={dockTab === "answer" ? "dock-tab dock-tab-on" : "dock-tab"} onClick={() => setDockTab("answer")}>
-                        <ShortcutText text="Answer" index={0} />
-                      </button>
-                    ) : null}
-                    {selected.tipId ? (
-                      <button type="button" role="tab" aria-selected={dockTab === "info"} tabIndex={focusTab === "info" ? 0 : -1} className={dockTab === "info" ? "dock-tab dock-tab-on" : "dock-tab"} onClick={() => setDockTab("info")}>
-                        <ShortcutText text="Information" index={1} />
-                      </button>
-                    ) : null}
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={dockTab === "comments"}
-                      tabIndex={focusTab === "comments" ? 0 : -1}
-                      aria-label={selectedComment?.trim() ? "Comments, this box has a comment" : "Comments"}
-                      className={`dock-tab${dockTab === "comments" ? " dock-tab-on" : ""}${selectedComment?.trim() ? " dock-tab-noted" : ""}`}
-                      onClick={() => setDockTab("comments")}
-                    >
-                      <ShortcutText text="Comments" index={1} />
-                      {selectedComment?.trim() ? <span className="dock-tab-mark" aria-hidden="true" /> : null}
-                    </button>
-                  </div>
-                ) : null}
-                {selected && dockTab === "comments" ? (
+                {panelMode === "comments" ? (
+                  selected ? (
                   <form className="mt-3 flex flex-col gap-2" onSubmit={(event) => event.preventDefault()}>
                     <label className="text-sm font-medium text-stone-700" htmlFor="node-comment">
                       Comment on this box
@@ -1541,8 +1534,9 @@ export function CheckerApp() {
                       }}
                     />
                   </form>
-                ) : selected?.tipId && dockTab === "info" ? (
-                  <DockInfo tipId={selected.tipId} session={session} />
+                ) : (
+                  <p className="mt-2 text-stone-700">Choose a box on the chart.</p>
+                )
                 ) : selected && asksForAnswer(selected) ? (
                   <>
                     <p className="mt-2 text-stone-800">{selected.prompt}</p>
@@ -1640,13 +1634,20 @@ export function CheckerApp() {
                         </div>
                       </div>
                     ) : null}
+                    {selected.tipId ? (
+                      <div id="node-info" className="node-info">
+                        <DockInfo tipId={selected.tipId} session={session} />
+                      </div>
+                    ) : null}
                   </>
                 ) : selected?.tipId ? (
-                  <DockInfo tipId={selected.tipId} session={session} />
+                  <div id="node-info">
+                    <DockInfo tipId={selected.tipId} session={session} />
+                  </div>
                 ) : !selected ? (
                   <p className="mt-2 text-stone-700">Choose a box on the chart.</p>
                 ) : null}
-                {open.length > 0 ? (
+                {panelMode === "answer" && open.length > 0 ? (
                   <div className="mt-4 border-t border-stone-200 pt-3">
                     <h3 className="text-sm font-semibold text-stone-800">Still open</h3>
                     <ul className="mt-2 flex flex-col gap-1">
@@ -1662,7 +1663,7 @@ export function CheckerApp() {
                 ) : null}
               </section>
 
-              {session.revealed.includes("deduction_result") ? (
+              {panelMode === "answer" && session.revealed.includes("deduction_result") ? (
                 <section className="panel" aria-labelledby="deduction-heading">
                   <h2 id="deduction-heading" className="font-display text-2xl text-stone-900">
                     Standard vs itemized
@@ -1674,9 +1675,11 @@ export function CheckerApp() {
                   </ul>
                 </section>
               ) : null}
-            </div>
-          </aside>
-        ) : null}
+            </>
+            )}
+          </div>
+        </aside>
+        <div ref={framesRef} className="bottom-frames">
         <nav className="flow-frame" aria-label="Steps and routes">
           {/* Two rows at every width: labels on the first, each over its own button on the second. */}
           <div className="frame-bar">
@@ -1738,18 +1741,18 @@ export function CheckerApp() {
               ) : null}
             </div>
             <div className="frame-tools" role="group" aria-label="Tools">
+              {showsPath(frameMode) ? null : (
               <button
                 type="button"
                 className="checklist-open"
-                aria-haspopup="dialog"
-                aria-expanded={checklistPanelOpen}
-                aria-controls={checklistPanelOpen ? "checklist-panel" : undefined}
-                onClick={() => setChecklistPanelOpen(true)}
+                aria-expanded={sidePanel === "forms"}
+                aria-controls="node-sidepanel"
+                onClick={() => toggleSide("forms")}
               >
                 <span className="checklist-open-icon" aria-hidden="true">
                   ☑
                 </span>
-                Checklist
+                Forms Needed
                 {checklistStats.total > 0 ? (
                   <span className="tab-count">
                     <span aria-hidden="true">
@@ -1761,38 +1764,13 @@ export function CheckerApp() {
                   </span>
                 ) : null}
               </button>
+              )}
               <HarnessHelp />
             </div>
           </div>
         </nav>
         </div>
       </main>
-
-      {checklistPanelOpen ? (
-        <div className="checklist-backdrop" role="presentation" onClick={() => setChecklistPanelOpen(false)}>
-          <div
-            ref={checklistPanelRef}
-            id="checklist-panel"
-            className="checklist-drawer"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="checklist-heading"
-            tabIndex={-1}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="checklist-drawer-head">
-              <h2 id="checklist-heading" className="font-display text-2xl text-stone-900">
-                {checklistTitle(session)}
-              </h2>
-              <button type="button" className="btn-secondary" data-autofocus onClick={() => setChecklistPanelOpen(false)}>
-                Close<span className="sr-only"> the Checklist</span>
-              </button>
-            </div>
-            <p className="panel-lede">{CHECKLIST_LEDE}</p>
-            {checklistBody()}
-          </div>
-        </div>
-      ) : null}
 
       {promptOpen && selected ? (
         <PromptBuilder
@@ -1806,7 +1784,6 @@ export function CheckerApp() {
             if (!next.revealed.includes(selected.id)) {
               const nextId = openQuestions(next)[0] ?? selected.id;
               setSelectedId(nextId);
-              setDockTab(firstDockTab(getNode(nextId)));
             }
             setPromptOpen(false);
           }}

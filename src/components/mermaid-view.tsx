@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ShortcutText, ShortcutTip, useShortcut } from "@/components/shortcut-layer";
 import { widgetCrowded } from "@/lib/widget-room";
@@ -47,6 +47,8 @@ type Props = {
   fitFocus: { key: number; ids: readonly string[]; answeredId: string } | null;
   /** Sticky slot under the path library. The chart controls render here, not in the chart card. */
   toolsNode: HTMLElement | null;
+  /** Pill buttons drawn above the magnifier. */
+  rail?: ReactNode;
 };
 
 let renderSeq = 0;
@@ -150,7 +152,7 @@ function distToRect(x: number, y: number, rect: DOMRect): number {
   return Math.hypot(dx, dy);
 }
 
-export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, commentedNodeIds, onSelect, onTip, instancePagers, onSelectInstance, levelNodes, levelExpanded, onToggleLevel, shortcutsEnabled = true, edges, fitFocus, toolsNode }: Props) {
+export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, commentedNodeIds, onSelect, onTip, instancePagers, onSelectInstance, levelNodes, levelExpanded, onToggleLevel, shortcutsEnabled = true, edges, fitFocus, toolsNode, rail = null }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -179,7 +181,8 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
   const [viewRect, setViewRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const overviewDrag = useRef<number | null>(null);
   const [widgetBottom, setWidgetBottom] = useState<number | null>(null);
-  // Free height between the sticky Path library stack and the bottom dock. The widget hides when it would not fit.
+  const railRef = useRef<HTMLDivElement>(null);
+  // Free height between the sticky Path library stack and the steps bar. The widget hides when it would not fit.
   const [widgetRoom, setWidgetRoom] = useState<number | null>(null);
   const [viewportMaxHeight, setViewportMaxHeight] = useState<number | null>(null);
   const [panning, setPanning] = useState(false);
@@ -947,27 +950,50 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
     setWidgetMode(readWidgetMode());
   }, []);
 
-  // Keep the widget above the fixed bottom dock so its buttons and the overview map stay reachable,
-  // and below the sticky Path library and chart tools so it never sits over their buttons.
+  // Keep the rail above the fixed steps bar. The side panel starts under the page header.
   useEffect(() => {
     const dock = document.querySelector<HTMLElement>(".bottom-frames");
     if (!dock) return;
     const stack = document.querySelector<HTMLElement>(".library-stack");
     const place = () => {
       const dockTop = dock.getBoundingClientRect().top;
+      const stackBottom = stack ? Math.max(0, stack.getBoundingClientRect().bottom) : 0;
+      const header = document.querySelector("header");
+      const headerBottom = header ? Math.max(0, header.getBoundingClientRect().bottom) : 0;
       setWidgetBottom(Math.max(0, window.innerHeight - dockTop) + 16);
-      setWidgetRoom(Math.max(0, dockTop - (stack ? stack.getBoundingClientRect().bottom : 0)));
+      setWidgetRoom(Math.max(0, dockTop - stackBottom));
+      // The sheet starts under the page header, not under the Path library, so it stays tall enough to read.
+      document.documentElement.style.setProperty("--side-panel-top", `${Math.round(headerBottom)}px`);
     };
     place();
     const observer = new ResizeObserver(place);
     observer.observe(dock);
     if (stack) observer.observe(stack);
+    const header = document.querySelector("header");
+    if (header) observer.observe(header);
     window.addEventListener("resize", place);
     window.addEventListener("scroll", place, { passive: true });
     return () => {
       observer.disconnect();
       window.removeEventListener("resize", place);
       window.removeEventListener("scroll", place);
+      document.documentElement.style.removeProperty("--side-panel-top");
+    };
+  }, []);
+
+  useEffect(() => {
+    const node = railRef.current;
+    if (!node) return;
+    const apply = () => {
+      const height = Math.ceil(node.getBoundingClientRect().height);
+      document.documentElement.style.setProperty("--chart-rail-height", `${height + 16}px`);
+    };
+    apply();
+    const observer = new ResizeObserver(apply);
+    observer.observe(node);
+    return () => {
+      observer.disconnect();
+      document.documentElement.style.removeProperty("--chart-rail-height");
     };
   }, []);
 
@@ -1175,14 +1201,18 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
           </button>
         </div>
         <div
+          ref={railRef}
+          className={["chart-rail", widgetCrowded(widgetRoom, magnifierOpen) ? "is-crowded" : ""].filter(Boolean).join(" ")}
+          style={widgetBottom != null ? { bottom: widgetBottom } : undefined}
+        >
+          {rail}
+        <div
           className={[
             "chart-magnifier",
             magnifierOpen ? "" : "is-collapsed",
             widgetMode === "overview" ? "is-overview" : "",
-            widgetCrowded(widgetRoom, magnifierOpen) ? "is-crowded" : "",
           ].filter(Boolean).join(" ")}
           data-mode={widgetMode}
-          style={widgetBottom != null ? { bottom: widgetBottom } : undefined}
           aria-live="polite"
           aria-label={
             !magnifierOpen ? (widgetMode === "overview" ? "Overview map" : "Magnifier")
@@ -1280,6 +1310,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
               <p className="truncate font-medium text-stone-900">{widgetMode === "overview" ? "Overview map" : "Magnifier"}</p>
             </button>
           )}
+        </div>
         </div>
       </div>
       {error ? (
