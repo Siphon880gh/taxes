@@ -908,12 +908,13 @@ function ai_status_payload(string $stage): array
     return $body + ["reason" => $settings["reason"]];
 }
 
-/** Files the AI may move: every listed document except the app's own notes. */
+/** Files the AI may move: every listed document except the app's own notes and dotfiles such as .DS_Store. */
 function ai_movable_files(string $stage): array
 {
     $out = [];
     foreach (list_stage($stage) as $file) {
-        if (!in_array(basename($file["path"]), AI_KEEP_IN_PLACE, true)) {
+        $name = basename($file["path"]);
+        if (!in_array($name, AI_KEEP_IN_PLACE, true) && $name[0] !== ".") {
             $out[] = $file;
         }
     }

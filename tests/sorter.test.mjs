@@ -298,6 +298,7 @@ test("api.php AI reorganize: .env parsing, no-key warning, validated plan, one-t
   fs.writeFileSync(path.join(stageDir, "1099.pdf"), "1099");
   fs.writeFileSync(path.join(stageDir, "Summaries.md"), "# notes");
   fs.writeFileSync(path.join(stageDir, "AGENTS.md"), "# guide");
+  fs.writeFileSync(path.join(stageDir, "inbox", ".DS_Store"), "");
   const listed = await (await app(base)).json();
   assert.equal(listed.files.some((f) => f.path === "AGENTS.md"), false, "the uploads guide is not a document");
 
@@ -381,6 +382,7 @@ test("api.php AI reorganize: .env parsing, no-key warning, validated plan, one-t
     const prompt = JSON.stringify(seen[0].body.messages);
     assert.match(prompt, /inbox\/w2\.pdf/);
     assert.doesNotMatch(prompt, /Summaries\.md/);
+    assert.doesNotMatch(prompt, /\.DS_Store/);
 
     const apply = (moves, token, keep) => {
       const payload = form("ai-apply", {});
