@@ -274,7 +274,7 @@ export function CheckerApp() {
   const [dockCollapsed, setDockCollapsed] = useState(true);
   /** The Checklist side panel, opened from the Checklist button fixed in the bottom bar on every route. */
   const [checklistPanelOpen, setChecklistPanelOpen] = useState(false);
-  const checklistPanelRef = useRef<HTMLElement>(null);
+  const checklistPanelRef = useRef<HTMLDivElement>(null);
   useDialogFocus(checklistPanelOpen, checklistPanelRef);
   /** After a route change: the page goes back to the top and focus moves to the new route's heading or panel. */
   const [routeFocus, setRouteFocus] = useState<{ key: number; target: "guide" | "panel" | "question" } | null>(null);
@@ -1750,7 +1750,7 @@ export function CheckerApp() {
 
       {checklistPanelOpen ? (
         <div className="checklist-backdrop" role="presentation" onClick={() => setChecklistPanelOpen(false)}>
-          <aside
+          <div
             ref={checklistPanelRef}
             id="checklist-panel"
             className="checklist-drawer"
@@ -1770,7 +1770,7 @@ export function CheckerApp() {
             </div>
             <p className="panel-lede">{CHECKLIST_LEDE}</p>
             {checklistBody()}
-          </aside>
+          </div>
         </div>
       ) : null}
 
