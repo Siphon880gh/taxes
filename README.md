@@ -19,7 +19,7 @@ The decision graph, the on-screen chart, and the checklist all come from `src/li
 
 ## The guided flow
 
-The bottom panel's tabs follow one flow. **Start here** opens first and shows where each step stands.
+The tabs in the bar fixed to the bottom of the screen follow one flow, and the open tab's panel fills the page. **Start here** opens first and shows where each step stands.
 
 | Tab | Label over it | What it is for |
 | --- | --- | --- |
@@ -27,11 +27,11 @@ The bottom panel's tabs follow one flow. **Start here** opens first and shows wh
 | 1 Document Sorter | Gather docs: | Upload your documents and sort them into folders in `sorter/stage`. Every route reads them from there. |
 | 2a Tax Pro Costs | Hand it to a pro: | Give the preparer `Summaries.md` (the `tax-document-summaries` skill writes it), then judge their quote against typical fees. |
 | 2b Return & Owe Audit | AI calculate now: | The `tax-return-owed-audit` skill checks the return's amount owed against your documents. The tab stays grayed out until `Owed Audit.md` exists. |
-| 2c Checklist | Guide me on forms: | The whole guided path in one move: the chart under the Path library, the Checklist of forms and lines, and the answer / comments panel on the next open question. It works any time, even with no documents. |
+| 2c Path guide | Guide me on forms: | The path chart and its Path library (examples, tax year, Export, Import, Start over). Click a box to answer it or comment on it. It works any time, even with no documents. |
 
-Pick one route after step 1. The bar has two rows: a short label on the first (Begin:, Gather docs:, and under *then pick one:* Hand it to a pro:, AI calculate now:, Guide me on forms:), each over its own tab on the second. Labels, tabs and groups come from `src/lib/flow.ts`, so adding one is adding an entry there; when the bar runs out of room, whole label-and-tab columns wrap. The chart above the panel is the guided path. It asks one question at a time, starting with Filing status, and each answer adds forms and lines to the Checklist and Tax Pro Costs. **✦ Add / edit with AI** and **Hide** sit apart on the right because they are tools, not steps.
+Pick one route after step 1. The bar has two rows: a short label on the first (Begin:, Gather docs:, and under *then pick one:* Hand it to a pro:, AI calculate now:, Guide me on forms:), each over its own tab on the second. Labels, tabs and groups come from `src/lib/flow.ts`, so adding one is adding an entry there; when the bar runs out of room, whole label-and-tab columns wrap. Path guide is the guided path. Its chart asks one question at a time, starting with Filing status, and each answer adds forms and lines to the Checklist and Tax Pro Costs. **Checklist** and **✦ Add / edit with AI** sit apart on the right because they are tools, not steps.
 
-Guide me on forms opens the same way from the 2c tab, the Start here card (Open Checklist or Answer next), and the next-step links: the chart scrolls into view, the Checklist and the answer panel open together (side by side on wide screens), and focus lands on the next open question. On a phone the Path library scrolls away one swipe above the chart so the chart keeps its room. `guidePlan` in `src/lib/flow.ts` decides what opens.
+The path chart and the Path library show only in Path guide. Nothing is picked for you there: the answer / comments panel opens when you click a box (or press **Answer next**), and **Hide** closes it. A reload comes back to Path guide if it was open. The **Checklist** button opens the Checklist as a side panel on every route (a full-height sheet on a phone); Esc or Close shuts it.
 
 ## Run it
 
@@ -46,7 +46,7 @@ Start blank, or open a case study. **Coder/Nurse 1099 Example** walks a single f
 
 Your answers, named businesses and rentals, comments, the preparation quote, and which checklist items you ticked as confirmed save in this browser as you go, so a reload picks up where you left off. **Export** downloads the same state as a JSON file (with the confirmations) that **Import** reads back. **Start over** clears what this browser saved, after a confirm.
 
-The **Checklist** tab shows how many items you have confirmed on the return, and can **Download .md** or **Print** a clean copy for your records or a preparer. When the path calls for source documents (a W-2, a 1099-NEC, rental records, a 1095-A, …), it also says how many of them the Document Sorter found in `sorter/stage`.
+The **Checklist** side panel shows how many items you have confirmed on the return, and can **Download .md** or **Print** a clean copy for your records or a preparer. When the path calls for source documents (a W-2, a 1099-NEC, rental records, a 1095-A, …), it also says how many of them the Document Sorter found in `sorter/stage`.
 
 `npm test` runs these suites: the decision-graph tests (paths, checklist items, and the sourced 2025 and 2026 figures), the sorter-endpoint tests (which hosts get the local-only message), the browser-storage tests (saved session, checklist confirmations), the document-coverage tests, and the PHP sorter test, which starts `php -S` against `sorter/api.php` and is skipped when `php` is not installed. `npm run generate-graph` rewrites the decision-graph document from the same source.
 
