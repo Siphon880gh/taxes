@@ -27,9 +27,11 @@ The bottom panel's tabs follow one flow. **Start here** opens first and shows wh
 | 1 Document Sorter | Gather docs: | Upload your documents and sort them into folders in `sorter/stage`. Every route reads them from there. |
 | 2a Tax Pro Costs | Hand it to a pro: | Give the preparer `Summaries.md` (the `tax-document-summaries` skill writes it), then judge their quote against typical fees. |
 | 2b Return & Owe Audit | AI calculate now: | The `tax-return-owed-audit` skill checks the return's amount owed against your documents. The tab stays grayed out until `Owed Audit.md` exists. |
-| 2c Checklist | Guide me on forms: | The forms and lines your answers call for. It works any time, even with no documents. |
+| 2c Checklist | Guide me on forms: | The whole guided path in one move: the chart under the Path library, the Checklist of forms and lines, and the answer / comments panel on the next open question. It works any time, even with no documents. |
 
 Pick one route after step 1. The bar has two rows: a short label on the first (Begin:, Gather docs:, and under *then pick one:* Hand it to a pro:, AI calculate now:, Guide me on forms:), each over its own tab on the second. Labels, tabs and groups come from `src/lib/flow.ts`, so adding one is adding an entry there; when the bar runs out of room, whole label-and-tab columns wrap. The chart above the panel is the guided path. It asks one question at a time, starting with Filing status, and each answer adds forms and lines to the Checklist and Tax Pro Costs. **✦ Add / edit with AI** and **Hide** sit apart on the right because they are tools, not steps.
+
+Guide me on forms opens the same way from the 2c tab, the Start here card (Open Checklist or Answer next), and the next-step links: the chart scrolls into view, the Checklist and the answer panel open together (side by side on wide screens), and focus lands on the next open question. On a phone the Path library scrolls away one swipe above the chart so the chart keeps its room. `guidePlan` in `src/lib/flow.ts` decides what opens.
 
 ## Run it
 
