@@ -6,6 +6,7 @@ import { DocumentSorter, SUMMARIES_SKILL_NOTE } from "@/components/document-sort
 import { OwedAuditPanel } from "@/components/owed-audit-panel";
 import { PromptBuilder } from "@/components/prompt-builder";
 import { HarnessHelp } from "@/components/harness-help";
+import { StartPanel } from "@/components/start-panel";
 import { pickShortcutLetter, ShortcutLayer, ShortcutText, ShortcutTip, useShortcut } from "@/components/shortcut-layer";
 import { decodeNumbers, encodeNumbers, numberEntryError, suggestionText } from "@/lib/graph/allocate";
 import { DISCLAIMER } from "@/lib/disclaimer";
@@ -13,6 +14,7 @@ import { readStoredQuote, writeStoredQuote } from "@/lib/quote-storage";
 import { clearStoredSession, readStoredSession, writeStoredSession } from "@/lib/session-storage";
 import { documentCoverage } from "@/lib/document-coverage";
 import { auditTab } from "@/lib/owed-reports";
+import type { FrameMode } from "@/lib/flow";
 import { useOwedReports } from "@/lib/use-owed-reports";
 import type { PdfHints } from "@/lib/pdf-hints";
 import {
@@ -235,7 +237,7 @@ export function CheckerApp() {
   const [importError, setImportError] = useState<string | null>(null);
   const importInput = useRef<HTMLInputElement>(null);
   const [modalId, setModalId] = useState<string | null>(null);
-  const [frameMode, setFrameMode] = useState<"checklist" | "costs" | "sorter" | "audit">("checklist");
+  const [frameMode, setFrameMode] = useState<FrameMode>("start");
   /** Owed Audit.md and Owe Audit Breakdown - Rent.md in sorter/stage; the Return & Owe Audit tab is grayed out without them. */
   const owedReports = useOwedReports();
   const auditState = auditTab(owedReports.state);
@@ -300,7 +302,7 @@ export function CheckerApp() {
     setChecklistOpen(true);
   }
 
-  function showFrame(mode: "checklist" | "costs" | "sorter" | "audit") {
+  function showFrame(mode: FrameMode) {
     setFrameMode(mode);
     if (!dockCollapsed) openChecklist();
   }
@@ -577,6 +579,7 @@ export function CheckerApp() {
     writeStoredQuote({ amount: null, preparer: null });
     changeConfirmed([]);
     setQuoteDraft(null);
+    setFrameMode("start");
     loadBlank();
   }
 
@@ -982,6 +985,9 @@ export function CheckerApp() {
           aria-labelledby="check-heading"
         >
           <div className="frame-switch" role="group" aria-label="Which panel this frame shows">
+            <button type="button" aria-pressed={frameMode === "start"} onClick={() => showFrame("start")}>
+              Start here
+            </button>
             <button type="button" aria-pressed={frameMode === "checklist"} onClick={() => showFrame("checklist")}>
               Checklist
             </button>
@@ -1036,7 +1042,21 @@ export function CheckerApp() {
                   <button type="button" onClick={() => setSorterReminder(false)}>Dismiss</button>
                 </p>
               ) : null}
-              {frameMode === "checklist" ? (
+              {frameMode === "start" ? (
+                <StartPanel
+                  overview={owedReports.overview}
+                  reports={owedReports.state}
+                  auditDisabled={auditState.disabled}
+                  checklist={checklistStats}
+                  openCount={open.length}
+                  nextQuestion={open.length ? getNode(open[0]).title : null}
+                  onOpen={showFrame}
+                  onOpenAudit={() => void openAuditTab()}
+                  onAnswerNext={() => {
+                    if (open.length) selectNode(open[0]);
+                  }}
+                />
+              ) : frameMode === "checklist" ? (
                 <>
                   <h2 id="check-heading" className="font-display text-2xl text-stone-900">
                     {checklistTitle(session)}
@@ -1302,7 +1322,7 @@ export function CheckerApp() {
             </div>
           ) : (
             <button type="button" className="question-dock-tile" onClick={openChecklist}>
-              <p id="check-heading" className="truncate font-medium text-stone-900">{frameMode === "costs" ? "Tax Pro Costs" : frameMode === "sorter" ? "Document Sorter" : frameMode === "audit" ? "Return & Owe Audit" : checklistTitle(session)}</p>
+              <p id="check-heading" className="truncate font-medium text-stone-900">{frameMode === "start" ? "Start here: sort documents, then pick a route" : frameMode === "costs" ? "Tax Pro Costs" : frameMode === "sorter" ? "Document Sorter" : frameMode === "audit" ? "Return & Owe Audit" : checklistTitle(session)}</p>
             </button>
           )}
         </section>
