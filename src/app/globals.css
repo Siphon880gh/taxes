@@ -872,6 +872,11 @@ button.question-dock-tile {
   pointer-events: auto;
 }
 
+/* No room between the sticky Path library and the bottom dock: hide rather than cover the library's buttons. */
+.chart-magnifier.is-crowded {
+  visibility: hidden;
+}
+
 .chart-magnifier-collapse {
   position: absolute;
   top: 0.35rem;

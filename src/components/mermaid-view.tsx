@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent } from "react";
 import { createPortal } from "react-dom";
 import { ShortcutText, ShortcutTip, useShortcut } from "@/components/shortcut-layer";
+import { widgetCrowded } from "@/lib/widget-room";
 
 type Marker = {
   key: string;
@@ -178,6 +179,8 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
   const [viewRect, setViewRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const overviewDrag = useRef<number | null>(null);
   const [widgetBottom, setWidgetBottom] = useState<number | null>(null);
+  // Free height between the sticky Path library stack and the bottom dock. The widget hides when it would not fit.
+  const [widgetRoom, setWidgetRoom] = useState<number | null>(null);
   const [viewportMaxHeight, setViewportMaxHeight] = useState<number | null>(null);
   const [panning, setPanning] = useState(false);
   const [showCommentCues, setShowCommentCues] = useState(true);
@@ -944,18 +947,27 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
     setWidgetMode(readWidgetMode());
   }, []);
 
-  // Keep the widget above the fixed bottom dock so its buttons and the overview map stay reachable.
+  // Keep the widget above the fixed bottom dock so its buttons and the overview map stay reachable,
+  // and below the sticky Path library and chart tools so it never sits over their buttons.
   useEffect(() => {
     const dock = document.querySelector<HTMLElement>(".bottom-frames");
     if (!dock) return;
-    const place = () => setWidgetBottom(Math.max(0, window.innerHeight - dock.getBoundingClientRect().top) + 16);
+    const stack = document.querySelector<HTMLElement>(".library-stack");
+    const place = () => {
+      const dockTop = dock.getBoundingClientRect().top;
+      setWidgetBottom(Math.max(0, window.innerHeight - dockTop) + 16);
+      setWidgetRoom(Math.max(0, dockTop - (stack ? stack.getBoundingClientRect().bottom : 0)));
+    };
     place();
     const observer = new ResizeObserver(place);
     observer.observe(dock);
+    if (stack) observer.observe(stack);
     window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, { passive: true });
     return () => {
       observer.disconnect();
       window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place);
     };
   }, []);
 
@@ -1167,6 +1179,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
             "chart-magnifier",
             magnifierOpen ? "" : "is-collapsed",
             widgetMode === "overview" ? "is-overview" : "",
+            widgetCrowded(widgetRoom, magnifierOpen) ? "is-crowded" : "",
           ].filter(Boolean).join(" ")}
           data-mode={widgetMode}
           style={widgetBottom != null ? { bottom: widgetBottom } : undefined}
