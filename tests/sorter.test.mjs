@@ -308,7 +308,9 @@ test("api.php AI reorganize: .env parsing, no-key warning, validated plan, one-t
   assert.equal(none.ok, true);
   assert.equal(none.configured, false);
   assert.equal(none.reason, "No OPENAI_API_KEY or ANTHROPIC_API_KEY in .env.");
-  assert.equal(none.folder, fs.realpathSync(stageDir));
+  assert.equal(none.folder, "sorter/stage", "relative to the app folder");
+  assert.equal(none.root, undefined);
+  assert.doesNotMatch(JSON.stringify(none), new RegExp(tmp.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   const noCookie = await fetch(`${base}?action=ai-status`, { headers: { Origin: APP_ORIGIN, "X-Taxes-App": "1" } });
   assert.equal(noCookie.status, 403, "the AI actions keep the app-only gate");
   const refused = await app(base, { method: "POST", body: form("ai-plan", {}) });

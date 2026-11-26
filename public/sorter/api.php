@@ -12,6 +12,10 @@
 // Optional AI reorganize (ai-status, ai-plan, ai-apply): keys from the app's .env, see .example.env.
 declare(strict_types=1);
 
+// PHP notices and warnings carry absolute file paths; keep them out of the JSON the browser reads.
+ini_set("display_errors", "0");
+ini_set("html_errors", "0");
+
 const MAX_UPLOAD_BYTES = 64 * 1024 * 1024;
 const MAX_EXTRACT_BYTES = 256 * 1024 * 1024;
 
@@ -900,8 +904,8 @@ function ai_settings(): array
 function ai_status_payload(string $stage): array
 {
     $settings = ai_settings();
-    $folder = str_replace("\\", "/", (string) realpath($stage));
-    $body = ["ok" => true, "configured" => $settings["configured"], "folder" => $folder, "root" => "sorter/stage"];
+    // Relative to the app folder only: the browser never sees where the app lives on disk.
+    $body = ["ok" => true, "configured" => $settings["configured"], "folder" => "sorter/stage"];
     if ($settings["configured"]) {
         return $body + ["provider" => $settings["provider"], "model" => $settings["model"]];
     }
