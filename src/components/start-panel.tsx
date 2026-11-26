@@ -14,6 +14,7 @@ type Props = {
   onOpen: (mode: FrameMode) => void;
   onOpenAudit: () => void;
   onAnswerNext: () => void;
+  onOpenChecklist: () => void;
 };
 
 /** Where things stand for each step, in a few words. */
@@ -61,7 +62,7 @@ function RouteCard({ route, cue, children }: { route: Route; cue: string | null;
 
 /** The default panel: step 1, then three routes to pick from, and how the chart relates to them. */
 export function StartPanel(props: Props) {
-  const { onOpen, onOpenAudit, onAnswerNext, auditDisabled, nextQuestion } = props;
+  const { onOpen, onOpenAudit, onAnswerNext, onOpenChecklist, auditDisabled, nextQuestion } = props;
   const cue = cues(props);
   const [preparer, audit, self] = ROUTES;
   return (
@@ -123,24 +124,28 @@ export function StartPanel(props: Props) {
               ) : null}
             </RouteCard>
             <RouteCard route={self} cue={cue.self}>
-              <button type="button" className="btn-secondary" onClick={() => onOpen("checklist")}>
-                Open Checklist
+              <button type="button" className="btn-secondary" onClick={() => onOpen("guide")}>
+                Open Path guide
               </button>
               {nextQuestion ? (
                 <button type="button" className="btn-secondary" onClick={onAnswerNext}>
                   Answer next: {nextQuestion}
                 </button>
               ) : null}
+              <button type="button" className="btn-secondary" onClick={onOpenChecklist}>
+                Open Checklist
+              </button>
             </RouteCard>
           </ul>
         </li>
       </ol>
-      <aside className="flow-chart-note" aria-label="About the chart">
-        <h3>The chart above is the guided path</h3>
+      <aside className="flow-chart-note" aria-label="About the path chart and the Checklist">
+        <h3>Path guide (2c) is the guided path</h3>
         <p>
-          It asks one question at a time, starting with Filing status, and each answer adds the forms and lines that the Checklist (2c) and Tax Pro Costs (2a)
+          Its chart asks one question at a time, starting with Filing status, and each answer adds the forms and lines that the Checklist and Tax Pro Costs (2a)
           use. Answer it whenever you like, before or after sorting; the more you answer, the more complete your path gets.
         </p>
+        <p>The Checklist button in the bottom bar opens that list from any route.</p>
       </aside>
     </div>
   );

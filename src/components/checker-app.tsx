@@ -14,7 +14,7 @@ import { readStoredQuote, writeStoredQuote } from "@/lib/quote-storage";
 import { clearStoredSession, readStoredSession, writeStoredSession } from "@/lib/session-storage";
 import { documentCoverage } from "@/lib/document-coverage";
 import { auditTab } from "@/lib/owed-reports";
-import { CHECKLIST_LEDE, flowSegments, guidePlan, PANEL_LEDES, spokenPrefix, type FrameMode } from "@/lib/flow";
+import { CHECKLIST_LEDE, flowSegments, PANEL_LEDES, rememberedRoute, ROUTE_LEADS, ROUTE_STORAGE_KEY, showsPath, spokenPrefix, type FrameMode } from "@/lib/flow";
 import { useOwedReports } from "@/lib/use-owed-reports";
 import { useDialogFocus } from "@/lib/use-dialog-focus";
 import type { PdfHints } from "@/lib/pdf-hints";
@@ -270,15 +270,15 @@ export function CheckerApp() {
   const dockBaseHeight = useRef<number | null>(null);
   const dockHeightBeforeCollapse = useRef<number | null>(null);
   const [dockHeight, setDockHeight] = useState<number | null>(null);
-  const [dockCollapsed, setDockCollapsed] = useState(false);
-  const [checklistOpen, setChecklistOpen] = useState(false);
+  /** The answer / comments panel stays closed until a box on the chart (or "Answer next") is picked. */
+  const [dockCollapsed, setDockCollapsed] = useState(true);
   /** The Checklist side panel, opened from the Checklist button fixed in the bottom bar on every route. */
   const [checklistPanelOpen, setChecklistPanelOpen] = useState(false);
   const checklistPanelRef = useRef<HTMLElement>(null);
   useDialogFocus(checklistPanelOpen, checklistPanelRef);
-  /** Bumped by openGuide(); after that render, the chart scrolls into view and focus moves to the question. */
-  const [guideKey, setGuideKey] = useState(0);
-  const chartSectionRef = useRef<HTMLElement>(null);
+  /** After a route change: the page goes back to the top and focus moves to the new route's heading or panel. */
+  const [routeFocus, setRouteFocus] = useState<{ key: number; target: "guide" | "panel" | "question" } | null>(null);
+  const routePanelRef = useRef<HTMLElement>(null);
   const [fitFocus, setFitFocus] = useState<{ key: number; ids: string[]; answeredId: string } | null>(null);
   const fitFocusKey = useRef(0);
   const dockScale =
@@ -292,52 +292,54 @@ export function CheckerApp() {
   }
 
   function collapseDock() {
-    if (!dockCollapsed) {
-      const dock = dockRef.current;
-      dockHeightBeforeCollapse.current = dockHeight ?? dock?.getBoundingClientRect().height ?? null;
-    }
+    // A height the user dragged to comes back next time; otherwise the panel opens at its natural height.
+    if (!dockCollapsed) dockHeightBeforeCollapse.current = dockHeight;
     setDockCollapsed(true);
   }
 
   function expandDock() {
-    // Guide me on forms (the Checklist frame) keeps the Checklist open beside the answers; other frames give way.
-    if (frameMode !== "checklist") setChecklistOpen(false);
     setDockCollapsed(false);
     if (dockHeightBeforeCollapse.current != null) setDockHeight(dockHeightBeforeCollapse.current);
   }
 
-  function openChecklist(mode: FrameMode = frameMode) {
-    if (mode !== "checklist") collapseDock();
-    setChecklistOpen(true);
+  function focusRoute(target: "guide" | "panel" | "question") {
+    setRouteFocus((current) => ({ key: (current?.key ?? 0) + 1, target }));
   }
 
   function showFrame(mode: FrameMode) {
-    if (mode === "checklist") {
+    if (showsPath(mode)) {
       openGuide();
       return;
     }
     setFrameMode(mode);
-    if (!dockCollapsed) openChecklist(mode);
+    focusRoute("panel");
   }
 
   /**
-   * Guide me on forms (route 2c), from any entry point: the path chart under the Path library, the Checklist frame,
-   * and the answer / comments panel on the next open question, all at once. Focus lands on that question.
+   * Guide me on forms (route 2c): the path chart and its Path library. Nothing is picked for you: the answer /
+   * comments panel opens when a box is clicked (or "Answer next" is pressed). Focus lands on the guide's heading.
    */
-  function openGuide(prefer?: string) {
-    const plan = guidePlan(openQuestions(session), selectedId, session.revealed, prefer);
+  function openGuide() {
     setAuditHint(null);
-    setFrameMode(plan.frameMode);
-    setSelectedId(plan.selectId);
-    setDockTab(firstDockTab(getNode(plan.selectId)));
-    setLevelExpanded(false);
-    setTopCollapsed(plan.topCollapsed);
-    setChecklistOpen(plan.checklistOpen);
-    if (dockCollapsed) {
-      setDockCollapsed(plan.dockCollapsed);
-      if (dockHeightBeforeCollapse.current != null) setDockHeight(dockHeightBeforeCollapse.current);
+    if (!showsPath(frameMode)) collapseDock();
+    setFrameMode("guide");
+    focusRoute("guide");
+  }
+
+  /** "Answer next: Filing status": the guide with that box picked and its answer panel open. */
+  function answerNext(id: string | undefined) {
+    if (!id) {
+      openGuide();
+      return;
     }
-    setGuideKey((key) => key + 1);
+    setAuditHint(null);
+    setFrameMode("guide");
+    setSelectedId(id);
+    setDockTab(firstDockTab(getNode(id)));
+    setLevelExpanded(false);
+    setTopCollapsed(true);
+    expandDock();
+    focusRoute("question");
   }
 
   /** The grayed-out tab checks again first (the skill may have just written the file), then opens or explains. */
@@ -350,7 +352,6 @@ export function CheckerApp() {
     const after = auditTab(await owedReports.refresh());
     if (after.disabled) {
       setAuditHint(after.hint);
-      if (!dockCollapsed) openChecklist();
     } else {
       setAuditHint(null);
       showFrame("audit");
@@ -376,10 +377,7 @@ export function CheckerApp() {
     if (dockBaseHeight.current == null) dockBaseHeight.current = startHeight;
     event.currentTarget.setPointerCapture(event.pointerId);
     const move = (ev: PointerEvent) => {
-      if (collapsedAtStart) {
-        setChecklistOpen(false);
-        setDockCollapsed(false);
-      }
+      if (collapsedAtStart) setDockCollapsed(false);
       setDockHeight(clampDockHeight(startHeight + (startY - ev.clientY)));
     };
     const stop = () => {
@@ -395,10 +393,7 @@ export function CheckerApp() {
     event.preventDefault();
     const dock = dockRef.current;
     if (!dock) return;
-    if (dockCollapsed) {
-      setChecklistOpen(false);
-      setDockCollapsed(false);
-    }
+    if (dockCollapsed) setDockCollapsed(false);
     const current = dockCollapsed
       ? dockHeightBeforeCollapse.current ?? dockHeight ?? dock.getBoundingClientRect().height
       : dockHeight ?? dock.getBoundingClientRect().height;
@@ -466,26 +461,39 @@ export function CheckerApp() {
     setDraft(readAnswer(session, selectedId)?.text ?? "");
   }, [selectedId, session]);
 
-  // After Guide me on forms: bring the chart up under the sticky Path library, then focus the question.
+  // After a route change: back to the top of the page, with focus on the new route's heading (or the picked question).
   useEffect(() => {
-    if (!guideKey) return;
-    const frame = requestAnimationFrame(() =>
-      requestAnimationFrame(() => {
-        // A phone can't fit the library, chart and both frames at once: there the library scrolls away (one swipe up)
-        // and the chart's own tools row goes to the top, so the chart keeps the room above the frames.
-        const phone = window.matchMedia("(max-width: 719px)").matches;
-        const chart = chartSectionRef.current;
-        const target = phone ? (document.querySelector(".chart-tools-bar") ?? chart) : chart;
-        const stack = document.querySelector(".library-stack");
-        if (target) {
-          const offset = phone ? 0 : (stack?.getBoundingClientRect().height ?? 0) + 8;
-          window.scrollTo({ top: Math.max(0, target.getBoundingClientRect().top + window.scrollY - offset) });
-        }
+    if (!routeFocus) return;
+    const frame = requestAnimationFrame(() => {
+      if (routeFocus.target === "question") {
         document.getElementById("question-heading")?.focus({ preventScroll: true });
-      }),
-    );
+        return;
+      }
+      window.scrollTo({ top: 0 });
+      const target = routeFocus.target === "guide" ? document.getElementById("guide-heading") : routePanelRef.current;
+      target?.focus({ preventScroll: true });
+    });
     return () => cancelAnimationFrame(frame);
-  }, [guideKey]);
+  }, [routeFocus]);
+
+  // Remember whether Path guide was open, so a reload comes back to it (other routes start at Start here).
+  const routeRestored = useRef(false);
+  useEffect(() => {
+    if (routeRestored.current) return;
+    routeRestored.current = true;
+    try {
+      setFrameMode(rememberedRoute(window.localStorage.getItem(ROUTE_STORAGE_KEY)));
+    } catch {
+      // Storage blocked: start at Start here.
+    }
+  }, []);
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(ROUTE_STORAGE_KEY, frameMode);
+    } catch {
+      // Storage blocked: nothing to remember.
+    }
+  }, [frameMode]);
 
   useLayoutEffect(() => {
     const frames = framesRef.current;
@@ -506,7 +514,8 @@ export function CheckerApp() {
     const observer = new IntersectionObserver(([entry]) => setLibraryStuck(!entry.isIntersecting));
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, []);
+    // The Path library (and its sentinel) is only on the page in Path guide.
+  }, [frameMode]);
 
   useEffect(() => {
     if (!modalId && !purposeOpen && !promptOpen && !owedDialog && !checklistPanelOpen) return;
@@ -635,6 +644,7 @@ export function CheckerApp() {
     changeConfirmed([]);
     setQuoteDraft(null);
     setFrameMode("start");
+    setDockCollapsed(true);
     loadBlank();
   }
 
@@ -839,9 +849,8 @@ export function CheckerApp() {
 
   const dialogOpen = Boolean(promptOpen || purposeOpen || modalId || owedDialog || checklistPanelOpen);
   const pageKeys = !dialogOpen;
-  const dockShowsExpand = dockCollapsed;
-  const checklistShowsExpand = !checklistOpen && !dockShowsExpand;
-  const headerShowsExpand = topCollapsed && !dockShowsExpand && !checklistShowsExpand;
+  const dockShown = showsPath(frameMode) && !dockCollapsed;
+  const headerShowsExpand = topCollapsed;
   const showAdd = Boolean(selected && repeatable && stored?.answerId === "yes" && !dockCollapsed);
   const answerFormOpen = Boolean(
     selected?.kind === "question" &&
@@ -863,8 +872,8 @@ export function CheckerApp() {
   const showInfoTab = Boolean(selected?.tipId);
   // "w" hides or shows the chart widget (magnifier or overview map), so answer letters skip it.
   const choiceTaken = new Set<string>(["e", "i", "f", "t", "c", "l", "w"]);
-  if (!dockCollapsed || checklistOpen) choiceTaken.add("h");
-  if (dockShowsExpand || checklistShowsExpand || headerShowsExpand) choiceTaken.add("x");
+  if (dockShown) choiceTaken.add("h");
+  if (headerShowsExpand) choiceTaken.add("x");
   if (showAdd) choiceTaken.add("d");
   if (showTextAnswer || showNumberAnswer) choiceTaken.add("u");
   if (showAnswerTab) choiceTaken.add("a");
@@ -888,8 +897,7 @@ export function CheckerApp() {
   useShortcut("import", "i", "Import", 0, () => importInput.current?.click(), pageKeys);
   useShortcut("about", "b", "About", 1, () => setPurposeOpen(true), pageKeys && !topCollapsed);
   useShortcut("header-expand", "x", "Expand", 1, () => setTopCollapsed(false), pageKeys && headerShowsExpand);
-  useShortcut("dock-toggle", dockCollapsed ? "x" : "h", dockCollapsed ? "Expand" : "Hide", dockCollapsed ? 1 : 0, () => (dockCollapsed ? expandDock() : collapseDock()), pageKeys);
-  useShortcut("checklist-toggle", checklistOpen ? "h" : "x", checklistOpen ? "Hide" : "Expand", checklistOpen ? 0 : 1, () => (checklistOpen ? setChecklistOpen(false) : openChecklist()), pageKeys && (checklistOpen || checklistShowsExpand));
+  useShortcut("dock-toggle", "h", "Hide", 0, collapseDock, pageKeys && dockShown);
   useShortcut("answer-tab", "a", "Answer", 0, () => setDockTab("answer"), pageKeys && showAnswerTab && !dockCollapsed);
   useShortcut("info-tab", "n", "Information", 1, () => setDockTab("info"), pageKeys && showInfoTab && !dockCollapsed);
   useShortcut("comments-tab", "o", "Comments", 1, () => setDockTab("comments"), pageKeys && Boolean(selected) && !dockCollapsed);
@@ -979,148 +987,688 @@ export function CheckerApp() {
       </header>
 
       <main ref={mainRef} className="flex w-full flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
-        <div ref={librarySentinel} className="h-px" aria-hidden="true" />
-        <div className="library-stack">
-        <section aria-labelledby="cases-heading" className="path-library">
-          <div className="flex flex-wrap items-center gap-3 rounded-md border border-stone-300 bg-[#fffdf8] px-4 py-3">
-            {libraryStuck || topCollapsed ? (
-              <div className="path-library-identity">
-                {/* The page's only h1 lives in the header; when the header is collapsed this compact title takes that role. */}
-                {topCollapsed ? (
-                  <h1 className="font-display text-lg text-stone-900">Tax Final Confirmation</h1>
-                ) : (
-                  <p className="font-display text-lg text-stone-900">Tax Final Confirmation</p>
-                )}
-
-                {topCollapsed ? (
-                  <button type="button" className="btn-secondary" onClick={() => setTopCollapsed(false)}><ShortcutText text="Expand" index={headerShowsExpand ? 1 : -1} /></button>
-                ) : null}
+        {showsPath(frameMode) ? (
+          <>
+          <section className="guide-intro" aria-labelledby="guide-heading">
+            <h2 id="guide-heading" tabIndex={-1} className="font-display text-2xl text-stone-900">
+              <span className="flow-step" aria-hidden="true">
+                2c
+              </span>
+              <span className="sr-only">Step 2c, </span>
+              <span className="route-lead">{ROUTE_LEADS.guide}</span> Path guide
+            </h2>
+            <p className="panel-lede">{PANEL_LEDES.guide}</p>
+            {auditHint ? (
+              <p className="sorter-reminder" role="status">
+                <span>{auditHint}</span>
+                <button type="button" onClick={() => setAuditHint(null)}>Dismiss</button>
+              </p>
+            ) : null}
+            {sorterReminder ? (
+              <p className="sorter-reminder" role="status">
+                <span>
+                  Open this codebase in Cursor and invoke the skill tax-document-classification.
+                  {suggestSummaries ? ` ${SUMMARIES_SKILL_NOTE}` : ""}
+                </span>
+                <button type="button" onClick={() => setSorterReminder(false)}>Dismiss</button>
+              </p>
+            ) : null}
+            {open.length ? (
+              <div className="flow-actions">
+                <button type="button" className="btn-secondary" onClick={() => answerNext(open[0])}>
+                  Answer next: {getNode(open[0]).title}
+                </button>
               </div>
             ) : null}
-            <h2 id="cases-heading" className="font-display text-2xl text-stone-900">
-              Path library
-            </h2>
-            <label className="ml-auto flex items-center gap-2 text-sm font-medium text-stone-700" htmlFor="tax-year-select">
-              Tax year
-              <select
-                id="tax-year-select"
-                className="rounded-md border border-stone-300 bg-white px-3 py-2 text-stone-900"
-                value={isTaxYearId(yearAnswer ?? "") ? yearAnswer : ""}
-                onChange={(event) => changeTaxYear(event.target.value)}
-              >
-                {isTaxYearId(yearAnswer ?? "") ? null : <option value="" disabled>Not selected</option>}
-                {TAX_YEARS.map((year) => (
-                  <option key={year.id} value={year.id}>
-                    {year.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex items-center gap-2 text-sm font-medium text-stone-700" htmlFor="case-library">
-              Open an example
-              <select
-                id="case-library"
-                className="rounded-md border border-stone-300 bg-white px-3 py-2 text-stone-900"
-                value={session.caseStudyId ?? "blank"}
+          </section>
+          <div ref={librarySentinel} className="h-px" aria-hidden="true" />
+          <div className="library-stack">
+          <section aria-labelledby="cases-heading" className="path-library">
+            <div className="flex flex-wrap items-center gap-3 rounded-md border border-stone-300 bg-[#fffdf8] px-4 py-3">
+              {libraryStuck || topCollapsed ? (
+                <div className="path-library-identity">
+                  {/* The page's only h1 lives in the header; when the header is collapsed this compact title takes that role. */}
+                  {topCollapsed ? (
+                    <h1 className="font-display text-lg text-stone-900">Tax Final Confirmation</h1>
+                  ) : (
+                    <p className="font-display text-lg text-stone-900">Tax Final Confirmation</p>
+                  )}
+
+                  {topCollapsed ? (
+                    <button type="button" className="btn-secondary" onClick={() => setTopCollapsed(false)}><ShortcutText text="Expand" index={headerShowsExpand ? 1 : -1} /></button>
+                  ) : null}
+                </div>
+              ) : null}
+              <h2 id="cases-heading" className="font-display text-2xl text-stone-900">
+                Path library
+              </h2>
+              <label className="ml-auto flex items-center gap-2 text-sm font-medium text-stone-700" htmlFor="tax-year-select">
+                Tax year
+                <select
+                  id="tax-year-select"
+                  className="rounded-md border border-stone-300 bg-white px-3 py-2 text-stone-900"
+                  value={isTaxYearId(yearAnswer ?? "") ? yearAnswer : ""}
+                  onChange={(event) => changeTaxYear(event.target.value)}
+                >
+                  {isTaxYearId(yearAnswer ?? "") ? null : <option value="" disabled>Not selected</option>}
+                  {TAX_YEARS.map((year) => (
+                    <option key={year.id} value={year.id}>
+                      {year.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex items-center gap-2 text-sm font-medium text-stone-700" htmlFor="case-library">
+                Open an example
+                <select
+                  id="case-library"
+                  className="rounded-md border border-stone-300 bg-white px-3 py-2 text-stone-900"
+                  value={session.caseStudyId ?? "blank"}
+                  onChange={(event) => {
+                    if (event.target.value === "blank") loadBlank();
+                    else loadCase(event.target.value);
+                  }}
+                >
+                  <option value="blank">Start blank</option>
+                  {caseStudies.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button type="button" className="btn-secondary" onClick={exportChart}>
+                <ShortcutText text="Export" index={0} />
+              </button>
+              <button type="button" className="btn-secondary" onClick={() => importInput.current?.click()}>
+                <ShortcutText text="Import" index={0} />
+              </button>
+              <button type="button" className="btn-secondary" onClick={startOver}>
+                Start over
+              </button>
+              <input
+                ref={importInput}
+                type="file"
+                accept="application/json,.json"
+                className="hidden"
+                aria-label="Import a chart JSON file"
                 onChange={(event) => {
-                  if (event.target.value === "blank") loadBlank();
-                  else loadCase(event.target.value);
+                  const file = event.target.files?.[0];
+                  event.target.value = "";
+                  if (file) void importChart(file);
                 }}
-              >
-                <option value="blank">Start blank</option>
-                {caseStudies.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.title}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button type="button" className="btn-secondary" onClick={exportChart}>
-              <ShortcutText text="Export" index={0} />
-            </button>
-            <button type="button" className="btn-secondary" onClick={() => importInput.current?.click()}>
-              <ShortcutText text="Import" index={0} />
-            </button>
-            <button type="button" className="btn-secondary" onClick={startOver}>
-              Start over
-            </button>
-            <input
-              ref={importInput}
-              type="file"
-              accept="application/json,.json"
-              className="hidden"
-              aria-label="Import a chart JSON file"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                event.target.value = "";
-                if (file) void importChart(file);
-              }}
-            />
+              />
+            </div>
+            <p className="mt-1 px-1 text-xs text-stone-600">Answers, comments, and the quote save in this browser as you go. Export downloads a copy you can import elsewhere.</p>
+            {importError ? (
+              <p className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950" role="status">
+                {importError}
+              </p>
+            ) : null}
+          </section>
+          <div ref={setChartToolsNode} className="chart-tools-bar" />
           </div>
-          <p className="mt-1 px-1 text-xs text-stone-600">Answers, comments, and the quote save in this browser as you go. Export downloads a copy you can import elsewhere.</p>
-          {importError ? (
-            <p className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950" role="status">
-              {importError}
+          {study ? (
+            <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950" role="status">
+              {study.title} is a saved set of answers, not tax advice. Unanswered items stay on the unknown path or stay open. The info buttons on the chart still open the same notes.
             </p>
           ) : null}
-        </section>
-        <div ref={setChartToolsNode} className="chart-tools-bar" />
-        </div>
-        {study ? (
-          <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950" role="status">
-            {study.title} is a saved set of answers, not tax advice. Unanswered items stay on the unknown path or stay open. The info buttons on the chart still open the same notes.
-          </p>
-        ) : null}
 
-        <section ref={chartSectionRef} aria-label="What this path turns up" className="min-w-0">
-          {!topCollapsed ? <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-            <h2 id="chart-heading" className="font-display text-2xl text-stone-900">
-              What this path turns up
-            </h2>
-              <p className="text-sm text-stone-600">
-                Click a box to answer it. The <span className="info-dot info-dot-inline">i</span> opens a note and does not answer the question.
+          <section aria-label="What this path turns up" className="min-w-0">
+            {!topCollapsed ? <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+              <h2 id="chart-heading" className="font-display text-2xl text-stone-900">
+                What this path turns up
+              </h2>
+                <p className="text-sm text-stone-600">
+                  Click a box to answer it. The <span className="info-dot info-dot-inline">i</span> opens a note and does not answer the question.
+                </p>
+            </div> : null}
+            <MermaidView
+              source={source}
+              nodeIds={view.ids}
+              nodeTips={nodeTips}
+              edgeTips={visibleEdgeTips}
+              selectedId={dockCollapsed ? null : selectedId}
+              commentedNodeIds={visibleCommentNodeIds(session)}
+              onSelect={selectNode}
+              onTip={showTip}
+              instancePagers={instancePagers}
+              onSelectInstance={switchInstance}
+              levelNodes={levelNodes.map((id) => {
+                const group = view.groups.find((item) => item.id === id);
+                return { id, title: group ? `${group.title} (${group.count})` : getNode(id).title };
+              })}
+              levelExpanded={levelExpanded}
+              onToggleLevel={() => setLevelExpanded((expanded) => !expanded)}
+              shortcutsEnabled={pageKeys}
+              edges={view.edges}
+              fitFocus={fitFocus}
+              toolsNode={chartToolsNode}
+            />
+          </section>
+
+          <FlowNext current="guide" auditDisabled={auditState.disabled} onOpen={showFrame} onOpenAudit={() => void openAuditTab()} />
+          </>
+        ) : (
+          <section ref={routePanelRef} className="route-panel" aria-labelledby="check-heading" tabIndex={-1}>
+          {auditHint ? (
+            <p className="sorter-reminder" role="status">
+              <span>{auditHint}</span>
+              <button type="button" onClick={() => setAuditHint(null)}>Dismiss</button>
+            </p>
+          ) : null}
+          {sorterReminder ? (
+            <p className="sorter-reminder" role="status">
+              <span>
+                Open this codebase in Cursor and invoke the skill tax-document-classification.
+                {suggestSummaries ? ` ${SUMMARIES_SKILL_NOTE}` : ""}
+              </span>
+              <button type="button" onClick={() => setSorterReminder(false)}>Dismiss</button>
+            </p>
+          ) : null}
+          {frameMode === "start" ? (
+            <StartPanel
+              overview={owedReports.overview}
+              reports={owedReports.state}
+              auditDisabled={auditState.disabled}
+              checklist={checklistStats}
+              openCount={open.length}
+              nextQuestion={open.length ? getNode(open[0]).title : null}
+              onOpen={showFrame}
+              onOpenAudit={() => void openAuditTab()}
+              onAnswerNext={() => answerNext(open[0])}
+              onOpenChecklist={() => setChecklistPanelOpen(true)}
+            />
+          ) : frameMode === "costs" ? (
+            <>
+              <div className="walkthrough-open">
+                <button
+                  type="button"
+                  aria-expanded={walkthroughOpen}
+                  aria-controls="freetaxusa-walkthrough"
+                  onClick={() => setWalkthroughOpen((open) => !open)}
+                >
+                  {walkthroughOpen ? "Hide FreeTaxUSA Walkthrough" : "FreeTaxUSA Walkthrough"}
+                </button>
+                {walkthroughOpen ? (
+                  <div id="freetaxusa-walkthrough" className="walkthrough-body" role="region" aria-label="FreeTaxUSA Walkthrough">
+                    <p>
+                      After you upload the files and they are sorted, open this codebase in Cursor and invoke the skill freetaxusa-walkthrough.
+                    </p>
+                    <p>
+                      The Cursor harness can open a browser tab inside Cursor and read the FreeTaxUSA screen while you fill the forms. It tells you what to do next, gives you the numbers you need, and names the file each number comes from.
+                    </p>
+                    <p>
+                      It asks you when that step is done, or watches the screen for when you have done it.
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+              <h2 id="check-heading" className="font-display text-2xl text-stone-900">
+                Tax Pro Costs
+              </h2>
+              <p className="panel-lede">{PANEL_LEDES.costs}</p>
+              {owedReports.overview ? (
+                <p className="flow-cue mt-1">
+                  {owedReports.overview.summaries
+                    ? "Summaries.md is in sorter/stage, ready to hand over."
+                    : "No Summaries.md yet: open this codebase in Cursor and invoke the skill tax-document-summaries."}
+                </p>
+              ) : null}
+              <p className="mt-2 text-sm text-stone-600">
+                Published prices for preparing a return of this shape. These are not tax figures and not a quote unless you enter one below or a case study loaded one.
               </p>
-          </div> : null}
-          <MermaidView
-            source={source}
-            nodeIds={view.ids}
-            nodeTips={nodeTips}
-            edgeTips={visibleEdgeTips}
-            selectedId={selectedId}
-            commentedNodeIds={visibleCommentNodeIds(session)}
-            onSelect={selectNode}
-            onTip={showTip}
-            instancePagers={instancePagers}
-            onSelectInstance={switchInstance}
-            levelNodes={levelNodes.map((id) => {
-              const group = view.groups.find((item) => item.id === id);
-              return { id, title: group ? `${group.title} (${group.count})` : getNode(id).title };
-            })}
-            levelExpanded={levelExpanded}
-            onToggleLevel={() => setLevelExpanded((expanded) => !expanded)}
-            shortcutsEnabled={pageKeys}
-            edges={view.edges}
-            fitFocus={fitFocus}
-            toolsNode={chartToolsNode}
-          />
-        </section>
+              <fieldset className="quote-entry">
+                <legend>Your preparation quote</legend>
+                <label htmlFor="quote-preparer">
+                  Preparer or firm
+                  <input
+                    id="quote-preparer"
+                    type="text"
+                    value={session.quotePreparer ?? ""}
+                    placeholder="Who quoted this return"
+                    onChange={(event) => {
+                      changeQuote(session.quote, event.target.value);
+                    }}
+                  />
+                </label>
+                <label htmlFor="quote-amount">
+                  Quote in dollars
+                  <input
+                    id="quote-amount"
+                    type="text"
+                    inputMode="decimal"
+                    value={quoteDraft ?? (session.quote == null ? "" : String(session.quote))}
+                    placeholder="$975"
+                    aria-invalid={quoteDraft != null && quoteDraft.trim() !== "" && parseQuoteAmount(quoteDraft) == null}
+                    onChange={(event) => {
+                      const text = event.target.value;
+                      setQuoteDraft(text);
+                      changeQuote(parseQuoteAmount(text), session.quotePreparer);
+                    }}
+                    onBlur={() => setQuoteDraft(null)}
+                  />
+                </label>
+                {session.quote != null || session.quotePreparer ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuoteDraft(null);
+                      changeQuote(null, null);
+                    }}
+                  >
+                    Clear quote
+                  </button>
+                ) : null}
+                {quoteDraft != null && quoteDraft.trim() !== "" && parseQuoteAmount(quoteDraft) == null ? (
+                  <p className="text-rust" role="alert">Enter a dollar amount such as 975 or $1,250.</p>
+                ) : null}
+                <p>Saved in this browser and with the chart session. Importing a session file replaces the saved quote.</p>
+              </fieldset>
+              <p className="mt-2 text-sm text-stone-800" role="note">
+                This is only for the forms and schedules reached so far, not a price for a finished return.
+              </p>
+              {open.length > 0 ? (
+                <p className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950" role="status">
+                  Your path is not complete yet: {open.length} {open.length === 1 ? "decision remains" : "decisions remain"}. Finish the open boxes for a more accurate comparison.
+                </p>
+              ) : (
+                <p className="mt-3 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-950" role="status">
+                  This path is fully clicked through. The comparison reflects the answers shown, subject to the notes on each price.
+                </p>
+              )}
+              {cost.framing ? <p className="mt-3 text-sm text-stone-800">{cost.framing}</p> : null}
+              {cost.quoteNote ? <p className="mt-2 text-sm font-medium text-stone-900">{cost.quoteNote}</p> : null}
+              {cost.diyComparison ? <p className="mt-2 text-sm text-stone-800">{cost.diyComparison}</p> : null}
+              {cost.estimate ? (
+                <div className="pro-estimate" role="note" aria-label="Estimated tax pro fee">
+                  <p className="pro-estimate-label">Estimate · not a quote</p>
+                  <p className="pro-estimate-range">
+                    Tax pro fee for the forms reached so far:{" "}
+                    {cost.estimate.low === cost.estimate.high
+                      ? `about $${cost.estimate.low.toLocaleString("en-US")}`
+                      : `$${cost.estimate.low.toLocaleString("en-US")}–$${cost.estimate.high.toLocaleString("en-US")}`}
+                  </p>
+                  {cost.estimate.quotePosition && session.quote != null ? (
+                    <p className="text-sm font-medium text-stone-900">
+                      {cost.estimate.quotePosition === "within"
+                        ? `The $${session.quote.toLocaleString("en-US")} quote is inside this ${cost.estimate.low === cost.estimate.high ? "estimate" : "range"}.`
+                        : `The $${session.quote.toLocaleString("en-US")} quote is ${cost.estimate.quotePosition} this ${cost.estimate.low === cost.estimate.high ? "estimate" : "range"}.`}
+                    </p>
+                  ) : null}
+                  <details className="estimate-breakdown">
+                    <summary>How this estimate adds up</summary>
+                    <table>
+                      <caption className="sr-only">NSA 2023 averages and the same amounts raised by CPI-U</caption>
+                      <thead>
+                        <tr>
+                          <th scope="col">Piece</th>
+                          <th scope="col">NSA 2023</th>
+                          <th scope="col">With inflation (×{cost.estimate.cpiFactor.toFixed(3)})</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {cost.estimate.parts.map((part) => (
+                          <tr key={part.label}>
+                            <th scope="row">{part.label}</th>
+                            <td>{dollarSpan(part.y2023.low, part.y2023.high)}</td>
+                            <td>{dollarSpan(part.adjusted.low, part.adjusted.high)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr>
+                          <th scope="row">Estimate</th>
+                          <td />
+                          <td>{dollarSpan(cost.estimate.low, cost.estimate.high)}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                    <p className="text-xs text-stone-600">Each line is rounded on its own, so the lines can add up a dollar or two away from the estimate, which is rounded once from the full total.</p>
+                  </details>
+                  <p className="mt-1 text-sm text-stone-700">{cost.estimate.note}</p>
+                  <p className="mt-1 text-sm text-stone-700">
+                    {cost.estimate.inflationThrough}
+                    {cost.estimate.inflationHint ? <span className="price-stale"> {cost.estimate.inflationHint}</span> : null}
+                  </p>
+                  <p className="mt-1 flex flex-wrap gap-x-3 text-sm">
+                    {cost.estimate.citations.map((citation) => (
+                      <a key={citation.url} className="text-rust underline-offset-2 hover:underline" href={citation.url} target="_blank" rel="noreferrer">
+                        {citation.title}
+                      </a>
+                    ))}
+                  </p>
+                </div>
+              ) : null}
+              {cost.rows.length === 0 ? (
+                <p className="mt-3 text-stone-700">The comparison appears once a year is selected.</p>
+              ) : (
+                <ul className="mt-3 flex flex-col gap-3">
+                  {cost.rows.map((row) => (
+                    <li key={row.id} className="rounded-md border border-stone-200 bg-[#fffdf8] px-3 py-2">
+                      <div className="flex items-baseline justify-between gap-3">
+                        <p className="font-medium text-stone-900">{row.vendor}</p>
+                        <p className="font-display text-xl text-stone-900">{row.amountLabel}</p>
+                      </div>
+                      <p className="text-sm text-stone-800">{row.label}</p>
+                      <p className="mt-1 text-xs uppercase tracking-wide text-stone-500">
+                        {row.yearLabel}
+                        {row.unverified ? " · Price unverified" : ""}
+                        {row.checkedLabel ? ` · Last checked ${row.checkedLabel}` : ""}
+                      </p>
+                      {row.staleDays != null ? (
+                        <p className="price-stale" role="status">
+                          Last checked {row.staleDays} days ago, past the {cost.staleAfterDays}-day limit. Recheck the source before relying on this price.
+                        </p>
+                      ) : null}
+                      <p className="mt-1 text-sm text-stone-700">{row.note}</p>
+                      {row.citation ? (
+                        <a className="text-sm text-rust underline-offset-2 hover:underline" href={row.citation.url} target="_blank" rel="noreferrer">
+                          {row.citation.title}
+                        </a>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          ) : frameMode === "sorter" ? (
+            <DocumentSorter
+              onUploaded={() => setSorterReminder(true)}
+              onSuggestSummaries={setSuggestSummaries}
+              revealed={session.revealed}
+              onFiles={setStagedPaths}
+              onPdfHints={setPdfHints}
+              onStatus={owedReports.accept}
+              lede={PANEL_LEDES.sorter}
+            />
+          ) : (
+            <OwedAuditPanel
+              state={owedReports.state}
+              onRefresh={() => void owedReports.refresh()}
+              onDialog={setOwedDialog}
+              lede={PANEL_LEDES.audit}
+            />
+          )}
+          {frameMode !== "start" ? (
+            <FlowNext current={frameMode} auditDisabled={auditState.disabled} onOpen={showFrame} onOpenAudit={() => void openAuditTab()} />
+          ) : null}
+          </section>
+        )}
 
-        <div ref={framesRef} className={checklistOpen && !dockCollapsed ? "bottom-frames is-paired" : "bottom-frames"}>
-        <section
-          className={checklistOpen ? "checklist-frame" : "checklist-frame is-collapsed"}
-          aria-labelledby="check-heading"
-        >
+        {/* Fixed to the bottom of the screen: the answer / comments panel (Path guide, after a box is clicked) over the steps bar. */}
+        <div ref={framesRef} className="bottom-frames">
+        {showsPath(frameMode) && !dockCollapsed ? (
+          <aside
+            ref={dockRef}
+            className="question-dock"
+            aria-label="Selected chart node"
+            style={{ height: dockHeight ?? undefined, maxHeight: dockHeight ?? undefined, ["--dock-scale" as string]: dockScale }}
+          >
+            <button
+              type="button"
+              className="question-dock-resize"
+              aria-label="Resize the answer and comments panel"
+              onPointerDown={resizeDock}
+              onKeyDown={nudgeDock}
+            />
+            <button
+              type="button"
+              className="question-dock-collapse"
+              aria-label="Hide the answer and comments panel"
+              onClick={collapseDock}
+            >
+              <ShortcutText text="Hide" index={0} />
+            </button>
+            <div className="question-dock-inner flex flex-col gap-4">
+              <section className="panel" aria-labelledby="question-heading">
+                <div className="flex items-start justify-between gap-3">
+                  <h2 id="question-heading" tabIndex={-1} className="font-display text-2xl text-stone-900">
+                    {selected ? selected.title : "Pick a box"}
+                  </h2>
+                  <div className="flex items-center gap-2">
+                    {selected ? (
+                      <ShortcutTip label="Ask AI" index={1}>
+                      <button type="button" className="ai-open" aria-label={`Ask AI about ${selected.title}`} onClick={() => setPromptOpen(true)}>
+                        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                          <path fill="currentColor" d="M8 1.2 9.1 6 14 7.2 9.1 8.4 8 13.2 6.9 8.4 2 7.2 6.9 6z" />
+                        </svg>
+                      </button>
+                      </ShortcutTip>
+                    ) : null}
+                    {repeatable && stored?.answerId === "yes" ? (
+                      <ShortcutTip label="Add another" index={1}>
+                      <button type="button" className="add-instance" onClick={addAnotherInstance} aria-label={`Add another ${repeatable.singular}`} title={`Add another ${repeatable.singular}`}>
+                        +
+                      </button>
+                      </ShortcutTip>
+                    ) : null}
+                  </div>
+                </div>
+                {(() => {
+                  const scope = selected ? instanceScope(selected.id) ?? (repeatableNodes[selected.id] ? selected.id : null) : null;
+                  const names = scope ? session.instances[scope] ?? [] : [];
+                  if (!scope || names.length < 2) return null;
+                  const active = session.activeInstance[scope] ?? 0;
+                  return (
+                    <div className="instance-switch" role="tablist" aria-label="Which record this path is checking" onKeyDown={onTabListKeyDown}>
+                      {names.map((name, index) => (
+                        <button
+                          key={`${scope}-${index}`}
+                          type="button"
+                          role="tab"
+                          aria-selected={index === active}
+                          tabIndex={index === active ? 0 : -1}
+                          className={index === active ? "year-btn year-btn-on" : "year-btn"}
+                          onClick={() => switchInstance(scope, index)}
+                        >
+                          {name.trim() || `Record ${index + 1}`}
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })()}
+                {selected?.kind === "check" ? (
+                  <>
+                    <p className="mt-2 text-stone-800">{suggestionText(selected.id, session) ?? selected.help ?? selected.chart}</p>
+                    {suggestionText(selected.id, session) && selected.help ? (
+                      <p className="mt-2 text-sm text-stone-600">{selected.help}</p>
+                    ) : null}
+                    <p className="mt-2 text-sm text-stone-600">
+                      This is a line to verify on the prepared return. It is not an instruction to start the form.
+                    </p>
+                  </>
+                ) : null}
+                {selected ? (
+                  <div className="dock-tabs" role="tablist" aria-label="Answer, information, or comments" onKeyDown={onTabListKeyDown}>
+                    {asksForAnswer(selected) ? (
+                      <button type="button" role="tab" aria-selected={dockTab === "answer"} tabIndex={focusTab === "answer" ? 0 : -1} className={dockTab === "answer" ? "dock-tab dock-tab-on" : "dock-tab"} onClick={() => setDockTab("answer")}>
+                        <ShortcutText text="Answer" index={0} />
+                      </button>
+                    ) : null}
+                    {selected.tipId ? (
+                      <button type="button" role="tab" aria-selected={dockTab === "info"} tabIndex={focusTab === "info" ? 0 : -1} className={dockTab === "info" ? "dock-tab dock-tab-on" : "dock-tab"} onClick={() => setDockTab("info")}>
+                        <ShortcutText text="Information" index={1} />
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={dockTab === "comments"}
+                      tabIndex={focusTab === "comments" ? 0 : -1}
+                      aria-label={selectedComment?.trim() ? "Comments, this box has a comment" : "Comments"}
+                      className={`dock-tab${dockTab === "comments" ? " dock-tab-on" : ""}${selectedComment?.trim() ? " dock-tab-noted" : ""}`}
+                      onClick={() => setDockTab("comments")}
+                    >
+                      <ShortcutText text="Comments" index={1} />
+                      {selectedComment?.trim() ? <span className="dock-tab-mark" aria-hidden="true" /> : null}
+                    </button>
+                  </div>
+                ) : null}
+                {selected && dockTab === "comments" ? (
+                  <form className="mt-3 flex flex-col gap-2" onSubmit={(event) => event.preventDefault()}>
+                    <label className="text-sm font-medium text-stone-700" htmlFor="node-comment">
+                      Comment on this box
+                    </label>
+                    <textarea
+                      id="node-comment"
+                      className="min-h-24 rounded-md border border-stone-300 bg-white px-3 py-2 text-stone-900"
+                      value={selectedComment ?? ""}
+                      placeholder="Add a comment"
+                      onChange={(event) => {
+                        const text = event.target.value;
+                        setSession((current) => setNodeComment(current, selected.id, text));
+                      }}
+                    />
+                  </form>
+                ) : selected?.tipId && dockTab === "info" ? (
+                  <DockInfo tipId={selected.tipId} session={session} />
+                ) : selected && asksForAnswer(selected) ? (
+                  <>
+                    <p className="mt-2 text-stone-800">{selected.prompt}</p>
+                    {selected.help ? <p className="mt-2 text-sm text-stone-600">{selected.help}</p> : null}
+                    {selected.links?.length ? (
+                      <ul className="mt-3 flex flex-col gap-2">
+                        {selected.links.map((link) => (
+                          <li key={link.href}>
+                            <a className="text-sm text-rust underline-offset-2 hover:underline" href={link.href} target="_blank" rel="noreferrer">
+                              {link.label}
+                            </a>
+                            <p className="text-sm text-stone-600">{link.detail}</p>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    {selected.numberInputs ? (
+                      <NumberEntry
+                        key={`${selected.id}:${stored?.text ?? ""}`}
+                        nodeId={selected.id}
+                        fields={selected.numberInputs.fields}
+                        initial={stored?.text ?? ""}
+                        enabled={pageKeys && showNumberAnswer}
+                        onSubmit={(text) => answer(selected.id, selected.numberInputs!.answerId, text)}
+                      />
+                    ) : null}
+                    {selected.textInput ? (
+                      <form
+                        className="mt-3 flex flex-col gap-2"
+                        onSubmit={(event) => {
+                          event.preventDefault();
+                          const text = draft.trim();
+                          if (!text) return;
+                          answer(selected.id, selected.textInput!.answerId, text);
+                        }}
+                      >
+                        <label className="text-sm font-medium text-stone-700" htmlFor="node-text">
+                          From the prepared return
+                        </label>
+                        <input
+                          id="node-text"
+                          className="rounded-md border border-stone-300 bg-white px-3 py-2 text-stone-900"
+                          value={draft}
+                          placeholder={selected.textInput.placeholder}
+                          onChange={(event) => setDraft(event.target.value)}
+                        />
+                        <button type="submit" className="btn-primary">
+                          <ShortcutText text="Use this answer" index={0} />
+                        </button>
+                      </form>
+                    ) : null}
+                    <div className="mt-3 flex flex-col gap-2">
+                      {selected.answers?.map((choice) => {
+                        const pressed = stored?.answerId === choice.id && !stored.text;
+                        return (
+                          <AnswerChoice
+                            key={choice.id}
+                            choiceId={choice.id}
+                            label={choice.label}
+                            pressed={pressed}
+                            className={choice.id === "unknown" ? "btn-unknown" : pressed ? "btn-primary" : "btn-secondary"}
+                            shortcut={choiceShortcut.get(choice.id) ?? null}
+                            onPick={() => answer(selected.id, choice.id)}
+                          />
+                        );
+                      })}
+                    </div>
+                    {repeatable && stored?.answerId === "yes" ? (
+                      <div className="mt-4 border-t border-stone-200 pt-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <h3 className="text-sm font-semibold text-stone-800">
+                            {instances.length} {instances.length === 1 ? repeatable.singular : repeatable.plural}
+                          </h3>
+                          <button type="button" className="text-sm text-rust underline-offset-2 hover:underline" onClick={addAnotherInstance}>
+                            + <ShortcutText text="Add another" index={1} />
+                          </button>
+                        </div>
+                        <p className="mt-1 text-sm text-stone-600">Name each record so you can verify it separately. The chart keeps the shared tax path in one place.</p>
+                        <div className="mt-2 flex flex-col gap-2">
+                          {instances.map((instance, index) => (
+                            <div key={`${selected.id}-${index}`} className="flex items-center gap-2">
+                              <input
+                                className="min-w-0 flex-1 rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900"
+                                aria-label={`${repeatable.singular} ${index + 1} name`}
+                                value={instance}
+                                onChange={(event) => setSession((current) => renameInstance(current, selected.id, index, event.target.value))}
+                              />
+                              {instances.length > 1 ? (
+                                <button type="button" className="btn-secondary" onClick={() => setSession((current) => removeInstance(current, selected.id, index))} aria-label={`Remove ${instance || `${repeatable.singular} ${index + 1}`}`}>
+                                  Remove
+                                </button>
+                              ) : null}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                  </>
+                ) : selected?.tipId ? (
+                  <DockInfo tipId={selected.tipId} session={session} />
+                ) : !selected ? (
+                  <p className="mt-2 text-stone-700">Choose a box on the chart.</p>
+                ) : null}
+                {open.length > 0 ? (
+                  <div className="mt-4 border-t border-stone-200 pt-3">
+                    <h3 className="text-sm font-semibold text-stone-800">Still open</h3>
+                    <ul className="mt-2 flex flex-col gap-1">
+                      {open.map((id) => (
+                        <li key={id}>
+                          <button type="button" className="text-left text-sm text-rust underline-offset-2 hover:underline" onClick={() => selectNode(id)}>
+                            {getNode(id).title}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </section>
+
+              {session.revealed.includes("deduction_result") ? (
+                <section className="panel" aria-labelledby="deduction-heading">
+                  <h2 id="deduction-heading" className="font-display text-2xl text-stone-900">
+                    Standard vs itemized
+                  </h2>
+                  <ul className="mt-2 flex list-disc flex-col gap-2 pl-5 text-sm text-stone-800">
+                    {deduction.map((line) => (
+                      <li key={line}>{line}</li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+            </div>
+          </aside>
+        ) : null}
+        <nav className="flow-frame" aria-label="Steps and routes">
           {/* Two rows at every width: labels on the first, each over its own button on the second. */}
           <div className="frame-bar">
-            <div className="frame-switch" role="group" aria-label="Which panel this frame shows">
+            <div className="frame-switch" role="group" aria-label="Which panel this page shows">
               {flowSegments().map((segment) => {
                 const columns = segment.tabs.map((tab) => {
                   const isAudit = tab.mode === "audit";
                   const count =
                     tab.mode === "sorter" && owedReports.overview
                       ? { shown: String(owedReports.overview.staged), spoken: `${owedReports.overview.staged} staged` }
-                      : tab.mode === "checklist" && checklistStats.total > 0
-                        ? { shown: `${checklistStats.done}/${checklistStats.total}`, spoken: `${checklistStats.done} of ${checklistStats.total} confirmed` }
+                      : tab.mode === "guide" && open.length > 0
+                        ? { shown: `${open.length} open`, spoken: `${open.length} open ${open.length === 1 ? "question" : "questions"}` }
                         : null;
                   return (
                     <div key={tab.mode} className="tab-col">
@@ -1194,540 +1742,9 @@ export function CheckerApp() {
                 ) : null}
               </button>
               <HarnessHelp />
-              <button
-                type="button"
-                className="question-dock-collapse"
-                aria-expanded={checklistOpen}
-                aria-label={checklistOpen ? "Hide this frame" : "Expand this frame"}
-                onClick={checklistOpen ? () => setChecklistOpen(false) : () => openChecklist()}
-              >
-                <ShortcutText text={checklistOpen ? "Hide" : "Expand"} index={checklistOpen || checklistShowsExpand ? (checklistOpen ? 0 : 1) : -1} />
-              </button>
             </div>
           </div>
-          {checklistOpen ? (
-            <div className="checklist-frame-inner">
-              {auditHint ? (
-                <p className="sorter-reminder" role="status">
-                  <span>{auditHint}</span>
-                  <button type="button" onClick={() => setAuditHint(null)}>Dismiss</button>
-                </p>
-              ) : null}
-              {sorterReminder ? (
-                <p className="sorter-reminder" role="status">
-                  <span>
-                    Open this codebase in Cursor and invoke the skill tax-document-classification.
-                    {suggestSummaries ? ` ${SUMMARIES_SKILL_NOTE}` : ""}
-                  </span>
-                  <button type="button" onClick={() => setSorterReminder(false)}>Dismiss</button>
-                </p>
-              ) : null}
-              {frameMode === "start" ? (
-                <StartPanel
-                  overview={owedReports.overview}
-                  reports={owedReports.state}
-                  auditDisabled={auditState.disabled}
-                  checklist={checklistStats}
-                  openCount={open.length}
-                  nextQuestion={open.length ? getNode(open[0]).title : null}
-                  onOpen={showFrame}
-                  onOpenAudit={() => void openAuditTab()}
-                  onAnswerNext={() => openGuide(open[0])}
-                />
-              ) : frameMode === "checklist" ? (
-                <>
-                  <h2 id="check-heading" className="font-display text-2xl text-stone-900">
-                    {checklistTitle(session)}
-                  </h2>
-                  <p className="panel-lede">{PANEL_LEDES.checklist}</p>
-                  {checklistBody()}
-                </>
-              ) : frameMode === "costs" ? (
-                <>
-                  <div className="walkthrough-open">
-                    <button
-                      type="button"
-                      aria-expanded={walkthroughOpen}
-                      aria-controls="freetaxusa-walkthrough"
-                      onClick={() => setWalkthroughOpen((open) => !open)}
-                    >
-                      {walkthroughOpen ? "Hide FreeTaxUSA Walkthrough" : "FreeTaxUSA Walkthrough"}
-                    </button>
-                    {walkthroughOpen ? (
-                      <div id="freetaxusa-walkthrough" className="walkthrough-body" role="region" aria-label="FreeTaxUSA Walkthrough">
-                        <p>
-                          After you upload the files and they are sorted, open this codebase in Cursor and invoke the skill freetaxusa-walkthrough.
-                        </p>
-                        <p>
-                          The Cursor harness can open a browser tab inside Cursor and read the FreeTaxUSA screen while you fill the forms. It tells you what to do next, gives you the numbers you need, and names the file each number comes from.
-                        </p>
-                        <p>
-                          It asks you when that step is done, or watches the screen for when you have done it.
-                        </p>
-                      </div>
-                    ) : null}
-                  </div>
-                  <h2 id="check-heading" className="font-display text-2xl text-stone-900">
-                    Tax Pro Costs
-                  </h2>
-                  <p className="panel-lede">{PANEL_LEDES.costs}</p>
-                  {owedReports.overview ? (
-                    <p className="flow-cue mt-1">
-                      {owedReports.overview.summaries
-                        ? "Summaries.md is in sorter/stage, ready to hand over."
-                        : "No Summaries.md yet: open this codebase in Cursor and invoke the skill tax-document-summaries."}
-                    </p>
-                  ) : null}
-                  <p className="mt-2 text-sm text-stone-600">
-                    Published prices for preparing a return of this shape. These are not tax figures and not a quote unless you enter one below or a case study loaded one.
-                  </p>
-                  <fieldset className="quote-entry">
-                    <legend>Your preparation quote</legend>
-                    <label htmlFor="quote-preparer">
-                      Preparer or firm
-                      <input
-                        id="quote-preparer"
-                        type="text"
-                        value={session.quotePreparer ?? ""}
-                        placeholder="Who quoted this return"
-                        onChange={(event) => {
-                          changeQuote(session.quote, event.target.value);
-                        }}
-                      />
-                    </label>
-                    <label htmlFor="quote-amount">
-                      Quote in dollars
-                      <input
-                        id="quote-amount"
-                        type="text"
-                        inputMode="decimal"
-                        value={quoteDraft ?? (session.quote == null ? "" : String(session.quote))}
-                        placeholder="$975"
-                        aria-invalid={quoteDraft != null && quoteDraft.trim() !== "" && parseQuoteAmount(quoteDraft) == null}
-                        onChange={(event) => {
-                          const text = event.target.value;
-                          setQuoteDraft(text);
-                          changeQuote(parseQuoteAmount(text), session.quotePreparer);
-                        }}
-                        onBlur={() => setQuoteDraft(null)}
-                      />
-                    </label>
-                    {session.quote != null || session.quotePreparer ? (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setQuoteDraft(null);
-                          changeQuote(null, null);
-                        }}
-                      >
-                        Clear quote
-                      </button>
-                    ) : null}
-                    {quoteDraft != null && quoteDraft.trim() !== "" && parseQuoteAmount(quoteDraft) == null ? (
-                      <p className="text-rust" role="alert">Enter a dollar amount such as 975 or $1,250.</p>
-                    ) : null}
-                    <p>Saved in this browser and with the chart session. Importing a session file replaces the saved quote.</p>
-                  </fieldset>
-                  <p className="mt-2 text-sm text-stone-800" role="note">
-                    This is only for the forms and schedules reached so far, not a price for a finished return.
-                  </p>
-                  {open.length > 0 ? (
-                    <p className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950" role="status">
-                      Your path is not complete yet: {open.length} {open.length === 1 ? "decision remains" : "decisions remain"}. Finish the open boxes for a more accurate comparison.
-                    </p>
-                  ) : (
-                    <p className="mt-3 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-950" role="status">
-                      This path is fully clicked through. The comparison reflects the answers shown, subject to the notes on each price.
-                    </p>
-                  )}
-                  {cost.framing ? <p className="mt-3 text-sm text-stone-800">{cost.framing}</p> : null}
-                  {cost.quoteNote ? <p className="mt-2 text-sm font-medium text-stone-900">{cost.quoteNote}</p> : null}
-                  {cost.diyComparison ? <p className="mt-2 text-sm text-stone-800">{cost.diyComparison}</p> : null}
-                  {cost.estimate ? (
-                    <div className="pro-estimate" role="note" aria-label="Estimated tax pro fee">
-                      <p className="pro-estimate-label">Estimate · not a quote</p>
-                      <p className="pro-estimate-range">
-                        Tax pro fee for the forms reached so far:{" "}
-                        {cost.estimate.low === cost.estimate.high
-                          ? `about $${cost.estimate.low.toLocaleString("en-US")}`
-                          : `$${cost.estimate.low.toLocaleString("en-US")}–$${cost.estimate.high.toLocaleString("en-US")}`}
-                      </p>
-                      {cost.estimate.quotePosition && session.quote != null ? (
-                        <p className="text-sm font-medium text-stone-900">
-                          {cost.estimate.quotePosition === "within"
-                            ? `The $${session.quote.toLocaleString("en-US")} quote is inside this ${cost.estimate.low === cost.estimate.high ? "estimate" : "range"}.`
-                            : `The $${session.quote.toLocaleString("en-US")} quote is ${cost.estimate.quotePosition} this ${cost.estimate.low === cost.estimate.high ? "estimate" : "range"}.`}
-                        </p>
-                      ) : null}
-                      <details className="estimate-breakdown">
-                        <summary>How this estimate adds up</summary>
-                        <table>
-                          <caption className="sr-only">NSA 2023 averages and the same amounts raised by CPI-U</caption>
-                          <thead>
-                            <tr>
-                              <th scope="col">Piece</th>
-                              <th scope="col">NSA 2023</th>
-                              <th scope="col">With inflation (×{cost.estimate.cpiFactor.toFixed(3)})</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {cost.estimate.parts.map((part) => (
-                              <tr key={part.label}>
-                                <th scope="row">{part.label}</th>
-                                <td>{dollarSpan(part.y2023.low, part.y2023.high)}</td>
-                                <td>{dollarSpan(part.adjusted.low, part.adjusted.high)}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                          <tfoot>
-                            <tr>
-                              <th scope="row">Estimate</th>
-                              <td />
-                              <td>{dollarSpan(cost.estimate.low, cost.estimate.high)}</td>
-                            </tr>
-                          </tfoot>
-                        </table>
-                        <p className="text-xs text-stone-600">Each line is rounded on its own, so the lines can add up a dollar or two away from the estimate, which is rounded once from the full total.</p>
-                      </details>
-                      <p className="mt-1 text-sm text-stone-700">{cost.estimate.note}</p>
-                      <p className="mt-1 text-sm text-stone-700">
-                        {cost.estimate.inflationThrough}
-                        {cost.estimate.inflationHint ? <span className="price-stale"> {cost.estimate.inflationHint}</span> : null}
-                      </p>
-                      <p className="mt-1 flex flex-wrap gap-x-3 text-sm">
-                        {cost.estimate.citations.map((citation) => (
-                          <a key={citation.url} className="text-rust underline-offset-2 hover:underline" href={citation.url} target="_blank" rel="noreferrer">
-                            {citation.title}
-                          </a>
-                        ))}
-                      </p>
-                    </div>
-                  ) : null}
-                  {cost.rows.length === 0 ? (
-                    <p className="mt-3 text-stone-700">The comparison appears once a year is selected.</p>
-                  ) : (
-                    <ul className="mt-3 flex flex-col gap-3">
-                      {cost.rows.map((row) => (
-                        <li key={row.id} className="rounded-md border border-stone-200 bg-[#fffdf8] px-3 py-2">
-                          <div className="flex items-baseline justify-between gap-3">
-                            <p className="font-medium text-stone-900">{row.vendor}</p>
-                            <p className="font-display text-xl text-stone-900">{row.amountLabel}</p>
-                          </div>
-                          <p className="text-sm text-stone-800">{row.label}</p>
-                          <p className="mt-1 text-xs uppercase tracking-wide text-stone-500">
-                            {row.yearLabel}
-                            {row.unverified ? " · Price unverified" : ""}
-                            {row.checkedLabel ? ` · Last checked ${row.checkedLabel}` : ""}
-                          </p>
-                          {row.staleDays != null ? (
-                            <p className="price-stale" role="status">
-                              Last checked {row.staleDays} days ago, past the {cost.staleAfterDays}-day limit. Recheck the source before relying on this price.
-                            </p>
-                          ) : null}
-                          <p className="mt-1 text-sm text-stone-700">{row.note}</p>
-                          {row.citation ? (
-                            <a className="text-sm text-rust underline-offset-2 hover:underline" href={row.citation.url} target="_blank" rel="noreferrer">
-                              {row.citation.title}
-                            </a>
-                          ) : null}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </>
-              ) : frameMode === "sorter" ? (
-                <DocumentSorter
-                  onUploaded={() => setSorterReminder(true)}
-                  onSuggestSummaries={setSuggestSummaries}
-                  revealed={session.revealed}
-                  onFiles={setStagedPaths}
-                  onPdfHints={setPdfHints}
-                  onStatus={owedReports.accept}
-                  lede={PANEL_LEDES.sorter}
-                />
-              ) : (
-                <OwedAuditPanel
-                  state={owedReports.state}
-                  onRefresh={() => void owedReports.refresh()}
-                  onDialog={setOwedDialog}
-                  lede={PANEL_LEDES.audit}
-                />
-              )}
-              {frameMode !== "start" ? (
-                <FlowNext current={frameMode} auditDisabled={auditState.disabled} onOpen={showFrame} onOpenAudit={() => void openAuditTab()} />
-              ) : null}
-            </div>
-          ) : (
-            <button type="button" className="question-dock-tile" onClick={() => openChecklist()}>
-              <p id="check-heading" className="truncate font-medium text-stone-900">{frameMode === "start" ? "Start here: sort documents, then pick a route" : frameMode === "costs" ? "Tax Pro Costs" : frameMode === "sorter" ? "Document Sorter" : frameMode === "audit" ? "Return & Owe Audit" : checklistTitle(session)}</p>
-            </button>
-          )}
-        </section>
-        <aside
-          ref={dockRef}
-          className={dockCollapsed ? "question-dock is-collapsed" : "question-dock"}
-          aria-label="Selected chart node"
-          style={dockCollapsed
-            ? { height: "3rem", maxHeight: "3rem", ["--dock-scale" as string]: 1 }
-            : { height: dockHeight ?? undefined, maxHeight: dockHeight ?? undefined, ["--dock-scale" as string]: dockScale }}
-        >
-          <button
-            type="button"
-            className="question-dock-resize"
-            aria-label="Resize the bottom panel"
-            onPointerDown={resizeDock}
-            onKeyDown={nudgeDock}
-          />
-          <button
-            type="button"
-            className="question-dock-collapse"
-            aria-expanded={!dockCollapsed}
-            aria-label={dockCollapsed ? "Expand the bottom panel" : "Hide the bottom panel"}
-            onClick={dockCollapsed ? expandDock : collapseDock}
-          >
-            <ShortcutText text={dockCollapsed ? "Expand" : "Hide"} index={dockCollapsed ? 1 : 0} />
-          </button>
-          {dockCollapsed ? (
-            <button type="button" className="question-dock-tile" onClick={expandDock}>
-              <p className="truncate font-medium text-stone-900">{selected ? selected.title : "Pick a box"}</p>
-            </button>
-          ) : null}
-          <div className={dockCollapsed ? "hidden" : "question-dock-inner flex flex-col gap-4"}>
-            <section className="panel" aria-labelledby="question-heading">
-              <div className="flex items-start justify-between gap-3">
-                <h2 id="question-heading" tabIndex={-1} className="font-display text-2xl text-stone-900">
-                  {selected ? selected.title : "Pick a box"}
-                </h2>
-                <div className="flex items-center gap-2">
-                  {selected ? (
-                    <ShortcutTip label="Ask AI" index={1}>
-                    <button type="button" className="ai-open" aria-label={`Ask AI about ${selected.title}`} onClick={() => setPromptOpen(true)}>
-                      <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-                        <path fill="currentColor" d="M8 1.2 9.1 6 14 7.2 9.1 8.4 8 13.2 6.9 8.4 2 7.2 6.9 6z" />
-                      </svg>
-                    </button>
-                    </ShortcutTip>
-                  ) : null}
-                  {repeatable && stored?.answerId === "yes" ? (
-                    <ShortcutTip label="Add another" index={1}>
-                    <button type="button" className="add-instance" onClick={addAnotherInstance} aria-label={`Add another ${repeatable.singular}`} title={`Add another ${repeatable.singular}`}>
-                      +
-                    </button>
-                    </ShortcutTip>
-                  ) : null}
-                </div>
-              </div>
-              {(() => {
-                const scope = selected ? instanceScope(selected.id) ?? (repeatableNodes[selected.id] ? selected.id : null) : null;
-                const names = scope ? session.instances[scope] ?? [] : [];
-                if (!scope || names.length < 2) return null;
-                const active = session.activeInstance[scope] ?? 0;
-                return (
-                  <div className="instance-switch" role="tablist" aria-label="Which record this path is checking" onKeyDown={onTabListKeyDown}>
-                    {names.map((name, index) => (
-                      <button
-                        key={`${scope}-${index}`}
-                        type="button"
-                        role="tab"
-                        aria-selected={index === active}
-                        tabIndex={index === active ? 0 : -1}
-                        className={index === active ? "year-btn year-btn-on" : "year-btn"}
-                        onClick={() => switchInstance(scope, index)}
-                      >
-                        {name.trim() || `Record ${index + 1}`}
-                      </button>
-                    ))}
-                  </div>
-                );
-              })()}
-              {selected?.kind === "check" ? (
-                <>
-                  <p className="mt-2 text-stone-800">{suggestionText(selected.id, session) ?? selected.help ?? selected.chart}</p>
-                  {suggestionText(selected.id, session) && selected.help ? (
-                    <p className="mt-2 text-sm text-stone-600">{selected.help}</p>
-                  ) : null}
-                  <p className="mt-2 text-sm text-stone-600">
-                    This is a line to verify on the prepared return. It is not an instruction to start the form.
-                  </p>
-                </>
-              ) : null}
-              {selected ? (
-                <div className="dock-tabs" role="tablist" aria-label="Answer, information, or comments" onKeyDown={onTabListKeyDown}>
-                  {asksForAnswer(selected) ? (
-                    <button type="button" role="tab" aria-selected={dockTab === "answer"} tabIndex={focusTab === "answer" ? 0 : -1} className={dockTab === "answer" ? "dock-tab dock-tab-on" : "dock-tab"} onClick={() => setDockTab("answer")}>
-                      <ShortcutText text="Answer" index={0} />
-                    </button>
-                  ) : null}
-                  {selected.tipId ? (
-                    <button type="button" role="tab" aria-selected={dockTab === "info"} tabIndex={focusTab === "info" ? 0 : -1} className={dockTab === "info" ? "dock-tab dock-tab-on" : "dock-tab"} onClick={() => setDockTab("info")}>
-                      <ShortcutText text="Information" index={1} />
-                    </button>
-                  ) : null}
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={dockTab === "comments"}
-                    tabIndex={focusTab === "comments" ? 0 : -1}
-                    aria-label={selectedComment?.trim() ? "Comments, this box has a comment" : "Comments"}
-                    className={`dock-tab${dockTab === "comments" ? " dock-tab-on" : ""}${selectedComment?.trim() ? " dock-tab-noted" : ""}`}
-                    onClick={() => setDockTab("comments")}
-                  >
-                    <ShortcutText text="Comments" index={1} />
-                    {selectedComment?.trim() ? <span className="dock-tab-mark" aria-hidden="true" /> : null}
-                  </button>
-                </div>
-              ) : null}
-              {selected && dockTab === "comments" ? (
-                <form className="mt-3 flex flex-col gap-2" onSubmit={(event) => event.preventDefault()}>
-                  <label className="text-sm font-medium text-stone-700" htmlFor="node-comment">
-                    Comment on this box
-                  </label>
-                  <textarea
-                    id="node-comment"
-                    className="min-h-24 rounded-md border border-stone-300 bg-white px-3 py-2 text-stone-900"
-                    value={selectedComment ?? ""}
-                    placeholder="Add a comment"
-                    onChange={(event) => {
-                      const text = event.target.value;
-                      setSession((current) => setNodeComment(current, selected.id, text));
-                    }}
-                  />
-                </form>
-              ) : selected?.tipId && dockTab === "info" ? (
-                <DockInfo tipId={selected.tipId} session={session} />
-              ) : selected && asksForAnswer(selected) ? (
-                <>
-                  <p className="mt-2 text-stone-800">{selected.prompt}</p>
-                  {selected.help ? <p className="mt-2 text-sm text-stone-600">{selected.help}</p> : null}
-                  {selected.links?.length ? (
-                    <ul className="mt-3 flex flex-col gap-2">
-                      {selected.links.map((link) => (
-                        <li key={link.href}>
-                          <a className="text-sm text-rust underline-offset-2 hover:underline" href={link.href} target="_blank" rel="noreferrer">
-                            {link.label}
-                          </a>
-                          <p className="text-sm text-stone-600">{link.detail}</p>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
-                  {selected.numberInputs ? (
-                    <NumberEntry
-                      key={`${selected.id}:${stored?.text ?? ""}`}
-                      nodeId={selected.id}
-                      fields={selected.numberInputs.fields}
-                      initial={stored?.text ?? ""}
-                      enabled={pageKeys && showNumberAnswer}
-                      onSubmit={(text) => answer(selected.id, selected.numberInputs!.answerId, text)}
-                    />
-                  ) : null}
-                  {selected.textInput ? (
-                    <form
-                      className="mt-3 flex flex-col gap-2"
-                      onSubmit={(event) => {
-                        event.preventDefault();
-                        const text = draft.trim();
-                        if (!text) return;
-                        answer(selected.id, selected.textInput!.answerId, text);
-                      }}
-                    >
-                      <label className="text-sm font-medium text-stone-700" htmlFor="node-text">
-                        From the prepared return
-                      </label>
-                      <input
-                        id="node-text"
-                        className="rounded-md border border-stone-300 bg-white px-3 py-2 text-stone-900"
-                        value={draft}
-                        placeholder={selected.textInput.placeholder}
-                        onChange={(event) => setDraft(event.target.value)}
-                      />
-                      <button type="submit" className="btn-primary">
-                        <ShortcutText text="Use this answer" index={0} />
-                      </button>
-                    </form>
-                  ) : null}
-                  <div className="mt-3 flex flex-col gap-2">
-                    {selected.answers?.map((choice) => {
-                      const pressed = stored?.answerId === choice.id && !stored.text;
-                      return (
-                        <AnswerChoice
-                          key={choice.id}
-                          choiceId={choice.id}
-                          label={choice.label}
-                          pressed={pressed}
-                          className={choice.id === "unknown" ? "btn-unknown" : pressed ? "btn-primary" : "btn-secondary"}
-                          shortcut={choiceShortcut.get(choice.id) ?? null}
-                          onPick={() => answer(selected.id, choice.id)}
-                        />
-                      );
-                    })}
-                  </div>
-                  {repeatable && stored?.answerId === "yes" ? (
-                    <div className="mt-4 border-t border-stone-200 pt-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <h3 className="text-sm font-semibold text-stone-800">
-                          {instances.length} {instances.length === 1 ? repeatable.singular : repeatable.plural}
-                        </h3>
-                        <button type="button" className="text-sm text-rust underline-offset-2 hover:underline" onClick={addAnotherInstance}>
-                          + <ShortcutText text="Add another" index={1} />
-                        </button>
-                      </div>
-                      <p className="mt-1 text-sm text-stone-600">Name each record so you can verify it separately. The chart keeps the shared tax path in one place.</p>
-                      <div className="mt-2 flex flex-col gap-2">
-                        {instances.map((instance, index) => (
-                          <div key={`${selected.id}-${index}`} className="flex items-center gap-2">
-                            <input
-                              className="min-w-0 flex-1 rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900"
-                              aria-label={`${repeatable.singular} ${index + 1} name`}
-                              value={instance}
-                              onChange={(event) => setSession((current) => renameInstance(current, selected.id, index, event.target.value))}
-                            />
-                            {instances.length > 1 ? (
-                              <button type="button" className="btn-secondary" onClick={() => setSession((current) => removeInstance(current, selected.id, index))} aria-label={`Remove ${instance || `${repeatable.singular} ${index + 1}`}`}>
-                                Remove
-                              </button>
-                            ) : null}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
-                </>
-              ) : selected?.tipId ? (
-                <DockInfo tipId={selected.tipId} session={session} />
-              ) : !selected ? (
-                <p className="mt-2 text-stone-700">Choose a box on the chart.</p>
-              ) : null}
-              {open.length > 0 ? (
-                <div className="mt-4 border-t border-stone-200 pt-3">
-                  <h3 className="text-sm font-semibold text-stone-800">Still open</h3>
-                  <ul className="mt-2 flex flex-col gap-1">
-                    {open.map((id) => (
-                      <li key={id}>
-                        <button type="button" className="text-left text-sm text-rust underline-offset-2 hover:underline" onClick={() => selectNode(id)}>
-                          {getNode(id).title}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-            </section>
-
-            {session.revealed.includes("deduction_result") ? (
-              <section className="panel" aria-labelledby="deduction-heading">
-                <h2 id="deduction-heading" className="font-display text-2xl text-stone-900">
-                  Standard vs itemized
-                </h2>
-                <ul className="mt-2 flex list-disc flex-col gap-2 pl-5 text-sm text-stone-800">
-                  {deduction.map((line) => (
-                    <li key={line}>{line}</li>
-                  ))}
-                </ul>
-              </section>
-            ) : null}
-          </div>
-        </aside>
+        </nav>
         </div>
       </main>
 

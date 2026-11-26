@@ -1,17 +1,18 @@
 /**
- * The guided flow over the bottom panel's tabs:
+ * The guided flow over the bottom bar's tabs; the open tab's panel fills the page:
  *   Step 1  gather and sort documents (Document Sorter)
  *   Step 2  pick one route: (a) "Hand it to a pro:", (b) "AI calculate now:", (c) "Guide me on forms:".
- * The chart above is the guided path itself; route (c) uses it any time, with or without documents.
+ * Route (c), Path guide, is the only one that shows the path chart and its Path library; it works any time, with or
+ * without documents. The Checklist is not a route: its button in the bar opens it as a side panel from anywhere.
  */
 
-export type FrameMode = "start" | "sorter" | "costs" | "audit" | "checklist";
+export type FrameMode = "start" | "sorter" | "costs" | "audit" | "guide";
 
 /** The short lead shown before each route's tab, card and link; the same words everywhere. */
 export const ROUTE_LEADS = {
   costs: "Hand it to a pro:",
   audit: "AI calculate now:",
-  checklist: "Guide me on forms:",
+  guide: "Guide me on forms:",
 } as const;
 
 /** Groups of tabs that share a label over their own labels, such as the three routes under "then pick one:". */
@@ -33,7 +34,7 @@ export const FLOW_TABS: FlowTab[] = [
   { mode: "sorter", label: "Document Sorter", step: "1", lead: "Gather docs:" },
   { mode: "costs", label: "Tax Pro Costs", step: "2a", lead: ROUTE_LEADS.costs, group: "routes" },
   { mode: "audit", label: "Return & Owe Audit", step: "2b", lead: ROUTE_LEADS.audit, group: "routes" },
-  { mode: "checklist", label: "Checklist", step: "2c", lead: ROUTE_LEADS.checklist, group: "routes" },
+  { mode: "guide", label: "Path guide", step: "2c", lead: ROUTE_LEADS.guide, group: "routes" },
 ];
 
 export type FlowSegment = { group: FlowGroupId | null; label: string | null; tabs: FlowTab[] };
@@ -82,21 +83,21 @@ export const ROUTES: Route[] = [
   {
     id: "self",
     step: "2c",
-    lead: ROUTE_LEADS.checklist,
-    label: "Checklist",
-    mode: "checklist",
+    lead: ROUTE_LEADS.guide,
+    label: "Path guide",
+    mode: "guide",
     summary:
-      "Opens the path chart with the Path library, the Checklist of forms and lines, and your answers and comments on the next question. Open it any time, even before any documents are staged.",
+      "Opens the path chart and its Path library. Click a box to answer it or leave a comment; each answer adds forms and lines to the Checklist. Open it any time, even before any documents are staged.",
   },
 ];
 
 /** One line under each panel heading: where this panel sits in the flow. */
 export const PANEL_LEDES: Record<FrameMode, string> = {
-  start: "Sort your documents first, then pick the route that fits. The chart above works any time.",
+  start: "Sort your documents first, then pick the route that fits. Path guide (2c) and the Checklist work any time.",
   sorter: "Step 1 · Upload your tax documents and sort them into folders. Every route reads them from here.",
   costs: `Step 2a · ${ROUTE_LEADS.costs} give the preparer Summaries.md, then check their quote against typical fees.`,
   audit: `Step 2b · ${ROUTE_LEADS.audit} the owed-audit skill checks the return's amount owed against your documents.`,
-  checklist: `Step 2c · ${ROUTE_LEADS.checklist} opens the path, Path library, Checklist and your answers and comments. Usable any time.`,
+  guide: `Step 2c · ${ROUTE_LEADS.guide} the path chart asks one question at a time. Click a box to answer it or comment on it; the Checklist keeps the forms and lines your answers add.`,
 };
 
 /** Under the Checklist side panel's heading; the panel opens from the bottom bar on every route. */
@@ -129,24 +130,18 @@ export function stagedLabel(count: number): string {
   return `${count} ${count === 1 ? "document" : "documents"} staged`;
 }
 
-/**
- * What "Guide me on forms:" (route 2c) opens, from every entry point (its tab, its Start here card, the next-step
- * links, "Answer next"): the Checklist frame and, beside it, the answer / comments panel on the next open question,
- * with the header folded so the Path library and the chart have the room. `focus` names where keyboard focus lands.
- */
-export type GuidePlan = {
-  frameMode: "checklist";
-  checklistOpen: true;
-  dockCollapsed: false;
-  topCollapsed: true;
-  selectId: string;
-  focus: "question";
-};
+/** Only Path guide (2c) shows the path chart and its Path library; every other route's panel gets the page. */
+export function showsPath(mode: FrameMode): boolean {
+  return mode === "guide";
+}
 
-export function guidePlan(openIds: readonly string[], selectedId: string, revealed: readonly string[], prefer?: string): GuidePlan {
-  const selectId =
-    prefer && revealed.includes(prefer)
-      ? prefer
-      : (openIds[0] ?? (revealed.includes(selectedId) ? selectedId : (revealed[0] ?? selectedId)));
-  return { frameMode: "checklist", checklistOpen: true, dockCollapsed: false, topCollapsed: true, selectId, focus: "question" };
+/** Where this browser remembers whether Path guide was open. */
+export const ROUTE_STORAGE_KEY = "taxes-route";
+
+/**
+ * The route to open on load: Path guide if it was open last time, else Start here. Other routes are not restored,
+ * so a reload never lands on a grayed-out Return & Owe Audit before the sorter has answered.
+ */
+export function rememberedRoute(stored: string | null | undefined): FrameMode {
+  return stored === "guide" ? "guide" : "start";
 }
