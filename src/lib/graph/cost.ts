@@ -1,6 +1,7 @@
 import { CPI_STALE_AFTER_MONTHS, CPI_U, cpiFactor as factorOf, type CpiFigure, monthLabel, monthsSince } from "./cpi";
 import { citations } from "./sources";
 import { answerOf } from "./session";
+import { taxYearLabel } from "./tax-years";
 import type { Citation, Session } from "./types";
 
 export type PriceRow = {
@@ -385,8 +386,8 @@ export function costReport(session: Session, options: CostOptions = {}): CostRep
       label: "Quote for this situation",
       amountLabel: `$${session.quote.toLocaleString("en-US")}`,
       yearLabel:
-        answerOf(session, "year") === "y2025"
-          ? "Quote for the 2025 return on this path — not a published rate card"
+        taxYearLabel(answerOf(session, "year"))
+          ? `Quote for the ${taxYearLabel(answerOf(session, "year"))} return on this path — not a published rate card`
           : "Quote on this path — not a published rate card",
       unverified: false,
       note: "This is the preparation quote offered for this situation. It is not rent, not an expense, and not income. “LA” in any note about a normal local range is not resolved as Louisiana or Los Angeles.",

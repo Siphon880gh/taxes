@@ -2139,7 +2139,7 @@ export const nodes: GraphNode[] = [
     title: "Schedule 1-A deductions",
     chart: "Schedule 1-A: tips, overtime, car-loan interest, or the senior deduction?",
     prompt: "Does the return claim any Schedule 1-A deduction: no tax on tips, no tax on overtime, car-loan interest, or the enhanced senior deduction?",
-    help: "Schedule 1-A is new for 2025 and runs through 2028 (IRS FS-2025-03). It is taken whether or not the return itemizes. The 2025 form totals it on line 38, which goes to Form 1040 line 13b. A yes opens one question for each part.",
+    help: "Schedule 1-A is new for 2025 and runs through 2028 (IRS FS-2025-03). It is taken whether or not the return itemizes. The 2025 form totals it on line 38, which goes to Form 1040 line 13b. The IRS early-release draft of the 2026 form totals it on line 44, which goes to Form 1040 line 13a (the QBI deduction moves to 13b). A yes opens one question for each part.",
     answers: [
       choice("yes", "Yes", ["s1a_tips", "s1a_overtime", "s1a_car", "s1a_senior", ...FLOW], "Yes"),
       choice("no", "No", ["note_s1a_no"], "No"),
@@ -2336,7 +2336,7 @@ export const nodes: GraphNode[] = [
     title: "Schedule A lines",
     chart:
       "Itemized on Schedule A: verify Form 1098 for home mortgage interest, the state-and-local-tax cap on line 5e, charitable gifts with receipts from registered 501(c)(3)s, and Form 8283 for noncash donations over $500. The Schedule A total is the Form 1040 line 12e figure. Not a recommendation to itemize.",
-    help: "2025 Schedule A line 5e: the state and local tax deduction is limited to $40,000 ($20,000 married filing separately), reduced above $500,000 modified AGI ($250,000 MFS). For 2026 the IRS gives $40,400 ($20,200 MFS), reduced above $505,000 ($252,500 MFS). Neither goes below $10,000 ($5,000 MFS). The phase-down is not computed here. Form 8283 and the 501(c)(3) receipt rule come from the filing notes' audit triggers, which also say donations far above average for the income draw scrutiny. The home mortgage interest line is not named in the notes, so it stays flagged.",
+    help: "2025 Schedule A line 5e: the state and local tax deduction is limited to $40,000 ($20,000 married filing separately), reduced above $500,000 modified AGI ($250,000 MFS). For 2026 the IRS gives $40,400 ($20,200 MFS), reduced above $505,000 ($252,500 MFS), and the early-release draft 2026 Schedule A keeps it on line 5e. Neither goes below $10,000 ($5,000 MFS). The phase-down is not computed here. Form 8283 and the 501(c)(3) receipt rule come from the filing notes' audit triggers, which also say donations far above average for the income draw scrutiny. The home mortgage interest line is not named in the notes, so it stays flagged.",
   },
   {
     id: "jurisdiction",
