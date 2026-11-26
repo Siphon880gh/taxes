@@ -142,3 +142,46 @@ export function StartPanel(props: Props) {
     </div>
   );
 }
+
+/** The end of every other panel: from step 1, pick a route; from a route, the other two and Start here. */
+export function FlowNext({
+  current,
+  auditDisabled,
+  onOpen,
+  onOpenAudit,
+}: {
+  current: Exclude<FrameMode, "start">;
+  auditDisabled: boolean;
+  onOpen: (mode: FrameMode) => void;
+  onOpenAudit: () => void;
+}) {
+  const routes = ROUTES.filter((route) => route.mode !== current);
+  return (
+    <nav className="flow-next" aria-label="Next step">
+      <p>{current === "sorter" ? "Documents sorted? Next, pick one route:" : "Or take another route:"}</p>
+      <div className="flow-actions">
+        {routes.map((route) => {
+          const isAudit = route.mode === "audit";
+          return (
+            <button
+              key={route.id}
+              type="button"
+              className="btn-secondary"
+              aria-disabled={isAudit && auditDisabled ? true : undefined}
+              onClick={() => (isAudit ? onOpenAudit() : onOpen(route.mode))}
+            >
+              <span className="flow-step" aria-hidden="true">
+                {route.step}
+              </span>
+              <span className="sr-only">Route {route.step}: </span>
+              {route.title}
+            </button>
+          );
+        })}
+        <button type="button" className="flow-back" onClick={() => onOpen("start")}>
+          Back to Start here
+        </button>
+      </div>
+    </nav>
+  );
+}

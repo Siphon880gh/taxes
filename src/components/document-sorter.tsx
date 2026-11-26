@@ -64,8 +64,11 @@ export function DocumentSorter({
   onFiles,
   onPdfHints,
   onStatus,
+  lede,
 }: {
   onUploaded: () => void;
+  /** One line under the heading: where this panel sits in the guided flow. */
+  lede?: string;
   onSuggestSummaries?: (suggest: boolean) => void;
   /** Chart boxes on the current path, used to list the documents the path calls for. */
   revealed?: string[];
@@ -282,6 +285,7 @@ export function DocumentSorter({
       <h2 id="check-heading" className="font-display text-2xl text-stone-900">
         Document Sorter
       </h2>
+      {lede ? <p className="panel-lede">{lede}</p> : null}
       <div className="sorter-note" role="note">
         <p>Open this codebase in Cursor and invoke the skill tax-document-classification.</p>
         {suggestSummaries ? <p>{SUMMARIES_SKILL_NOTE}</p> : null}

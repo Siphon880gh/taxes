@@ -6,7 +6,7 @@ import { DocumentSorter, SUMMARIES_SKILL_NOTE } from "@/components/document-sort
 import { OwedAuditPanel } from "@/components/owed-audit-panel";
 import { PromptBuilder } from "@/components/prompt-builder";
 import { HarnessHelp } from "@/components/harness-help";
-import { StartPanel } from "@/components/start-panel";
+import { FlowNext, StartPanel } from "@/components/start-panel";
 import { pickShortcutLetter, ShortcutLayer, ShortcutText, ShortcutTip, useShortcut } from "@/components/shortcut-layer";
 import { decodeNumbers, encodeNumbers, numberEntryError, suggestionText } from "@/lib/graph/allocate";
 import { DISCLAIMER } from "@/lib/disclaimer";
@@ -14,7 +14,7 @@ import { readStoredQuote, writeStoredQuote } from "@/lib/quote-storage";
 import { clearStoredSession, readStoredSession, writeStoredSession } from "@/lib/session-storage";
 import { documentCoverage } from "@/lib/document-coverage";
 import { auditTab } from "@/lib/owed-reports";
-import { FLOW_TABS, type FrameMode } from "@/lib/flow";
+import { FLOW_TABS, PANEL_LEDES, type FrameMode } from "@/lib/flow";
 import { useOwedReports } from "@/lib/use-owed-reports";
 import type { PdfHints } from "@/lib/pdf-hints";
 import {
@@ -1082,6 +1082,7 @@ export function CheckerApp() {
                   <h2 id="check-heading" className="font-display text-2xl text-stone-900">
                     {checklistTitle(session)}
                   </h2>
+                  <p className="panel-lede">{PANEL_LEDES.checklist}</p>
                   {checklist.length === 0 ? (
                     <p className="mt-2 text-stone-700">Answer a question to list forms and lines. Nothing is assumed yet.</p>
                   ) : (
@@ -1171,6 +1172,14 @@ export function CheckerApp() {
                   <h2 id="check-heading" className="font-display text-2xl text-stone-900">
                     Tax Pro Costs
                   </h2>
+                  <p className="panel-lede">{PANEL_LEDES.costs}</p>
+                  {owedReports.overview ? (
+                    <p className="flow-cue mt-1">
+                      {owedReports.overview.summaries
+                        ? "Summaries.md is in sorter/stage, ready to hand over."
+                        : "No Summaries.md yet: open this codebase in Cursor and invoke the skill tax-document-summaries."}
+                    </p>
+                  ) : null}
                   <p className="mt-2 text-sm text-stone-600">
                     Published prices for preparing a return of this shape. These are not tax figures and not a quote unless you enter one below or a case study loaded one.
                   </p>
@@ -1336,10 +1345,19 @@ export function CheckerApp() {
                   onFiles={setStagedPaths}
                   onPdfHints={setPdfHints}
                   onStatus={owedReports.accept}
+                  lede={PANEL_LEDES.sorter}
                 />
               ) : (
-                <OwedAuditPanel state={owedReports.state} onRefresh={() => void owedReports.refresh()} onDialog={setOwedDialog} />
+                <OwedAuditPanel
+                  state={owedReports.state}
+                  onRefresh={() => void owedReports.refresh()}
+                  onDialog={setOwedDialog}
+                  lede={PANEL_LEDES.audit}
+                />
               )}
+              {frameMode !== "start" ? (
+                <FlowNext current={frameMode} auditDisabled={auditState.disabled} onOpen={showFrame} onOpenAudit={() => void openAuditTab()} />
+              ) : null}
             </div>
           ) : (
             <button type="button" className="question-dock-tile" onClick={openChecklist}>

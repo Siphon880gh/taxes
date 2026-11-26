@@ -78,7 +78,7 @@ function RentBreakdowns({ paths }: { paths: string[] }) {
             <h3 id={headingId} className="font-display text-xl text-stone-900">
               Owe Audit Breakdown - Rent
             </h3>
-            <p className="text-xs text-stone-500">
+            <p className="text-xs text-stone-600">
               {RENT_BREAKDOWN_NAME} · {folderOf(path)}
             </p>
             {report?.markdown != null ? (
@@ -105,7 +105,10 @@ export function OwedAuditPanel({
   state,
   onRefresh,
   onDialog,
+  lede,
 }: {
+  /** One line under the heading: where this panel sits in the guided flow. */
+  lede?: string;
   /** What api.php last said about the skill's reports (see use-owed-reports.ts). */
   state: OwedReportsState;
   onRefresh: () => void;
@@ -153,6 +156,7 @@ export function OwedAuditPanel({
       <h2 id="check-heading" className="font-display text-2xl text-stone-900">
         Return & Owe Audit
       </h2>
+      {lede ? <p className="panel-lede">{lede}</p> : null}
       <p className="mt-2 text-sm text-stone-800">
         Place the federal and state returns in sorter/stage with the other documents. Open this codebase in Cursor and invoke the skill tax-return-owed-audit.
       </p>
@@ -176,7 +180,7 @@ export function OwedAuditPanel({
               >
                 View Owed Audit.md
               </button>
-              <p className="mt-1 text-xs text-stone-500">{folderOf(path)}</p>
+              <p className="mt-1 text-xs text-stone-600">{folderOf(path)}</p>
             </li>
           ))}
         </ul>

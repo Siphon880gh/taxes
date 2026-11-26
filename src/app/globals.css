@@ -2545,3 +2545,34 @@ button.question-dock-tile {
     display: none;
   }
 }
+
+/* End of each panel: where to go next in the flow. */
+.flow-next {
+  margin-top: 1.25rem;
+  border-top: 1px solid #d6d3d1;
+  padding-top: 0.75rem;
+  color: #44403c;
+  font-size: 0.9rem;
+}
+
+.flow-next .flow-actions {
+  margin-top: 0.45rem;
+}
+
+.flow-next .btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.flow-next .flow-step {
+  min-width: 1.35rem;
+  height: 1.35rem;
+  font-size: 0.72rem;
+}
+
+.flow-back {
+  color: #9a3412;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
