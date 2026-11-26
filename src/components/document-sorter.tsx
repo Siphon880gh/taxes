@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
+import { AiReorganizeDialog } from "@/components/ai-reorganize-dialog";
 import { WhyNotAutomatic } from "@/components/prompt-builder";
 import { sorterFetch } from "@/lib/sorter-client";
 import { sorterEndpoint, unreachableMessage } from "@/lib/sorter-endpoint";
@@ -70,6 +71,8 @@ export function DocumentSorter({
   const [editingPath, setEditingPath] = useState<string | null>(null);
   const [picked, setPicked] = useState("");
   const [newCategory, setNewCategory] = useState("");
+  const [aiOpen, setAiOpen] = useState(false);
+  const closeAi = useCallback(() => setAiOpen(false), []);
 
   const refresh = useCallback(async () => {
     setError(null);
@@ -260,9 +263,14 @@ export function DocumentSorter({
       </div>
       <div className="mt-3 flex items-center justify-between gap-3">
         <p className="text-sm text-stone-600">Staging directory sorter/stage</p>
-        <button type="button" className="btn-secondary" disabled={busy} onClick={() => void refresh()}>
-          Refresh
-        </button>
+        <div className="flex flex-wrap justify-end gap-2">
+          <button type="button" className="btn-secondary ai-reorg-open" disabled={busy} onClick={() => setAiOpen(true)}>
+            <span aria-hidden="true">✦</span> Ask AI to reorganize
+          </button>
+          <button type="button" className="btn-secondary" disabled={busy} onClick={() => void refresh()}>
+            Refresh
+          </button>
+        </div>
       </div>
       {message ? (
         <p className="mt-2 text-sm text-stone-800" role="status">
@@ -324,6 +332,7 @@ export function DocumentSorter({
           </ul>
         </section>
       ) : null}
+      {aiOpen ? <AiReorganizeDialog onClose={closeAi} onRefresh={refresh} /> : null}
       {editing ? (
         <div className="modal-backdrop" role="presentation" onClick={closeCategory}>
           <div

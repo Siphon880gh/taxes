@@ -40,7 +40,7 @@ const SKILLS = [
   ["freetaxusa-walkthrough", "fills FreeTaxUSA from the sorted documents"],
 ] as const;
 
-type IconName = "copy" | "check" | "clear";
+export type IconName = "copy" | "check" | "clear";
 const ICON_PATHS: Record<IconName, ReactNode> = {
   copy: (
     <>
@@ -57,7 +57,7 @@ const ICON_PATHS: Record<IconName, ReactNode> = {
   ),
 };
 
-function Icon({ name }: { name: IconName }) {
+export function Icon({ name }: { name: IconName }) {
   return (
     <svg
       className="harness-help-ico"
