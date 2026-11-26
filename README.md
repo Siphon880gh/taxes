@@ -88,6 +88,13 @@ Once those folders exist and `sorter/stage/Summaries.md` is not there yet, the t
 
 The same tab can also place files into those categories by hand after upload.
 
+### Ask AI to reorganize
+
+The tab's **Ask AI to reorganize** button asks `sorter/api.php` whether an AI key is set (`?action=ai-status`).
+
+- **No key (the default).** The dialog warns that AI or billing is not set up in this app and names the uploads folder, for example `/Users/you/…/taxes/sorter/stage`. Open that folder in your own AI harness (Cursor, Claude Code, …), ask it to reorganize the tax documents, then press Refresh. The dialog has Copy buttons for the folder path, a `cd` command and an example prompt, and this browser can remember your own copy of the folder's path. [`sorter/stage/AGENTS.md`](sorter/stage/AGENTS.md) tells the harness which category folders the app expects; the app leaves it out of the document list.
+- **With a key.** Put `OPENAI_API_KEY` (ChatGPT) or `ANTHROPIC_API_KEY` (Claude) in `.env`, optionally with `AI_PROVIDER` and `AI_MODEL` (see [`.example.env`](.example.env)). `api.php` reads `.env` beside it, in the app folder above it, or above `out/` for the deployed copy; the key stays on the server. `ai-plan` sends the file paths and folders (not the file contents) to the provider and returns a move plan limited to listed files and folders under `sorter/stage/`. You uncheck any move you don't want, and `ai-apply` moves the rest with the same code as a manual category change. Each plan carries a signed token that works once, for 30 minutes.
+
 ## Fill FreeTaxUSA from those files
 
 Tax Pro Costs starts with a **FreeTaxUSA Walkthrough** control. After the files are sorted, open this repo in Cursor and invoke `freetaxusa-walkthrough`. The skill opens [FreeTaxUSA](https://www.freetaxusa.com) in a browser tab inside Cursor, reads the screen, and tells you the next entry with the number and the file it came from. It asks when that step is done, or watches the screen for the change. You type. It does not file the return. The skill lives at [`.agents/skills/freetaxusa-walkthrough/SKILL.md`](.agents/skills/freetaxusa-walkthrough/SKILL.md).
