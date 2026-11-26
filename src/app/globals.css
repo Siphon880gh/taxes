@@ -546,10 +546,14 @@ body {
   box-shadow: 0 -8px 24px rgb(28 25 23 / 0.12);
 }
 
+/* Collapsed, the frame is just its two-row tab bar; the bar's tools hold Expand. */
 .checklist-frame.is-collapsed {
-  height: 3rem;
-  min-height: 3rem;
-  max-height: 3rem;
+  height: auto;
+  max-height: none;
+}
+
+.checklist-frame.is-collapsed .question-dock-tile {
+  display: none;
 }
 
 .checklist-frame-inner {
@@ -558,18 +562,73 @@ body {
   min-height: 0;
   margin-inline: auto;
   overflow-y: auto;
-  padding: 2.6rem 1rem 0.85rem;
+  padding: 0.5rem 1rem 0.85rem;
+}
+
+/*
+ * The bottom tab bar, two rows at every width: labels (from src/lib/flow.ts) on the first, each over its own
+ * button on the second. Each label-and-button pair is one column, so when the bar runs out of room whole
+ * columns wrap; the routes' group wraps as a block under its "then pick one:" label. The tools sit apart on the right.
+ */
+.frame-bar {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.4rem 1rem;
+  padding: 0.75rem 0.75rem 0.45rem;
 }
 
 .frame-switch {
-  position: absolute;
-  top: 0.35rem;
-  left: 0.75rem;
-  z-index: 3;
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 0.6rem;
+  min-width: 0;
+}
+
+.tab-col {
+  display: grid;
+  grid-template-rows: auto auto;
+  justify-items: start;
+  row-gap: 0.15rem;
+}
+
+/* Lone columns line up with the columns inside the routes' box (its bottom padding and border). */
+.frame-switch > .tab-col {
+  padding-bottom: calc(0.3rem + 1px);
+}
+
+.tab-label {
+  color: #57534e;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.tab-group {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.25rem;
-  max-width: calc(100% - 6.5rem);
+  align-items: flex-end;
+  gap: 0.4rem 0.6rem;
+  border: 1px dashed #a8a29e;
+  border-radius: 0.5rem;
+  padding: 0.55rem 0.5rem 0.3rem;
+}
+
+.tab-group-label {
+  position: absolute;
+  top: -0.6rem;
+  left: 0.45rem;
+  background: #f4efe6;
+  padding: 0 0.3rem;
+  color: #7c2d12;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.1rem;
+  white-space: nowrap;
 }
 
 .frame-switch button {
@@ -602,43 +661,6 @@ body {
   background: #a8a29e;
 }
 
-.checklist-frame .question-dock-tile {
-  padding-inline: 22rem 5.5rem;
-}
-
-@media (min-width: 720px) {
-  .checklist-frame .question-dock-tile {
-    padding-inline: 28rem 5.5rem;
-  }
-}
-
-/*
- * Phones and narrow windows: the panel tabs wrap onto two lines, so an absolutely placed tab bar
- * ran over the panel heading. Below 720px the tab bar sits in the frame's flow as its own row
- * (room on the right for Hide / Expand), the content starts under it, and the collapsed frame
- * grows to fit the tabs instead of clipping them over the question dock.
- */
-@media (max-width: 719px) {
-  .checklist-frame .frame-switch {
-    position: static;
-    flex: 0 0 auto;
-    max-width: none;
-    padding: 0.35rem 4.75rem 0.35rem 0.75rem;
-  }
-
-  .checklist-frame .checklist-frame-inner {
-    padding-top: 0.5rem;
-  }
-
-  .checklist-frame.is-collapsed {
-    height: auto;
-    max-height: none;
-  }
-
-  .checklist-frame.is-collapsed .question-dock-tile {
-    display: none;
-  }
-}
 
 .question-dock {
   --dock-scale: 1;
@@ -2458,8 +2480,8 @@ button.question-dock-tile {
 }
 
 /*
- * The flow's tab strip: Start here | 1 Document Sorter | then pick one: 2a, 2b, 2c. The utilities
- * (Add / edit with AI, Hide) sit apart on the right, behind a rule, so they do not read as steps.
+ * Inside the tab buttons: the step chip and the counts. The tools (Add / edit with AI, Hide) sit apart
+ * on the right of the bar, so they do not read as steps.
  */
 .tab-step {
   display: inline-block;
@@ -2484,73 +2506,24 @@ button.question-dock-tile {
   font-variant-numeric: tabular-nums;
 }
 
-.frame-switch-label {
-  align-self: center;
-  margin-inline: 0.2rem 0.05rem;
-  color: #57534e;
-  font-size: 0.75rem;
-}
-
-.frame-tools {
-  position: absolute;
-  top: 0.35rem;
-  right: 5.25rem;
-  z-index: 3;
-  display: flex;
-  gap: 0.25rem;
-  border-right: 1px solid #a8a29e;
-  padding-right: 0.5rem;
-}
 
 .checklist-frame-inner:has(> .start-panel) {
   width: min(62rem, 100%);
 }
 
-@media (min-width: 1340px) {
-  .checklist-frame .frame-switch {
-    max-width: calc(100% - 20rem);
-  }
-
-  /* The one-line strip fills the collapsed bar, so its title stays for screen readers only. */
-  .checklist-frame.is-collapsed .question-dock-tile p {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    white-space: nowrap;
-  }
+.frame-tools {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+  padding-bottom: calc(0.3rem + 1px);
 }
 
-/* Below 1340px the strip (with the route leads) no longer fits one line: tools on a top row by Hide, the tabs under them. */
-@media (max-width: 1339px) {
-  .checklist-frame .frame-switch {
-    position: static;
-    flex: 0 0 auto;
-    max-width: none;
-    padding: 0.3rem 0.75rem 0.35rem;
-  }
-
-  .checklist-frame .frame-tools {
-    position: static;
-    order: -1;
-    justify-content: flex-end;
-    margin: 0.35rem 5.25rem 0 auto;
-  }
-
-  .checklist-frame .checklist-frame-inner {
-    padding-top: 0.5rem;
-  }
-
-  .checklist-frame.is-collapsed {
-    height: auto;
-    max-height: none;
-  }
-
-  .checklist-frame.is-collapsed .question-dock-tile {
-    display: none;
-  }
+.frame-tools .question-dock-collapse {
+  position: static;
 }
+
 
 /* End of each panel: where to go next in the flow. */
 .flow-next {
@@ -2603,28 +2576,3 @@ button.question-dock-tile {
   margin-right: 0.3rem;
 }
 
-/* Tab bar: each route tab sits behind its lead ("Hand it to a pro:"); on phones the lead goes above the tab. */
-.route-pick {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  margin-left: 0.35rem;
-}
-
-.route-pick .route-lead {
-  font-size: 0.75rem;
-  white-space: nowrap;
-}
-
-@media (max-width: 719px) {
-  .route-pick {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.1rem;
-    margin-left: 0;
-  }
-
-  .route-pick .route-lead {
-    font-size: 0.7rem;
-  }
-}
