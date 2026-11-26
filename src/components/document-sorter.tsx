@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } fro
 import { AiReorganizeDialog } from "@/components/ai-reorganize-dialog";
 import { WhyNotAutomatic } from "@/components/prompt-builder";
 import { documentCoverage } from "@/lib/document-coverage";
+import { fetchPdfHints, formsLabel, hintBadge, type PdfHints } from "@/lib/pdf-hints";
 import { sorterFetch } from "@/lib/sorter-client";
 import { sorterEndpoint, unreachableMessage } from "@/lib/sorter-endpoint";
 import { useDialogFocus } from "@/lib/use-dialog-focus";
@@ -61,6 +62,7 @@ export function DocumentSorter({
   onSuggestSummaries,
   revealed = [],
   onFiles,
+  onPdfHints,
 }: {
   onUploaded: () => void;
   onSuggestSummaries?: (suggest: boolean) => void;
@@ -68,12 +70,20 @@ export function DocumentSorter({
   revealed?: string[];
   /** Hears the staged paths (relative to sorter/stage) after every refresh. */
   onFiles?: (paths: string[]) => void;
+  /** Hears the form names api.php read inside the staged PDFs, after every refresh. */
+  onPdfHints?: (hints: PdfHints) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const onSuggestSummariesRef = useRef(onSuggestSummaries);
   onSuggestSummariesRef.current = onSuggestSummaries;
   const onFilesRef = useRef(onFiles);
   onFilesRef.current = onFiles;
+  const onPdfHintsRef = useRef(onPdfHints);
+  onPdfHintsRef.current = onPdfHints;
+  const hintsRequest = useRef(0);
+  const [hints, setHints] = useState<PdfHints>({});
+  /** null until api.php has answered; false when the PDF reader is not installed on the server. */
+  const [reader, setReader] = useState<boolean | null>(null);
   const [files, setFiles] = useState<StagedFile[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [suggestSummaries, setSuggestSummaries] = useState(false);
@@ -108,6 +118,14 @@ export function DocumentSorter({
       }));
       setFiles(listed);
       onFilesRef.current?.(listed.map((file) => file.path));
+      // Reading inside the PDFs can take a moment the first time; the list shows right away and the hints follow.
+      const request = ++hintsRequest.current;
+      void fetchPdfHints(endpoint.url).then((result) => {
+        if (request !== hintsRequest.current) return;
+        setHints(result.hints);
+        setReader(result.available);
+        onPdfHintsRef.current?.(result.hints);
+      });
       setCategories(body.categories ?? []);
       const suggest = body.summaries !== true && body.folders === true;
       setSuggestSummaries(suggest);
@@ -221,11 +239,13 @@ export function DocumentSorter({
     setNewCategory("");
   }
 
-  const coverage = useMemo(() => documentCoverage({ revealed }, files.map((file) => file.path)), [revealed, files]);
+  const coverage = useMemo(() => documentCoverage({ revealed }, files.map((file) => file.path), hints), [revealed, files, hints]);
   const shown = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return needle ? files.filter((file) => file.path.toLowerCase().includes(needle)) : files;
-  }, [files, query]);
+    return needle
+      ? files.filter((file) => file.path.toLowerCase().includes(needle) || formsLabel(hints[file.path]?.forms ?? []).toLowerCase().includes(needle))
+      : files;
+  }, [files, query, hints]);
   /** Shown files by category folder; uncategorized first, then folders in name order. */
   const groups = useMemo(() => {
     const byCategory = new Map<string, StagedFile[]>();
@@ -316,8 +336,11 @@ export function DocumentSorter({
             Documents this path calls for
           </h3>
           <p className="text-sm text-stone-600">
-            {coverage.found} of {coverage.expected.length} look like they are on file in sorter/stage, judging by folder and file
-            names. The list grows as you answer more of the chart.
+            {coverage.found} of {coverage.expected.length} look like they are on file in sorter/stage.{" "}
+            {reader
+              ? "PDFs count by the form named in their text; scans and other files count by folder and file name."
+              : "Judging by folder and file names."}{" "}
+            The list grows as you answer more of the chart.
           </p>
           <ul className="sorter-coverage-list">
             {coverage.expected.map((doc) => {
@@ -335,8 +358,10 @@ export function DocumentSorter({
                     <p className="text-sm text-stone-700">{doc.reason}</p>
                     <p className="break-all text-xs text-stone-600">
                       {found
-                        ? `On file: ${doc.files.map(fileName).join(", ")}`
-                        : "Nothing in sorter/stage matches by name yet. Upload it, or rename it so the form name is in the file name."}
+                        ? `On file: ${doc.files.map((path) => (doc.byContent.includes(path) ? `${fileName(path)} (read inside the PDF)` : fileName(path))).join(", ")}`
+                        : reader
+                          ? "Nothing in sorter/stage reads as this form or matches by name yet. Upload it; a scan with no text needs the form name in its file name."
+                          : "Nothing in sorter/stage matches by name yet. Upload it, or rename it so the form name is in the file name."}
                     </p>
                   </div>
                 </li>
@@ -383,6 +408,11 @@ export function DocumentSorter({
                       {category ? file.path.slice(category.length + 1) : file.path}
                     </p>
                     <p className="text-xs uppercase tracking-wide text-stone-500">{formatBytes(file.bytes)}</p>
+                    {hintBadge(hints[file.path]) ? (
+                      <p className={`sorter-read${hints[file.path]?.forms.length ? " is-form" : ""}`} title="Read inside the PDF on the server; the file is not changed">
+                        {hintBadge(hints[file.path])}
+                      </p>
+                    ) : null}
                     <button type="button" className="btn-secondary mt-2" disabled={busy} onClick={() => openCategory(file)}>
                       {category ? "Change category" : "Assign category"}
                     </button>

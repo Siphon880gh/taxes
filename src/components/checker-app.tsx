@@ -12,6 +12,7 @@ import { DISCLAIMER } from "@/lib/disclaimer";
 import { readStoredQuote, writeStoredQuote } from "@/lib/quote-storage";
 import { clearStoredSession, readStoredSession, writeStoredSession } from "@/lib/session-storage";
 import { documentCoverage } from "@/lib/document-coverage";
+import type { PdfHints } from "@/lib/pdf-hints";
 import {
   checklistMarkdown,
   checklistProgress,
@@ -237,6 +238,8 @@ export function CheckerApp() {
   const [confirmed, setConfirmed] = useState<string[]>([]);
   /** Files in sorter/stage as of the Document Sorter's last refresh; null until it has listed them. */
   const [stagedPaths, setStagedPaths] = useState<string[] | null>(null);
+  /** Form names read inside the staged PDFs (sorter/api.php pdf-hints), by staged path. */
+  const [pdfHints, setPdfHints] = useState<PdfHints>({});
   const [sorterReminder, setSorterReminder] = useState(false);
   const [suggestSummaries, setSuggestSummaries] = useState(false);
   const [chartToolsNode, setChartToolsNode] = useState<HTMLDivElement | null>(null);
@@ -353,7 +356,7 @@ export function CheckerApp() {
   );
   const checklist = useMemo(() => buildChecklist(session), [session]);
   const checklistStats = checklistProgress(checklist, confirmed);
-  const coverage = useMemo(() => documentCoverage(session, stagedPaths ?? []), [session, stagedPaths]);
+  const coverage = useMemo(() => documentCoverage(session, stagedPaths ?? [], pdfHints), [session, stagedPaths, pdfHints]);
   const cost = useMemo(() => costReport(session), [session]);
   const deduction = useMemo(() => deductionNarrative(session), [session]);
   const open = openQuestions(session);
@@ -1008,7 +1011,7 @@ export function CheckerApp() {
                         <span>
                           {stagedPaths == null
                             ? `This path calls for ${coverage.expected.length} source ${coverage.expected.length === 1 ? "document" : "documents"}.`
-                            : `Documents on file: ${coverage.found} of ${coverage.expected.length} this path calls for${coverage.missing ? ` (${coverage.missing} not found by name)` : ""}.`}
+                            : `Documents on file: ${coverage.found} of ${coverage.expected.length} this path calls for${coverage.missing ? ` (${coverage.missing} not found yet)` : ""}.`}
                         </span>
                         <button type="button" className="btn-secondary" onClick={() => showFrame("sorter")}>
                           {stagedPaths == null ? "Check in Document Sorter" : "Open Document Sorter"}
@@ -1237,6 +1240,7 @@ export function CheckerApp() {
                   onSuggestSummaries={setSuggestSummaries}
                   revealed={session.revealed}
                   onFiles={setStagedPaths}
+                  onPdfHints={setPdfHints}
                 />
               ) : (
                 <OwedAuditPanel onDialog={setOwedDialog} />

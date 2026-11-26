@@ -2156,6 +2156,22 @@ button.question-dock-tile {
 }
 
 /* Document coverage: what the chart calls for vs what is in sorter/stage */
+.sorter-read {
+  margin-top: 0.35rem;
+  display: inline-block;
+  border-radius: 999px;
+  border: 1px solid #d6d3d1;
+  padding: 0.05rem 0.55rem;
+  font-size: 0.75rem;
+  color: #44403c;
+}
+
+.sorter-read.is-form {
+  border-color: #6ee7b7;
+  background: #ecfdf5;
+  color: #065f46;
+}
+
 .sorter-coverage {
   margin-top: 1rem;
   border: 1px solid #d6d3d1;
