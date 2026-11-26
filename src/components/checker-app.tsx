@@ -12,6 +12,14 @@ import { DISCLAIMER } from "@/lib/disclaimer";
 import { readStoredQuote, writeStoredQuote } from "@/lib/quote-storage";
 import { clearStoredSession, readStoredSession, writeStoredSession } from "@/lib/session-storage";
 import {
+  checklistMarkdown,
+  checklistProgress,
+  confirmedFromExport,
+  readConfirmed,
+  toggleConfirmed,
+  writeConfirmed,
+} from "@/lib/checklist-progress";
+import {
   applyAnswer,
   applyCase,
   addInstance,
@@ -33,7 +41,6 @@ import {
   instanceScope,
   readAnswer,
   readComment,
-  sessionToJson,
   removeInstance,
   renameInstance,
   repeatableNodes,
@@ -43,7 +50,7 @@ import {
   tips,
   visibleCommentNodeIds,
 } from "@/lib/graph";
-import { answerOf } from "@/lib/graph/session";
+import { answerOf, sessionFile } from "@/lib/graph/session";
 import { parseYear } from "@/lib/graph/thresholds";
 import { onTabListKeyDown } from "@/lib/tablist-keys";
 import type { GraphNode, Session, TipBody } from "@/lib/graph/types";
@@ -223,6 +230,7 @@ export function CheckerApp() {
   const [frameMode, setFrameMode] = useState<"checklist" | "costs" | "sorter" | "audit">("checklist");
   const [walkthroughOpen, setWalkthroughOpen] = useState(false);
   const [quoteDraft, setQuoteDraft] = useState<string | null>(null);
+  const [confirmed, setConfirmed] = useState<string[]>([]);
   const [sorterReminder, setSorterReminder] = useState(false);
   const [suggestSummaries, setSuggestSummaries] = useState(false);
   const [chartToolsNode, setChartToolsNode] = useState<HTMLDivElement | null>(null);
@@ -338,6 +346,7 @@ export function CheckerApp() {
     [session.activeInstance, session.instances, view.ids],
   );
   const checklist = useMemo(() => buildChecklist(session), [session]);
+  const checklistStats = checklistProgress(checklist, confirmed);
   const cost = useMemo(() => costReport(session), [session]);
   const deduction = useMemo(() => deductionNarrative(session), [session]);
   const open = openQuestions(session);
@@ -453,6 +462,7 @@ export function CheckerApp() {
 
   useEffect(() => {
     sessionRestored.current = true;
+    setConfirmed(readConfirmed());
     const saved = readStoredSession();
     if (saved) {
       adoptSession(saved);
@@ -464,6 +474,7 @@ export function CheckerApp() {
   }, []);
 
   function loadBlank() {
+    changeConfirmed([]);
     const next = withStoredQuote(blankSession());
     setSession(next);
     setSelectedId("filing_status");
@@ -477,6 +488,39 @@ export function CheckerApp() {
     setDraft("");
   }
 
+  /** Change which checklist items are confirmed, on screen and in this browser. */
+  function changeConfirmed(next: string[]) {
+    setConfirmed(next);
+    writeConfirmed(next);
+  }
+
+  function downloadChecklist() {
+    const markdown = checklistMarkdown({
+      title: checklistTitle(session),
+      returnYear,
+      items: checklist,
+      confirmed,
+      openQuestions: open.length,
+      disclaimer: DISCLAIMER,
+    });
+    const url = URL.createObjectURL(new Blob([markdown], { type: "text/markdown" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "taxes-checklist.md";
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function printChecklist() {
+    document.body.classList.add("print-checklist");
+    const done = () => {
+      document.body.classList.remove("print-checklist");
+      window.removeEventListener("afterprint", done);
+    };
+    window.addEventListener("afterprint", done);
+    window.print();
+  }
+
   /** Clear what this browser saved (answers, comments, quote) and open a blank chart. Export keeps a copy first. */
   function startOver() {
     const ok = window.confirm(
@@ -485,11 +529,13 @@ export function CheckerApp() {
     if (!ok) return;
     clearStoredSession();
     writeStoredQuote({ amount: null, preparer: null });
+    changeConfirmed([]);
     setQuoteDraft(null);
     loadBlank();
   }
 
   function loadCase(id: string) {
+    changeConfirmed([]);
     const next = applyCase(id);
     setSession(next);
     const firstOpen = openQuestions(next)[0] ?? "form_1040";
@@ -519,7 +565,8 @@ export function CheckerApp() {
   }
 
   function exportChart() {
-    const blob = new Blob([sessionToJson(session)], { type: "application/json" });
+    // The chart file plus which checklist items are confirmed; importSession ignores the extra field.
+    const blob = new Blob([JSON.stringify({ ...sessionFile(session), confirmed }, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
@@ -530,7 +577,9 @@ export function CheckerApp() {
 
   async function importChart(file: File) {
     try {
-      const imported = importSession(await file.text());
+      const text = await file.text();
+      const imported = importSession(text);
+      changeConfirmed(confirmedFromExport(text));
       // The imported file wins over the quote saved in this browser, including when it has no quote.
       writeStoredQuote({ amount: imported.quote, preparer: imported.quotePreparer });
       adoptSession(imported);
@@ -675,7 +724,32 @@ export function CheckerApp() {
 
   return (
     <ShortcutLayer>
-    <div className="min-h-screen">
+    <div className="min-h-screen app-root">
+      <section className="checklist-print" aria-hidden="true">
+        <h1>{checklistTitle(session)}</h1>
+        <p>
+          Return year: {returnYear} · {checklistStats.done} of {checklistStats.total} confirmed
+          {open.length ? ` · ${open.length} open ${open.length === 1 ? "question" : "questions"} on the chart` : ""}
+        </p>
+        <ul>
+          {checklist.map((item) => (
+            <li key={item.id}>
+              <p>
+                <strong>
+                  {confirmed.includes(item.id) ? "☑" : "☐"} {item.form}
+                  {item.line ? ` · ${item.line}` : ""}
+                </strong>
+              </p>
+              <p>{item.summary}</p>
+              <p className="checklist-print-meta">
+                {item.certainty === "sourced" ? "Line cited for the year shown" : "Verify on the form"}
+                {item.source ? ` · ${item.source.yearLabel} · ${item.source.title}` : ""}
+              </p>
+            </li>
+          ))}
+        </ul>
+        <p className="checklist-print-meta">{DISCLAIMER}</p>
+      </section>
       <header className={topCollapsed ? "hidden" : "border-b border-stone-300 bg-[#fffdf8]"}>
         {topCollapsed ? null : (
           <div className="flex w-full flex-col gap-4 px-4 py-5 sm:px-6 lg:px-8">
@@ -884,9 +958,32 @@ export function CheckerApp() {
                   {checklist.length === 0 ? (
                     <p className="mt-2 text-stone-700">Answer a question to list forms and lines. Nothing is assumed yet.</p>
                   ) : (
+                    <>
+                    <div className="checklist-toolbar">
+                      <p className="text-sm text-stone-800" role="status">
+                        {checklistStats.done} of {checklistStats.total} confirmed on the return
+                      </p>
+                      <progress className="checklist-progress" max={checklistStats.total} value={checklistStats.done} aria-label="Checklist items confirmed" />
+                      <div className="flex flex-wrap gap-2">
+                        <button type="button" className="btn-secondary" onClick={downloadChecklist}>
+                          Download .md
+                        </button>
+                        <button type="button" className="btn-secondary" onClick={printChecklist}>
+                          Print
+                        </button>
+                      </div>
+                    </div>
                     <ul className="mt-3 flex flex-col gap-3">
                       {checklist.map((item) => (
-                        <li key={item.id} className="rounded-md border border-stone-200 bg-[#fffdf8] px-3 py-2">
+                        <li key={item.id} className={`rounded-md border px-3 py-2 ${confirmed.includes(item.id) ? "checklist-item-done" : "border-stone-200 bg-[#fffdf8]"}`}>
+                          <label className="checklist-confirm">
+                            <input
+                              type="checkbox"
+                              checked={confirmed.includes(item.id)}
+                              onChange={() => changeConfirmed(toggleConfirmed(confirmed, item.id))}
+                            />
+                            Confirmed on the return
+                          </label>
                           <p className="font-medium text-stone-900">
                             {item.form}
                             {item.line ? ` · ${item.line}` : ""}
@@ -904,6 +1001,7 @@ export function CheckerApp() {
                         </li>
                       ))}
                     </ul>
+                    </>
                   )}
                 </>
               ) : frameMode === "costs" ? (

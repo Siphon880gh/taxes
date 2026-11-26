@@ -2051,3 +2051,73 @@ button.question-dock-tile {
 .ai-reorg-status:empty {
   display: none;
 }
+
+/* Checklist confirmations, download, and print */
+.checklist-toolbar {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.checklist-progress {
+  flex: 1 1 8rem;
+  max-width: 16rem;
+  height: 0.5rem;
+  accent-color: #047857;
+}
+
+.checklist-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.25rem;
+  font-size: 0.8rem;
+  color: #44403c;
+  cursor: pointer;
+}
+
+.checklist-confirm input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: #047857;
+}
+
+.checklist-item-done {
+  border-color: #6ee7b7;
+  background: #ecfdf5;
+}
+
+.checklist-print {
+  display: none;
+}
+
+@media print {
+  body.print-checklist .app-root > *:not(.checklist-print) {
+    display: none !important;
+  }
+
+  body.print-checklist .checklist-print {
+    display: block;
+    color: #000;
+    font-size: 11pt;
+  }
+
+  body.print-checklist .checklist-print h1 {
+    font-size: 18pt;
+    margin-bottom: 4pt;
+  }
+
+  body.print-checklist .checklist-print li {
+    break-inside: avoid;
+    margin: 8pt 0;
+    padding-bottom: 6pt;
+    border-bottom: 1px solid #ccc;
+  }
+
+  body.print-checklist .checklist-print-meta {
+    font-size: 9pt;
+    color: #444;
+  }
+}
