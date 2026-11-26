@@ -66,7 +66,7 @@ export function AiReorganizeDialog({ onClose, onRefresh }: { onClose: () => void
       }
       setStatus(parsed);
     } catch (err) {
-      setLoadError(unreachableMessage(err, endpoint.url));
+      setLoadError(unreachableMessage(err));
     }
   }, []);
 

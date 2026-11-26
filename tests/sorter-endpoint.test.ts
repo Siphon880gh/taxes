@@ -41,6 +41,8 @@ test("locally the configured URL or the sibling sorter/api.php is used", () => {
   const unset = resolveSorterEndpoint({ hostname: "127.0.0.1", href: "http://127.0.0.1:43123/" }, "");
   assert.equal(unset.ok, false);
   assert.match(!unset.ok ? unset.message : "", /SERVER_URL_UPLOAD_API_PHP/);
+  const bad = resolveSorterEndpoint({ hostname: "localhost", href: "http://localhost:43123/" }, "http://[bad/x/y/sorter/api.php");
+  assert.deepEqual(bad, { ok: false, message: "SERVER_URL_UPLOAD_API_PHP in .env is not a URL." }, "the configured value is not echoed");
 });
 
 test("a public or relative configured URL is used on any host", () => {
@@ -55,6 +57,9 @@ test("a public or relative configured URL is used on any host", () => {
 });
 
 test("a network failure gets the friendly message, a server error passes through", () => {
-  assert.equal(unreachableMessage(new TypeError("Failed to fetch"), "http://localhost:8888/a.php"), "Could not reach http://localhost:8888/a.php. The PHP server must be running.");
-  assert.equal(unreachableMessage(new Error("missing file"), "u"), "missing file");
+  assert.equal(
+    unreachableMessage(new TypeError("Failed to fetch")),
+    "Could not reach the document sorter (sorter/api.php). The PHP server must be running.",
+  );
+  assert.equal(unreachableMessage(new Error("missing file")), "missing file");
 });

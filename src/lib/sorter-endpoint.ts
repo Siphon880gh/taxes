@@ -31,7 +31,7 @@ export function resolveSorterEndpoint(location: PageLocation, configured: string
     try {
       url = new URL(configured, page);
     } catch {
-      return { ok: false, message: `SERVER_URL_UPLOAD_API_PHP in .env is not a URL: ${configured}` };
+      return { ok: false, message: "SERVER_URL_UPLOAD_API_PHP in .env is not a URL." };
     }
     const pageIsLocal = isLocalHost(location.hostname);
     if (isLocalHost(url.hostname) && pageIsLocal && url.hostname !== location.hostname) {
@@ -57,8 +57,11 @@ export function sorterEndpoint(): SorterEndpoint {
   return resolveSorterEndpoint(window.location);
 }
 
-/** A network failure gets a plain explanation; a server message is passed through. */
-export function unreachableMessage(err: unknown, url: string): string {
-  if (err instanceof TypeError) return `Could not reach ${url}. The PHP server must be running.`;
-  return err instanceof Error && err.message ? err.message : `Could not reach ${url}. The PHP server must be running.`;
+/** Names the endpoint by its place in the app, never by the URL, which would show where the app lives. */
+export const UNREACHABLE_MESSAGE = "Could not reach the document sorter (sorter/api.php). The PHP server must be running.";
+
+/** A network failure gets a plain explanation; a server message is passed through. The URL is not shown. */
+export function unreachableMessage(err: unknown): string {
+  if (err instanceof TypeError) return UNREACHABLE_MESSAGE;
+  return err instanceof Error && err.message ? err.message : UNREACHABLE_MESSAGE;
 }

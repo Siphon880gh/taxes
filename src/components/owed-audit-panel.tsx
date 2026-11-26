@@ -50,7 +50,7 @@ export function OwedAuditPanel({ onDialog }: { onDialog?: (open: boolean) => voi
       }
       setPaths(body.owedAudits ?? []);
     } catch (err) {
-      setError(unreachableMessage(err, endpoint.url));
+      setError(unreachableMessage(err));
     } finally {
       setChecked(true);
     }
@@ -84,7 +84,7 @@ export function OwedAuditPanel({ onDialog }: { onDialog?: (open: boolean) => voi
       setReading({ path: body.path || path, markdown: body.markdown });
       onDialog?.(true);
     } catch (err) {
-      setError(unreachableMessage(err, endpoint.url));
+      setError(unreachableMessage(err));
     } finally {
       setOpening(null);
     }

@@ -99,7 +99,7 @@ export function DocumentSorter({
       setSuggestSummaries(suggest);
       onSuggestSummariesRef.current?.(suggest);
     } catch (err) {
-      setError(unreachableMessage(err, endpoint.url));
+      setError(unreachableMessage(err));
     }
   }, []);
 
