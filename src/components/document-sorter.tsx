@@ -63,6 +63,7 @@ export function DocumentSorter({
   revealed = [],
   onFiles,
   onPdfHints,
+  onStatus,
 }: {
   onUploaded: () => void;
   onSuggestSummaries?: (suggest: boolean) => void;
@@ -72,6 +73,8 @@ export function DocumentSorter({
   onFiles?: (paths: string[]) => void;
   /** Hears the form names api.php read inside the staged PDFs, after every refresh. */
   onPdfHints?: (hints: PdfHints) => void;
+  /** Hears every status api.php returns, so the Return & Owe Audit tab learns about new reports too. */
+  onStatus?: (body: unknown) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const onSuggestSummariesRef = useRef(onSuggestSummaries);
@@ -80,6 +83,8 @@ export function DocumentSorter({
   onFilesRef.current = onFiles;
   const onPdfHintsRef = useRef(onPdfHints);
   onPdfHintsRef.current = onPdfHints;
+  const onStatusRef = useRef(onStatus);
+  onStatusRef.current = onStatus;
   const hintsRequest = useRef(0);
   const [hints, setHints] = useState<PdfHints>({});
   /** null until api.php has answered; false when the PDF reader is not installed on the server. */
@@ -113,6 +118,7 @@ export function DocumentSorter({
         setError(body.error || "Could not list the staging directory.");
         return;
       }
+      onStatusRef.current?.(body);
       const listed = (body.files ?? []).map((file) => ({
         ...file,
         category: typeof file.category === "string" ? file.category : categoryOf(file),

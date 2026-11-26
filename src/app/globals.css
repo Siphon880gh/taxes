@@ -588,6 +588,13 @@ body {
   background: #fff7ed;
 }
 
+.frame-switch button[aria-disabled="true"] {
+  border-style: dashed;
+  background: #f5f5f4;
+  color: #78716c;
+  cursor: not-allowed;
+}
+
 .frame-switch-divider {
   align-self: stretch;
   width: 1px;

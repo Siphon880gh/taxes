@@ -12,6 +12,8 @@ import { DISCLAIMER } from "@/lib/disclaimer";
 import { readStoredQuote, writeStoredQuote } from "@/lib/quote-storage";
 import { clearStoredSession, readStoredSession, writeStoredSession } from "@/lib/session-storage";
 import { documentCoverage } from "@/lib/document-coverage";
+import { auditTab } from "@/lib/owed-reports";
+import { useOwedReports } from "@/lib/use-owed-reports";
 import type { PdfHints } from "@/lib/pdf-hints";
 import {
   checklistMarkdown,
@@ -234,6 +236,11 @@ export function CheckerApp() {
   const importInput = useRef<HTMLInputElement>(null);
   const [modalId, setModalId] = useState<string | null>(null);
   const [frameMode, setFrameMode] = useState<"checklist" | "costs" | "sorter" | "audit">("checklist");
+  /** Owed Audit.md and Owe Audit Breakdown - Rent.md in sorter/stage; the Return & Owe Audit tab is grayed out without them. */
+  const owedReports = useOwedReports();
+  const auditState = auditTab(owedReports.state);
+  /** Shown at the top of the panel after the grayed-out tab is pressed, until dismissed or the tab opens. */
+  const [auditHint, setAuditHint] = useState<string | null>(null);
   const [walkthroughOpen, setWalkthroughOpen] = useState(false);
   const [quoteDraft, setQuoteDraft] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState<string[]>([]);
@@ -297,6 +304,31 @@ export function CheckerApp() {
     setFrameMode(mode);
     if (!dockCollapsed) openChecklist();
   }
+
+  /** The grayed-out tab checks again first (the skill may have just written the file), then opens or explains. */
+  async function openAuditTab() {
+    if (!auditState.disabled) {
+      setAuditHint(null);
+      showFrame("audit");
+      return;
+    }
+    const after = auditTab(await owedReports.refresh());
+    if (after.disabled) {
+      setAuditHint(after.hint);
+      if (!dockCollapsed) openChecklist();
+    } else {
+      setAuditHint(null);
+      showFrame("audit");
+    }
+  }
+
+  // The reports went away while their tab was open (moved, deleted, or the sorter stopped answering):
+  // fall back to the Document Sorter, where the returns go, and say why.
+  if (frameMode === "audit" && auditState.disabled) {
+    setFrameMode("sorter");
+    setAuditHint(auditState.hint);
+  }
+
 
   function resizeDock(event: ReactPointerEvent<HTMLButtonElement>) {
     const dock = dockRef.current;
@@ -960,9 +992,21 @@ export function CheckerApp() {
             <button type="button" aria-pressed={frameMode === "sorter"} onClick={() => showFrame("sorter")}>
               Document Sorter
             </button>
-            <button type="button" aria-pressed={frameMode === "audit"} onClick={() => showFrame("audit")}>
+            <button
+              type="button"
+              aria-pressed={frameMode === "audit"}
+              aria-disabled={auditState.disabled || undefined}
+              aria-describedby={auditState.disabled ? "audit-tab-hint" : undefined}
+              title={auditState.hint ?? undefined}
+              onClick={() => void openAuditTab()}
+            >
               Return & Owe Audit
             </button>
+            {auditState.disabled ? (
+              <span id="audit-tab-hint" className="sr-only">
+                {auditState.hint}
+              </span>
+            ) : null}
             <span className="frame-switch-divider" aria-hidden="true" />
             <HarnessHelp />
           </div>
@@ -977,6 +1021,12 @@ export function CheckerApp() {
           </button>
           {checklistOpen ? (
             <div className="checklist-frame-inner">
+              {auditHint ? (
+                <p className="sorter-reminder" role="status">
+                  <span>{auditHint}</span>
+                  <button type="button" onClick={() => setAuditHint(null)}>Dismiss</button>
+                </p>
+              ) : null}
               {sorterReminder ? (
                 <p className="sorter-reminder" role="status">
                   <span>
@@ -1244,9 +1294,10 @@ export function CheckerApp() {
                   revealed={session.revealed}
                   onFiles={setStagedPaths}
                   onPdfHints={setPdfHints}
+                  onStatus={owedReports.accept}
                 />
               ) : (
-                <OwedAuditPanel onDialog={setOwedDialog} />
+                <OwedAuditPanel state={owedReports.state} onRefresh={() => void owedReports.refresh()} onDialog={setOwedDialog} />
               )}
             </div>
           ) : (
