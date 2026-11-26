@@ -1,20 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { examplePrompt, isSafeRelativePath, keepParam, parseAiPlan, parseAiStatus } from "../src/lib/ai-reorganize";
+import { examplePrompt, isSafeRelativePath, keepParam, parseAiPlan, parseAiStatus, UPLOADS_FOLDER } from "../src/lib/ai-reorganize";
 
 test("parseAiStatus reads both the configured and the no-key answer", () => {
-  assert.deepEqual(parseAiStatus({ ok: true, configured: false, folder: "/srv/taxes/sorter/stage", reason: "No key" }), {
+  assert.deepEqual(parseAiStatus({ ok: true, configured: false, folder: "sorter/stage", reason: "No key" }), {
     configured: false,
-    folder: "/srv/taxes/sorter/stage",
     reason: "No key",
   });
-  assert.deepEqual(parseAiStatus({ ok: true, configured: true, folder: "/f", provider: "anthropic", model: "m" }), {
+  assert.deepEqual(parseAiStatus({ ok: true, configured: true, folder: "sorter/stage", provider: "anthropic", model: "m" }), {
     configured: true,
-    folder: "/f",
     provider: "anthropic",
     model: "m",
   });
-  assert.equal(parseAiStatus({ ok: true, configured: true, folder: "/f", provider: "other" }), null);
+  assert.equal(parseAiStatus({ ok: true, configured: true, provider: "other" }), null);
   assert.equal(parseAiStatus({ ok: false, error: "forbidden" }), null);
 });
 
@@ -54,8 +52,10 @@ test("keepParam lists the kept indexes", () => {
   assert.equal(keepParam([false]), "");
 });
 
-test("examplePrompt names the folder and the guide", () => {
-  const prompt = examplePrompt("/Users/me/taxes/sorter/stage");
-  assert.match(prompt, /\/Users\/me\/taxes\/sorter\/stage/);
+test("examplePrompt names the uploads folder relative to the app, never an absolute path", () => {
+  const prompt = examplePrompt();
+  assert.match(prompt, /^Reorganize the tax documents in sorter\/stage\./);
   assert.match(prompt, /AGENTS\.md/);
+  assert.doesNotMatch(prompt, /\/Users\/|taxes\//);
+  assert.equal(UPLOADS_FOLDER, "sorter/stage");
 });

@@ -6,9 +6,10 @@
 
 export type AiProvider = "openai" | "anthropic";
 
-export type AiStatus =
-  | { configured: true; folder: string; provider: AiProvider; model: string }
-  | { configured: false; folder: string; reason: string };
+/** The uploads folder, relative to the app's folder. The app never shows where that folder lives on disk. */
+export const UPLOADS_FOLDER = "sorter/stage";
+
+export type AiStatus = { configured: true; provider: AiProvider; model: string } | { configured: false; reason: string };
 
 export type AiMove = { path: string; category: string; reason: string };
 
@@ -22,7 +23,7 @@ export type AiApplyResult = {
 /** Shown when sorter/api.php has no key: the request's wording, with the folder named next to it. */
 export const NO_AI_TITLE = "AI or billing is not set up in this app";
 export const NO_AI_BODY =
-  "No ChatGPT (OpenAI) or Claude (Anthropic) API key is configured in the app's .env, so the app cannot ask AI for you. Open the uploads folder below in your own AI harness (Cursor, Claude Code or another), ask it to reorganize the tax documents, then refresh the app.";
+  "No ChatGPT (OpenAI) or Claude (Anthropic) API key is configured in the app's .env, so the app cannot ask AI for you. Open the app's uploads folder below in your own AI harness (Cursor, Claude Code or another), ask it to reorganize the tax documents, then refresh the app.";
 
 export function providerLabel(provider: AiProvider): string {
   return provider === "openai" ? "ChatGPT (OpenAI)" : "Claude (Anthropic)";
@@ -39,12 +40,12 @@ export function isSafeRelativePath(value: string): boolean {
 }
 
 export function parseAiStatus(body: unknown): AiStatus | null {
-  if (!isObject(body) || body.ok !== true || typeof body.folder !== "string") return null;
+  if (!isObject(body) || body.ok !== true) return null;
   if (body.configured === true) {
     if (body.provider !== "openai" && body.provider !== "anthropic") return null;
-    return { configured: true, folder: body.folder, provider: body.provider, model: String(body.model ?? "") };
+    return { configured: true, provider: body.provider, model: String(body.model ?? "") };
   }
-  return { configured: false, folder: body.folder, reason: typeof body.reason === "string" ? body.reason : "" };
+  return { configured: false, reason: typeof body.reason === "string" ? body.reason : "" };
 }
 
 /** The plan from ai-plan. Moves with an unsafe path or folder are dropped here too and counted as skipped. */
@@ -81,8 +82,7 @@ export function keepParam(kept: boolean[]): string {
   return kept.flatMap((on, index) => (on ? [String(index)] : [])).join(",");
 }
 
-/** Example prompt for an AI harness opened on the uploads folder. */
-export function examplePrompt(folder: string): string {
-  const where = folder ? ` in ${folder}` : "";
-  return `Reorganize the tax documents${where}. Follow AGENTS.md in that folder (and the tax-document-classification skill if you have it): sort in place, move each file into its category folder such as "Income - Wages" or "Deductions", put anything unclear in "_Needs Human Review", and leave AGENTS.md, Summaries.md and Owed Audit.md where they are.`;
+/** Example prompt for an AI harness opened on the app's folder. The path is relative, never an absolute one. */
+export function examplePrompt(): string {
+  return `Reorganize the tax documents in ${UPLOADS_FOLDER}. Follow AGENTS.md in that folder (and the tax-document-classification skill if you have it): sort in place, move each file into its category folder such as "Income - Wages" or "Deductions", put anything unclear in "_Needs Human Review", and leave AGENTS.md, Summaries.md and Owed Audit.md where they are.`;
 }

@@ -13,6 +13,7 @@ import {
   type AiApplyResult,
   type AiPlan,
   type AiStatus,
+  UPLOADS_FOLDER,
 } from "@/lib/ai-reorganize";
 import { copyText } from "@/lib/copy-text";
 import { cdCommand, cleanPath, loadHarness, saveHarness, type HarnessMode } from "@/lib/harness-path";
@@ -84,11 +85,12 @@ export function AiReorganizeDialog({ onClose, onRefresh }: { onClose: () => void
     };
   }, [onClose]);
 
-  const folder = status?.folder ?? "";
+  // Only relative paths come from the app. An absolute path appears only when the user types their own.
+  const folder = UPLOADS_FOLDER;
   const own = cleanPath(path);
   const target = own || folder;
   const shown = mode === "command" ? cdCommand(target) : target;
-  const prompt = examplePrompt(target);
+  const prompt = examplePrompt();
 
   async function copy(id: CopyId, text: string, done: string) {
     if (await copyText(text)) {
@@ -232,7 +234,7 @@ export function AiReorganizeDialog({ onClose, onRefresh }: { onClose: () => void
                 <span aria-hidden="true">⚠</span> {NO_AI_TITLE}
               </p>
               <p>{NO_AI_BODY}</p>
-              <p className="ai-reorg-label">Uploads folder</p>
+              <p className="ai-reorg-label">Uploads folder (inside this app&apos;s folder)</p>
               <span className="harness-help-copyrow">
                 <code className="ai-reorg-path">{folder}</code>
                 {copyButton("folder", folder, "Copy the uploads folder path", "Copied the uploads folder path.")}
@@ -240,7 +242,7 @@ export function AiReorganizeDialog({ onClose, onRefresh }: { onClose: () => void
             </div>
 
             <ol className="ai-reorg-steps">
-              <li>Open the uploads folder in Cursor, Claude Code or another AI harness. The folder has an AGENTS.md that tells it how this app expects documents to be sorted.</li>
+              <li>Open this app&apos;s folder (or its <code>{UPLOADS_FOLDER}</code> folder) in Cursor, Claude Code or another AI harness. The uploads folder has an AGENTS.md that tells it how this app expects documents to be sorted.</li>
               <li>
                 Ask it to reorganize the tax documents. Example prompt (yours can differ):
                 <span className="harness-help-copyrow">
@@ -274,7 +276,7 @@ export function AiReorganizeDialog({ onClose, onRefresh }: { onClose: () => void
                   id="ai-reorg-path-input"
                   className="harness-help-input"
                   value={path}
-                  placeholder="/Users/you/…/taxes/sorter/stage"
+                  placeholder="/Users/you/…/sorter/stage"
                   spellCheck={false}
                   autoComplete="off"
                   onChange={(event) => changePath(event.target.value)}
@@ -317,7 +319,9 @@ export function AiReorganizeDialog({ onClose, onRefresh }: { onClose: () => void
               </span>
               <p className="harness-help-hint">
                 {mode === "command"
-                  ? "Example command: paste it into a terminal, then start your AI harness there (for example claude)."
+                  ? own
+                    ? "Example command: paste it into a terminal, then start your AI harness there (for example claude)."
+                    : "Example command, run from this app's folder. Save your own path above for one that works from anywhere."
                   : "Paste the path into your AI tool’s Open Folder, or switch to Command for a cd line."}
               </p>
             </section>
@@ -346,7 +350,7 @@ export function AiReorganizeDialog({ onClose, onRefresh }: { onClose: () => void
           <>
             <p className="mt-3 text-stone-700">
               Uses {providerLabel(status.provider)}, model {status.model}. AI sees the file names and folders in{" "}
-              <code className="break-all">{status.folder}</code>, proposes moves, and nothing moves until you apply them.
+              <code className="break-all">{UPLOADS_FOLDER}</code>, proposes moves, and nothing moves until you apply them.
             </p>
             {!plan ? (
               <div className="mt-3 flex flex-wrap gap-2">
