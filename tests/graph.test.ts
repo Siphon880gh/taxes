@@ -957,3 +957,26 @@ test("Schedule 1-A asks about tips, overtime, car-loan interest, and seniors, wi
   const none = applyAnswer(applyAnswer(blankSession(), "filing_status", "single"), "schedule_1a", "no");
   assert.equal(buildChecklist(none).some((item) => item.id.startsWith("s1a-")), false);
 });
+
+test("the estimate lists its base and each add-on so the total can be checked by hand", () => {
+  const estimate = costReport(applyCase("weng-2025")).estimate;
+  assert.ok(estimate);
+  assert.deepEqual(
+    estimate.parts.map((part) => part.label),
+    ["Form 1040 with a state return (not itemized to itemized)", "Schedule C", "Schedule E rental", "Schedule SE"],
+  );
+  assert.deepEqual(estimate.parts[0].y2023, { low: 279, high: 392 });
+  const sum = (end: "low" | "high") => estimate.parts.reduce((total, part) => total + part.adjusted[end], 0);
+  // Pieces are rounded one by one, so their sum can be a dollar or two off the rounded total.
+  assert.ok(Math.abs(sum("low") - estimate.low) <= 2);
+  assert.ok(Math.abs(sum("high") - estimate.high) <= 2);
+});
+
+test("an entered quote is compared with filing yourself on FreeTaxUSA", () => {
+  const weng = applyCase("weng-2025");
+  assert.equal(weng.quote, 975);
+  assert.match(costReport(weng).diyComparison ?? "", /\$975 quote is \$959\.01 more than filing it yourself on FreeTaxUSA/);
+  assert.equal(costReport({ ...weng, quote: null }).diyComparison, null);
+  assert.match(costReport({ ...weng, quote: 10 }).diyComparison ?? "", /no more than FreeTaxUSA's published \$15\.99/);
+  assert.equal(costReport(weng).rows.find((row) => row.id === "freetaxusa")?.amountLabel, "$0 + $15.99");
+});

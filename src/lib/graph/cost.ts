@@ -19,6 +19,13 @@ export type PriceRow = {
   staleDays: number | null;
 };
 
+/** FreeTaxUSA's published state-return price; federal is $0. See citations.freetaxusa_pricing. */
+export const FREETAXUSA_STATE_PRICE = 15.99;
+
+function dollars(amount: number): string {
+  return `$${amount.toLocaleString("en-US", { minimumFractionDigits: Number.isInteger(amount) ? 0 : 2, maximumFractionDigits: 2 })}`;
+}
+
 /** A price whose last check is older than this many days is flagged as stale. */
 export const PRICE_STALE_AFTER_DAYS = 90;
 
@@ -52,9 +59,18 @@ export function withFreshness(row: DraftRow, today: Date, staleAfterDays: number
   };
 }
 
+/** One line of the estimate: an NSA 2023 average and the same amount raised by CPI-U. Low and high differ only for the Form 1040 base. */
+export type EstimatePart = {
+  label: string;
+  y2023: { low: number; high: number };
+  adjusted: { low: number; high: number };
+};
+
 export type ProEstimate = {
   low: number;
   high: number;
+  /** The base and each schedule add-on, so the total can be checked by hand. */
+  parts: EstimatePart[];
   /** CPI-U ratio from the 2023 survey year to the latest month used. */
   cpiFactor: number;
   /** Where an entered or loaded quote sits against the range. */
@@ -70,6 +86,8 @@ export type ProEstimate = {
 export type CostReport = {
   rows: PriceRow[];
   quoteNote: string | null;
+  /** How an entered quote compares with filing yourself on FreeTaxUSA; null without a quote. */
+  diyComparison: string | null;
   framing: string | null;
   direction: "same" | "higher" | "lower-work" | "none";
   estimate: ProEstimate | null;
@@ -121,6 +139,17 @@ export function proEstimate(
   const total = (base: NsaFee) => [base, ...addOns].reduce((sum, fee) => sum + fee.y2023, 0);
   const low = Math.round(total(lowBase) * cpiFactor);
   const high = Math.round(total(highBase) * cpiFactor);
+  const parts: EstimatePart[] = [
+    {
+      label: lowBase === highBase ? lowBase.label : "Form 1040 with a state return (not itemized to itemized)",
+      y2023: { low: lowBase.y2023, high: highBase.y2023 },
+      adjusted: { low: Math.round(lowBase.y2023 * cpiFactor), high: Math.round(highBase.y2023 * cpiFactor) },
+    },
+    ...addOns.map((fee) => {
+      const adjusted = Math.round(fee.y2023 * cpiFactor);
+      return { label: fee.label, y2023: { low: fee.y2023, high: fee.y2023 }, adjusted: { low: adjusted, high: adjusted } };
+    }),
+  ];
   const quotePosition =
     session.quote == null ? null : session.quote < low ? "below" : session.quote > high ? "above" : "within";
   const baseText =
@@ -137,6 +166,7 @@ export function proEstimate(
   return {
     low,
     high,
+    parts,
     cpiFactor,
     quotePosition,
     note: `Estimate only, not a quote. It takes the NSA 2023 national averages (${baseText}, plus ${addOnText}) and raises each total by CPI-U inflation from the 2023 average to ${cpiMonth} (×${cpiFactor.toFixed(3)}). ${spreadText} National averages are not Los Angeles or Louisiana prices, and a preparer can charge well outside this estimate.`,
@@ -186,7 +216,7 @@ export function costReport(session: Session, options: CostOptions = {}): CostRep
       id: "freetaxusa",
       vendor: "FreeTaxUSA",
       label: "Federal return, plus one state return",
-      amountLabel: "$0 + $15.99",
+      amountLabel: `$0 + ${dollars(FREETAXUSA_STATE_PRICE)}`,
       yearLabel: citations.freetaxusa_pricing.yearLabel,
       unverified: false,
       note: "Published prices retrieved October 16, 2026. Federal filing is $0 for every situation on the pricing page, including wages, itemized deductions, investments, rental property, and self-employment, so the forms reached on this path do not change it. A state return is $15.99. Optional products on the same page are not added: Deluxe Support $7.99, Pro Support $64.99, and Audit Defense $19.99. An amended return is listed at $16.98, or included with Deluxe or Pro Support.",
@@ -363,9 +393,19 @@ export function costReport(session: Session, options: CostOptions = {}): CostRep
     });
   }
 
+  let diyComparison: string | null = null;
+  if (session.quote != null && session.revealed.length > 1) {
+    const gap = Math.round((session.quote - FREETAXUSA_STATE_PRICE) * 100) / 100;
+    diyComparison =
+      gap > 0
+        ? `The ${dollars(session.quote)} quote is ${dollars(gap)} more than filing it yourself on FreeTaxUSA (${dollars(0)} federal + ${dollars(FREETAXUSA_STATE_PRICE)} for one state), before any optional support products.`
+        : `The ${dollars(session.quote)} quote is no more than FreeTaxUSA's published ${dollars(FREETAXUSA_STATE_PRICE)} for a federal return plus one state.`;
+  }
+
   return {
     rows: rows.map((row) => withFreshness(row, today, staleAfterDays)),
     quoteNote,
+    diyComparison,
     framing,
     direction,
     estimate: proEstimate(session, { today }),
