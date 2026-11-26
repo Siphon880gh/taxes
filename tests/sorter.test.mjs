@@ -297,6 +297,9 @@ test("api.php AI reorganize: .env parsing, no-key warning, validated plan, one-t
   fs.writeFileSync(path.join(stageDir, "inbox", "w2.pdf"), "w2");
   fs.writeFileSync(path.join(stageDir, "1099.pdf"), "1099");
   fs.writeFileSync(path.join(stageDir, "Summaries.md"), "# notes");
+  fs.writeFileSync(path.join(stageDir, "AGENTS.md"), "# guide");
+  const listed = await (await app(base)).json();
+  assert.equal(listed.files.some((f) => f.path === "AGENTS.md"), false, "the uploads guide is not a document");
 
   // No .env: not configured, and the uploads folder is named.
   fs.rmSync(envFile, { force: true });

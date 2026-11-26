@@ -53,6 +53,7 @@ next-env.d.ts
 /sorter/stage/*
 !/sorter/stage/.gitkeep
 !/sorter/stage/.htaccess
+!/sorter/stage/AGENTS.md
 /public/sorter/*
 !/public/sorter/api.php
 !/public/sorter/.htaccess
@@ -61,3 +62,4 @@ next-env.d.ts
 /public/sorter/stage/*
 !/public/sorter/stage/.gitkeep
 !/public/sorter/stage/.htaccess
+!/public/sorter/stage/AGENTS.md

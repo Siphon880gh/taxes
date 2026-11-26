@@ -558,7 +558,7 @@ function list_stage(string $stage): array
                 continue;
             }
             $path = substr(str_replace("\\", "/", $abs), strlen($root) + 1);
-            if (basename($path) === "Owed Audit.md") {
+            if (basename($path) === "Owed Audit.md" || $path === "AGENTS.md") {
                 continue;
             }
             $parent = dirname($path);
