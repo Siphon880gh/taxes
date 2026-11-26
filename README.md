@@ -34,7 +34,7 @@ The **Checklist** tab shows how many items you have confirmed on the return, and
 
 `npm test` runs these suites: the decision-graph tests (paths, checklist items, and the sourced 2025 and 2026 figures), the sorter-endpoint tests (which hosts get the local-only message), the browser-storage tests (saved session, checklist confirmations), the document-coverage tests, and the PHP sorter test, which starts `php -S` against `sorter/api.php` and is skipped when `php` is not installed. `npm run generate-graph` rewrites the decision-graph document from the same source.
 
-The return year offers 2025 and 2026, the two years with figures loaded and sourced. Figures that could not be checked against an IRS or SSA page stay marked to verify.
+The Tax year selector (header buttons, and a dropdown in the sticky Path library) offers 2025 and 2026, the two years with figures loaded and sourced. A blank chart starts on 2026; switching keeps your other answers, and the year is saved in the browser and in Export and Import. The standard deduction, age and blindness add-on, SALT cap, Social Security wage base, QBI thresholds, worker-reporting threshold, state standard deductions, and the checklist's line numbers all follow the selected year. 2025 lines come from the final IRS forms; 2026 lines come from the IRS early-release drafts (Schedule 1-A is renumbered and Form 1040 lines 13a and 13b swap), so they stay marked to verify until the final forms are out. Figures were last rechecked against the IRS, SSA, Louisiana LDR, and California FTB pages on November 25, 2026. Figures that could not be checked stay marked to verify.
 
 ## Deploy
 
