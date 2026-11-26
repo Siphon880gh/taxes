@@ -6,7 +6,7 @@
 
 export const OWED_AUDIT_NAME = "Owed Audit.md";
 export const RENT_BREAKDOWN_NAME = "Owe Audit Breakdown - Rent.md";
-export const OWED_SKILL_LABEL = "I have my return - audit owed";
+export const OWED_SKILL = "tax-return-owed-audit";
 
 export type OwedReports = { audits: string[]; rentBreakdowns: string[] };
 
@@ -27,7 +27,8 @@ export function owedReportsFrom(body: unknown): OwedReports | null {
   return { audits: namedPaths(value.owedAudits, OWED_AUDIT_NAME), rentBreakdowns: namedPaths(value.rentBreakdowns, RENT_BREAKDOWN_NAME) };
 }
 
-export const NO_AUDIT_HINT = `No ${OWED_AUDIT_NAME} yet; run the ${OWED_SKILL_LABEL} skill on sorter, then refresh.`;
+/** Shown wherever Owed Audit.md is missing: the grayed tab, Start here, and the panel. The AI attempt itself names the harness. */
+export const NO_AUDIT_HINT = `No ${OWED_AUDIT_NAME} yet. Ask AI to audit owed for this tax-year folder.`;
 
 /** Whether the Return & Owe Audit tab is usable, and the hint to show when it is not. Still checking counts as usable. */
 export function auditTab(state: OwedReportsState): { disabled: boolean; hint: string | null } {

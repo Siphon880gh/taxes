@@ -544,6 +544,119 @@ test("api.php AI reorganize: .env parsing, no-key warning, validated plan, one-t
   }
 });
 
+test("api.php AI tasks load the skill, redact identity numbers, save the report, and snag on billing", { skip: hasPhp ? false : "php is not installed" }, async () => {
+  await ready();
+  const http = await import("node:http");
+  const envFile = path.join(tmp, ".env");
+  const skills = path.join(tmp, ".agents", "skills");
+  clearUploads();
+  fs.rmSync(envFile, { force: true });
+  fs.rmSync(path.join(tmp, ".agents"), { recursive: true, force: true });
+  const folder = "Tax Year 2025 - Return";
+  fs.mkdirSync(path.join(sorterDir, folder), { recursive: true });
+  fs.writeFileSync(path.join(sorterDir, folder, "notes.txt"), "SSN 123-45-6789 wages 100\n");
+  fs.mkdirSync(path.join(skills, "tax-document-summaries"), { recursive: true });
+  fs.writeFileSync(
+    path.join(skills, "tax-document-summaries", "SKILL.md"),
+    "---\nname: tax-document-summaries\n---\nSUMMARIES-SKILL-MARKER write Summaries.md from the excerpts.\n",
+  );
+  fs.mkdirSync(path.join(skills, "tax-document-classification"), { recursive: true });
+  fs.writeFileSync(
+    path.join(skills, "tax-document-classification", "SKILL.md"),
+    "SORT-SKILL-MARKER put each file in a category folder.\n",
+  );
+
+  const fields = (action, extra) => {
+    const payload = new FormData();
+    payload.append("action", action);
+    for (const [key, value] of Object.entries(extra)) payload.append(key, value);
+    return payload;
+  };
+
+  const blocked = await app(base, { method: "POST", body: fields("ai-run", { task: "summaries", folder }) });
+  assert.equal(blocked.status, 409);
+  const blockedBody = await blocked.json();
+  assert.equal(blockedBody.code, "ai-unavailable");
+  assert.equal(blockedBody.skill, "tax-document-summaries");
+  assert.equal(blockedBody.folder, folder);
+  assert.doesNotMatch(JSON.stringify(blockedBody), /123-45-6789/);
+
+  let billing = false;
+  const seen = [];
+  const fake = http.createServer((req, res) => {
+    let raw = "";
+    req.on("data", (chunk) => (raw += chunk));
+    req.on("end", () => {
+      seen.push(JSON.parse(raw));
+      if (billing) {
+        res.writeHead(401, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: { message: "You exceeded your current quota, please check your plan and billing details." } }));
+        return;
+      }
+      const text = JSON.stringify({
+        markdown: "# Summary\nSSN 123-45-6789 wages **100**.",
+        owed: "# Owed\nAmount you owe **100**.",
+        rent: "",
+        guidance: "Type 100 from notes.txt.",
+        summary: "sorted",
+        moves: [{ path: `${folder}/notes.txt`, category: `${folder}/Income - Other`, reason: "note" }],
+      });
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ choices: [{ message: { content: text } }] }));
+    });
+  });
+  await new Promise((resolve) => fake.listen(0, "127.0.0.1", resolve));
+  const fakeUrl = `http://127.0.0.1:${fake.address().port}`;
+  try {
+    fs.writeFileSync(envFile, `OPENAI_API_KEY=sk-test-openai\nOPENAI_BASE_URL=${fakeUrl}/v1/\nAI_MODEL=test-model\n`);
+    const ran = await (await app(base, { method: "POST", body: fields("ai-run", { task: "summaries", folder }) })).json();
+    assert.equal(ran.ok, true, ran.error);
+    assert.equal(ran.skill, "tax-document-summaries");
+    assert.match(ran.markdown, /wages/);
+    assert.doesNotMatch(ran.markdown, /123-45-6789/);
+    const prompt = JSON.stringify(seen[0]);
+    assert.match(prompt, /SUMMARIES-SKILL-MARKER/);
+    assert.match(prompt, /\[redacted\]/);
+    assert.doesNotMatch(prompt, /123-45-6789/);
+    assert.doesNotMatch(prompt, /name: tax-document-summaries/, "YAML frontmatter stays out of the prompt");
+
+    const saved = await (
+      await app(base, {
+        method: "POST",
+        body: fields("ai-save", { task: "summaries", folder, markdown: ran.markdown }),
+      })
+    ).json();
+    assert.equal(saved.ok, true, saved.error);
+    assert.deepEqual(saved.wrote, [`${folder}/Summaries.md`]);
+    const written = fs.readFileSync(path.join(sorterDir, folder, "Summaries.md"), "utf8");
+    assert.match(written, /wages/);
+    assert.doesNotMatch(written, /123-45-6789/);
+
+    const escaped = await app(base, { method: "POST", body: fields("ai-save", { task: "summaries", folder: "../outside", markdown: "# no" }) });
+    assert.equal(escaped.status, 400);
+    assert.equal(fs.existsSync(path.join(tmp, "outside")), false);
+
+    const planned = await (await app(base, { method: "POST", body: fields("ai-plan", { folder }) })).json();
+    assert.equal(planned.ok, true, planned.error);
+    assert.deepEqual(planned.moves.map((move) => move.path), [`${folder}/notes.txt`]);
+    assert.match(JSON.stringify(seen.at(-1)), /SORT-SKILL-MARKER/);
+    assert.doesNotMatch(JSON.stringify(seen.at(-1)), /123-45-6789/, "sorting still sends names and form tags, not the file text");
+
+    billing = true;
+    const refused = await app(base, { method: "POST", body: fields("ai-plan", { folder }) });
+    assert.equal(refused.status, 409);
+    const refusedBody = await refused.json();
+    assert.equal(refusedBody.code, "ai-unavailable");
+    assert.equal(refusedBody.skill, "tax-document-classification");
+    assert.equal(refusedBody.folder, folder);
+    assert.match(refusedBody.error, /API key or billing is not set up/);
+  } finally {
+    fake.close();
+    fs.rmSync(envFile, { force: true });
+    fs.rmSync(path.join(tmp, ".agents"), { recursive: true, force: true });
+  }
+});
+
 function form(action, fields) {
   const payload = new FormData();
   payload.append("action", action);

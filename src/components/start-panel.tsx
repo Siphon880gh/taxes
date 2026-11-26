@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { PANEL_LEDES, ROUTES, spokenPrefix, stagedLabel, type FrameMode, type Route, type StageOverview } from "@/lib/flow";
-import { OWED_AUDIT_NAME, RENT_BREAKDOWN_NAME, type OwedReportsState } from "@/lib/owed-reports";
+import { NO_AUDIT_HINT, OWED_AUDIT_NAME, RENT_BREAKDOWN_NAME, type OwedReportsState } from "@/lib/owed-reports";
 
 type Props = {
   overview: StageOverview | null;
@@ -118,7 +118,7 @@ export function StartPanel(props: Props) {
               </button>
               {auditDisabled ? (
                 <p id="flow-audit-note" className="flow-note">
-                  Grayed out until the skill writes {OWED_AUDIT_NAME} into the tax-year folder.
+                  {NO_AUDIT_HINT}
                 </p>
               ) : null}
             </RouteCard>

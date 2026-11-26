@@ -5,8 +5,6 @@ import { Icon } from "@/components/harness-help";
 import {
   examplePrompt,
   keepParam,
-  NO_AI_BODY,
-  NO_AI_TITLE,
   parseAiPlan,
   parseAiStatus,
   providerLabel,
@@ -15,6 +13,7 @@ import {
   type AiStatus,
   UPLOADS_FOLDER,
 } from "@/lib/ai-reorganize";
+import { AI_TASKS, AI_UNAVAILABLE_TITLE, AiUnavailableError, harnessSnag, postAi } from "@/lib/ai-tasks";
 import { copyText } from "@/lib/copy-text";
 import { cdCommand, cleanPath, loadHarness, saveHarness, type HarnessMode } from "@/lib/harness-path";
 import { sorterFetch } from "@/lib/sorter-client";
@@ -23,14 +22,25 @@ import { useDialogFocus } from "@/lib/use-dialog-focus";
 
 /**
  * "Ask AI to reorganize" for the Document Sorter.
- * With an OpenAI or Anthropic key in the app's .env, sorter/api.php proposes a move plan that the user reviews and
- * applies here. Without one (the default), the dialog names the uploads folder and walks the user through doing it
- * with their own AI harness, then refreshing.
+ * Propose calls ChatGPT or Claude, using the tax-document-classification skill on the server. The user reviews the
+ * moves before anything is applied. A missing key or a billing refusal snags after that attempt and names the skill,
+ * the tax year, and the folder for an AI harness.
  */
 
 type CopyId = "folder" | "prompt" | "out";
 
-export function AiReorganizeDialog({ onClose, onRefresh }: { onClose: () => void; onRefresh: () => Promise<void> }) {
+export function AiReorganizeDialog({
+  onClose,
+  onRefresh,
+  returnFolder = null,
+  taxYear = null,
+}: {
+  onClose: () => void;
+  onRefresh: () => Promise<void>;
+  returnFolder?: string | null;
+  /** Tax year selected in the top right, such as "2026". */
+  taxYear?: string | null;
+}) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -45,6 +55,7 @@ export function AiReorganizeDialog({ onClose, onRefresh }: { onClose: () => void
   const [kept, setKept] = useState<boolean[]>([]);
   const [result, setResult] = useState<AiApplyResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [snag, setSnag] = useState(false);
 
   useDialogFocus(true, dialogRef);
 
@@ -90,7 +101,7 @@ export function AiReorganizeDialog({ onClose, onRefresh }: { onClose: () => void
   const own = cleanPath(path);
   const target = own || folder;
   const shown = mode === "command" ? cdCommand(target) : target;
-  const prompt = examplePrompt();
+  const prompt = examplePrompt(taxYear, returnFolder);
 
   async function copy(id: CopyId, text: string, done: string) {
     if (await copyText(text)) {
@@ -131,30 +142,25 @@ export function AiReorganizeDialog({ onClose, onRefresh }: { onClose: () => void
     }
   }
 
-  async function post(fields: Record<string, string>) {
-    const endpoint = sorterEndpoint();
-    if (!endpoint.ok) throw new Error(endpoint.message);
-    const payload = new FormData();
-    for (const [key, value] of Object.entries(fields)) payload.append(key, value);
-    const response = await sorterFetch(endpoint.url, { method: "POST", body: payload });
-    const body = (await response.json()) as Record<string, unknown>;
-    if (!response.ok || body.ok !== true) throw new Error(typeof body.error === "string" ? body.error : "The sorter refused that request.");
-    return body;
-  }
-
   async function askForPlan() {
     setBusy(true);
     setError(null);
     setResult(null);
     setPlan(null);
+    setSnag(false);
     setAnnounce("Asking AI for a plan…");
     try {
-      const next = parseAiPlan(await post({ action: "ai-plan" }));
+      const next = parseAiPlan(await postAi({ action: "ai-plan", folder: returnFolder ?? "" }));
       if (!next) throw new Error("The AI reply was not a move plan. Try again.");
       setPlan(next);
       setKept(next.moves.map(() => true));
       setAnnounce(next.moves.length ? `AI proposed ${next.moves.length} moves. Review them, then apply.` : "AI found nothing to move.");
     } catch (err) {
+      if (err instanceof AiUnavailableError) {
+        setSnag(true);
+        setAnnounce("");
+        return;
+      }
       setError(err instanceof Error ? err.message : "Could not get a plan.");
       setAnnounce("");
     } finally {
@@ -167,7 +173,7 @@ export function AiReorganizeDialog({ onClose, onRefresh }: { onClose: () => void
     setBusy(true);
     setError(null);
     try {
-      const body = await post({
+      const body = await postAi({
         action: "ai-apply",
         plan: JSON.stringify(plan.moves.map(({ path: p, category }) => ({ path: p, category }))),
         token: plan.token,
@@ -213,7 +219,7 @@ export function AiReorganizeDialog({ onClose, onRefresh }: { onClose: () => void
       >
         <div className="ai-reorg-head">
           <h2 id="ai-reorg-title" className="font-display text-2xl text-stone-900">
-            Ask AI to reorganize
+            Ask AI to sort
           </h2>
           <button type="button" className="ai-reorg-close" aria-label="Close" onClick={onClose}>
             ×
@@ -227,13 +233,13 @@ export function AiReorganizeDialog({ onClose, onRefresh }: { onClose: () => void
           </p>
         ) : null}
 
-        {status && !status.configured ? (
+        {snag ? (
           <>
             <div className="ai-reorg-warn" role="note" aria-labelledby="ai-reorg-warn-title">
               <p id="ai-reorg-warn-title" className="ai-reorg-warn-title">
-                <span aria-hidden="true">⚠</span> {NO_AI_TITLE}
+                <span aria-hidden="true">⚠</span> {AI_UNAVAILABLE_TITLE}
               </p>
-              <p>{NO_AI_BODY}</p>
+              <p>{harnessSnag(AI_TASKS.sort.skill, returnFolder)}</p>
               <p className="ai-reorg-label">Uploads folder (inside this app&apos;s folder)</p>
               <span className="harness-help-copyrow">
                 <code className="ai-reorg-path">{folder}</code>
@@ -242,9 +248,21 @@ export function AiReorganizeDialog({ onClose, onRefresh }: { onClose: () => void
             </div>
 
             <ol className="ai-reorg-steps">
-              <li>Open this app&apos;s folder in Cursor, Claude Code or another AI harness. AGENTS.md at the app root tells it how documents in <code>{UPLOADS_FOLDER}</code> should be sorted.</li>
               <li>
-                Ask it to reorganize the tax documents. Example prompt (yours can differ):
+                Open this app&apos;s folder in Cursor, Claude Code or another AI harness. Ask it to use the{" "}
+                <code>{AI_TASKS.sort.skill}</code> skill
+                {returnFolder ? (
+                  <>
+                    {" "}
+                    on <code>sorter/{returnFolder}</code>
+                  </>
+                ) : (
+                  <> on the tax-year folder under <code>{UPLOADS_FOLDER}</code></>
+                )}
+                .
+              </li>
+              <li>
+                Example prompt (yours can differ):
                 <span className="harness-help-copyrow">
                   <code className="ai-reorg-example">{prompt}</code>
                   {copyButton("prompt", prompt, "Copy the example prompt", "Copied the example prompt.")}
@@ -346,11 +364,25 @@ export function AiReorganizeDialog({ onClose, onRefresh }: { onClose: () => void
           </>
         ) : null}
 
-        {status && status.configured ? (
+        {!snag ? (
           <>
             <p className="mt-3 text-stone-700">
-              Uses {providerLabel(status.provider)}, model {status.model}. AI sees the file names and folders in{" "}
-              <code className="break-all">{UPLOADS_FOLDER}</code>, proposes moves, and nothing moves until you apply them.
+              {status?.configured
+                ? `Uses ${providerLabel(status.provider)}, model ${status.model}. `
+                : "This tries ChatGPT or Claude in the app. "}
+              AI sees the file names and folders
+              {returnFolder ? (
+                <>
+                  {" "}
+                  in <code className="break-all">sorter/{returnFolder}</code>
+                </>
+              ) : (
+                <>
+                  {" "}
+                  in <code className="break-all">{UPLOADS_FOLDER}</code>
+                </>
+              )}
+              , follows the {AI_TASKS.sort.skill} skill, proposes moves, and nothing moves until you apply them.
             </p>
             {!plan ? (
               <div className="mt-3 flex flex-wrap gap-2">

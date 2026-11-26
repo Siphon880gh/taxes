@@ -28,7 +28,7 @@ type Status = {
 };
 
 export const SUMMARIES_SKILL_NOTE =
-  "Open this codebase in Cursor and invoke the skill tax-document-summaries to create summaries (for example, a Rental Income and Deductions Summary) to help a tax professional quickly see the numbers and get an idea what forms are needed.";
+  "Summaries.md is not in this folder yet. Ask AI to write it so a tax professional can see the numbers and which forms they suggest.";
 
 function categoryOf(file: StagedFile) {
   if (typeof file.category === "string") return file.category;
@@ -67,8 +67,10 @@ export function DocumentSorter({
   onStatus,
   lede,
   returnFolder = null,
+  taxYear = null,
   sortState = null,
   onEnsureFolder,
+  onAskAi,
 }: {
   onUploaded: () => void;
   /** One line under the heading: where this panel sits in the guided flow. */
@@ -84,10 +86,14 @@ export function DocumentSorter({
   onStatus?: (body: unknown) => void;
   /** "Tax Year 2026 - Return". Only documents in this folder are shown. Null shows nothing from other years. */
   returnFolder?: string | null;
+  /** Tax year selected in the top right, such as "2026". */
+  taxYear?: string | null;
   /** sort-state.json for this folder. Files not listed there are unsorted. */
   sortState?: SortState | null;
   /** Creates the year's folder when an upload arrives before one has been named. */
   onEnsureFolder?: () => Promise<string>;
+  /** Starts an in-app AI task (summaries or the return and owe audit) for this tax-year folder. */
+  onAskAi?: (task: "summaries" | "audit") => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const onSuggestSummariesRef = useRef(onSuggestSummaries);
@@ -341,7 +347,11 @@ function openCategory(file: StagedFile) {
       </h2>
       {lede ? <p className="panel-lede">{lede}</p> : null}
       <div className="sorter-note" role="note">
-        <p>Open this codebase in Cursor and invoke the skill tax-document-classification.</p>
+        <p>
+          Ask AI to sort, write Summaries.md, or audit what the return owes. Each one tries ChatGPT or Claude in this app
+          first, using the matching skill in <code>.agents/skills/</code>. Sorting sees file names and form tags. Summaries
+          and the audit also send a short redacted excerpt of each file.
+        </p>
         {suggestSummaries ? <p>{SUMMARIES_SKILL_NOTE}</p> : null}
         <p>You can upload a zip or tar. Its folder structure and category structure are kept.</p>
         <p>The folder a document is in is its category.</p>
@@ -383,8 +393,18 @@ function openCategory(file: StagedFile) {
         ) : null}
         <div className="flex flex-wrap justify-end gap-2">
           <button type="button" className="btn-secondary ai-reorg-open" disabled={busy} onClick={() => setAiOpen(true)}>
-            <span aria-hidden="true">✦</span> Ask AI to reorganize
+            <span aria-hidden="true">✦</span> Ask AI to sort
           </button>
+          {onAskAi ? (
+            <>
+              <button type="button" className="btn-secondary" disabled={busy} onClick={() => onAskAi("summaries")}>
+                Ask AI to write Summaries.md
+              </button>
+              <button type="button" className="btn-secondary" disabled={busy} onClick={() => onAskAi("audit")}>
+                Ask AI to audit owed
+              </button>
+            </>
+          ) : null}
           <button type="button" className="btn-secondary" disabled={busy} onClick={() => void refresh()}>
             Refresh
           </button>
@@ -547,7 +567,7 @@ function openCategory(file: StagedFile) {
           </ul>
         </section>
       ) : null}
-      {aiOpen ? <AiReorganizeDialog onClose={closeAi} onRefresh={refresh} /> : null}
+      {aiOpen ? <AiReorganizeDialog onClose={closeAi} onRefresh={refresh} returnFolder={returnFolder} taxYear={taxYear} /> : null}
       {editing ? (
         <div className="modal-backdrop" role="presentation" onClick={closeCategory}>
           <div

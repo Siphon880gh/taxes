@@ -10,7 +10,8 @@
 //      action needs a valid, unexpired cookie.
 //   4. POSTs also need the CSRF token the handshake returned, in X-Taxes-Csrf.
 // Anything else gets 403 {"ok":false,"error":"forbidden"}. Responses are never cached.
-// Optional AI reorganize (ai-status, ai-plan, ai-apply): keys from the app's .env, see .example.env.
+// Optional in-app AI (ai-status, ai-plan, ai-apply, ai-run, ai-save): keys from the app's .env, see .example.env.
+// Each task loads its skill from .agents/skills/. A missing key or a billing refusal answers code "ai-unavailable".
 // POST pdf-hints reads the text inside staged PDFs (read-only) and returns form hints such as "W-2" per file.
 declare(strict_types=1);
 
@@ -870,8 +871,9 @@ function uploads_of(array $files): array
 
 // ---------------------------------------------------------------------------------------------------------------
 // Reading inside PDFs (read-only). The text is extracted with smalot/pdfparser (LGPL-3.0), installed with Composer
-// into public/sorter/vendor; the build copies it to out/sorter/vendor. Only short form hints such as "W-2" or
-// "1099-NEC" leave this script, never the extracted text. Files in stage/ are opened for reading only; they are
+// into public/sorter/vendor; the build copies it to out/sorter/vendor. pdf-hints returns only short form tags
+// such as "W-2" or "1099-NEC". An AI task the user starts (ai-run) may send a redacted excerpt to the configured
+// provider. Files in sorter/ are opened for reading only by the hint reader; they are
 // never moved, renamed, or changed. Results are cached by path, size, and modified time in the system temp folder.
 
 const PDF_HINT_VERSION = 1;
@@ -1030,7 +1032,29 @@ function pdf_hints_payload(string $stage): array
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// "Ask AI to reorganize": optional. Keys come from the app's .env (see .example.env) and stay on this server.
+// In-app ChatGPT / Claude. Keys come from the app's .env (see .example.env) and stay on this server.
+// sort uses ai-plan. summaries, the return-and-owe audit, and the FreeTaxUSA walkthrough use ai-run.
+// Each task reads its skill from .agents/skills/<name>/ (SKILL.md and reference/*.md).
+
+class AiUnavailable extends RuntimeException
+{
+    public string $skill;
+    public string $folder;
+
+    public function __construct(string $skill, string $folder, string $message)
+    {
+        $this->skill = $skill;
+        $this->folder = $folder;
+        parent::__construct($message, 409);
+    }
+}
+
+const AI_TASKS = [
+    "sort" => "tax-document-classification",
+    "summaries" => "tax-document-summaries",
+    "audit" => "tax-return-owed-audit",
+    "walkthrough" => "freetaxusa-walkthrough",
+];
 // GET ?action=ai-status says whether a key is set and names the uploads folder. POST ai-plan asks the provider for a
 // move plan built from file names only and returns it with a signed, one-time token. POST ai-apply checks the token
 // and moves the files the user kept with place_file().
@@ -1221,7 +1245,7 @@ function ai_validate_plan($raw, array $files): array
 }
 
 /** $hints: path => ["forms" => [...]] from pdf_hints(); a file with forms gets "reads as: ..." in the list. */
-function ai_prompt(array $files, array $categories, array $hints = []): array
+function ai_prompt(array $files, array $categories, array $hints = [], string $folder = ""): array
 {
     $system = "You reorganize a folder of tax documents into category folders. You only see file paths and sizes.\n"
         . "Reply with JSON only, no prose, in this shape: {\"summary\": string, \"moves\": [{\"path\": string, \"category\": string, \"reason\": string}]}.\n"
@@ -1232,6 +1256,15 @@ function ai_prompt(array $files, array $categories, array $hints = []): array
         . "- Use _Needs Human Review when the name gives no clue. Leave out files that are already in the right folder.\n"
         . "- Only move files. Do not rename them.\n"
         . "- \"reads as\" after a file is the form found in the text inside that PDF. Trust it over the file name.";
+    if ($folder !== "") {
+        $system .= "\n- Only move files that are already inside \"" . $folder . "\". Every destination must stay inside that folder.";
+    }
+    $skill = ai_load_skill(AI_TASKS["sort"]);
+    if ($skill !== "") {
+        $system .= "\n\nFollow the tax-document-classification skill below for which category a document belongs in. "
+            . "This app applies category moves only, so do not rename files. Reply with the JSON shape above.\n\n"
+            . $skill;
+    }
     $list = array_map(static function (array $f) use ($hints): string {
         $forms = $hints[$f["path"]]["forms"] ?? [];
         return $f["path"] . "  (" . (int) $f["bytes"] . " bytes)" . ($forms === [] ? "" : "  reads as: " . implode(", ", array_slice($forms, 0, 6)));
@@ -1241,7 +1274,112 @@ function ai_prompt(array $files, array $categories, array $hints = []): array
     return [$system, $user];
 }
 
-function ai_http_post(string $url, array $headers, array $body): array
+/** The app folder's .agents/skills, whether api.php lives in sorter/, public/sorter/, or out/sorter/. */
+function ai_skills_root(): ?string
+{
+    $parent = dirname(__DIR__);
+    $candidates = [$parent . "/.agents/skills"];
+    if (basename($parent) === "public" || basename($parent) === "out") {
+        $candidates[] = dirname($parent) . "/.agents/skills";
+    }
+    foreach ($candidates as $dir) {
+        if (is_dir($dir)) {
+            return $dir;
+        }
+    }
+    return null;
+}
+
+/** SKILL.md plus reference notes for a known skill name. Empty when the folder is not on this server. */
+function ai_load_skill(string $skill): string
+{
+    if (!isset(array_flip(AI_TASKS)[$skill]) && !in_array($skill, AI_TASKS, true)) {
+        return "";
+    }
+    if (!preg_match('/^[a-z0-9-]+$/', $skill)) {
+        return "";
+    }
+    $root = ai_skills_root();
+    if ($root === null) {
+        return "";
+    }
+    $dir = $root . "/" . $skill;
+    $realRoot = realpath($root);
+    $realDir = realpath($dir);
+    if ($realRoot === false || $realDir === false || !str_starts_with(str_replace("\\", "/", $realDir), str_replace("\\", "/", $realRoot) . "/")) {
+        return "";
+    }
+    $files = [$realDir . "/SKILL.md"];
+    if (is_dir($realDir . "/reference")) {
+        foreach (scandir($realDir . "/reference") ?: [] as $name) {
+            if (preg_match('/^[A-Za-z0-9._-]+\.md$/', $name) === 1) {
+                $files[] = $realDir . "/reference/" . $name;
+            }
+        }
+    }
+    $parts = [];
+    $budget = 48000;
+    foreach ($files as $file) {
+        if (!is_file($file) || $budget <= 0) {
+            continue;
+        }
+        $text = (string) file_get_contents($file);
+        $text = (string) preg_replace('/\A---\R.*?\R---\R/s', "", $text);
+        $label = $skill . "/" . (str_contains($file, "/reference/") ? "reference/" : "") . basename($file);
+        $chunk = "\n\n## " . $label . "\n" . trim($text);
+        if (strlen($chunk) > $budget) {
+            $chunk = substr($chunk, 0, $budget);
+        }
+        $parts[] = $chunk;
+        $budget -= strlen($chunk);
+    }
+    return trim(implode("\n", $parts));
+}
+
+/** A single tax-year folder ("Tax Year 2025 - Return"), or "" when the field was left off and that is allowed. */
+function ai_posted_folder(bool $required): string
+{
+    $raw = trim((string) ($_POST["folder"] ?? ""));
+    if ($raw === "") {
+        if ($required) {
+            fail("Choose a tax-year folder first.");
+        }
+        return "";
+    }
+    $folder = ai_clean_category($raw);
+    if ($folder === "" || str_contains($folder, "/") || preg_match('/^Tax Year (19|20)\d{2} - .+/', $folder) !== 1) {
+        fail("folder must be named like Tax Year 2026 - Return");
+    }
+    return $folder;
+}
+
+function ai_require(string $task, string $folder): array
+{
+    $settings = ai_settings();
+    $skill = AI_TASKS[$task] ?? "";
+    if (!$settings["configured"]) {
+        throw new AiUnavailable($skill, $folder, "The API key or billing is not set up.");
+    }
+    return $settings;
+}
+
+/** SSN, EIN, and IP PIN shapes are removed before text is sent to a provider or written into a report. */
+function ai_redact(string $text): string
+{
+    $text = (string) preg_replace('/\b\d{3}-\d{2}-\d{4}\b/', "[redacted]", $text);
+    $text = (string) preg_replace('/\b\d{2}-\d{7}\b/', "[redacted]", $text);
+    return (string) preg_replace('/\b(?:IP PIN|Identity Protection PIN)\s*:?\s*\d{6}\b/i', "IP PIN [redacted]", $text);
+}
+
+function ai_is_setup_problem(int $status, string $message): bool
+{
+    if ($status === 401 || $status === 402 || $status === 403) {
+        return true;
+    }
+    return preg_match('/billing|quota|credit|insufficient|payment|api[_ ]?key|unauthor|authenticat/i', $message) === 1;
+}
+
+function ai_http_post(string $url, array $headers, array $body, string $skill, string $folder): array
 {
     $json = json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     $headers[] = "Content-Type: application/json";
@@ -1278,7 +1416,14 @@ function ai_http_post(string $url, array $headers, array $body): array
     }
     $decoded = json_decode((string) $text, true);
     if ($status < 200 || $status > 299) {
-        $message = is_array($decoded) ? (string) ($decoded["error"]["message"] ?? "") : "";
+        $message = "";
+        if (is_array($decoded)) {
+            $err = $decoded["error"] ?? null;
+            $message = is_string($err) ? $err : (is_array($err) ? (string) ($err["message"] ?? "") : "");
+        }
+        if (ai_is_setup_problem($status, $message)) {
+            throw new AiUnavailable($skill, $folder, "The API key or billing is not set up.");
+        }
         fail("The AI provider answered HTTP " . $status . ($message !== "" ? ": " . ai_cut($message, 300) : "."), 502);
     }
     if (!is_array($decoded)) {
@@ -1299,15 +1444,16 @@ function ai_json_from_text(string $text): ?array
     return is_array($decoded) ? $decoded : null;
 }
 
-function ai_request_plan(array $settings, array $files, array $categories, array $hints = []): array
+function ai_request_plan(array $settings, array $files, array $categories, array $hints = [], string $folder = ""): array
 {
-    [$system, $user] = ai_prompt($files, $categories, $hints);
+    [$system, $user] = ai_prompt($files, $categories, $hints, $folder);
+    $skill = AI_TASKS["sort"];
     if ($settings["provider"] === "openai") {
         $reply = ai_http_post($settings["base"] . "/chat/completions", ["Authorization: Bearer " . $settings["key"]], [
             "model" => $settings["model"],
             "response_format" => ["type" => "json_object"],
             "messages" => [["role" => "system", "content" => $system], ["role" => "user", "content" => $user]],
-        ]);
+        ], $skill, $folder);
         $text = (string) ($reply["choices"][0]["message"]["content"] ?? "");
     } else {
         $reply = ai_http_post($settings["base"] . "/v1/messages", ["x-api-key: " . $settings["key"], "anthropic-version: 2023-06-01"], [
@@ -1315,7 +1461,7 @@ function ai_request_plan(array $settings, array $files, array $categories, array
             "max_tokens" => 8000,
             "system" => $system,
             "messages" => [["role" => "user", "content" => $user]],
-        ]);
+        ], $skill, $folder);
         $text = "";
         foreach (is_array($reply["content"] ?? null) ? $reply["content"] : [] as $block) {
             if (is_array($block) && ($block["type"] ?? "") === "text") {
@@ -1378,15 +1524,19 @@ function ai_spend_token(string $token, string $session, array $moves): void
 
 function ai_plan(string $session, string $stage): array
 {
-    $settings = ai_settings();
-    if (!$settings["configured"]) {
-        fail("AI is not set up: " . $settings["reason"], 409);
-    }
+    $folder = ai_posted_folder(false);
+    $settings = ai_require("sort", $folder);
     $files = ai_movable_files($stage);
+    if ($folder !== "") {
+        $files = array_values(array_filter($files, static function (array $file) use ($folder): bool {
+            $path = (string) $file["path"];
+            return $path === $folder || str_starts_with($path, $folder . "/");
+        }));
+    }
     if ($files === []) {
         fail("Nothing is staged to reorganize.");
     }
-    $plan = ai_validate_plan(ai_request_plan($settings, $files, list_categories($stage), pdf_hints($files, $stage)), $files);
+    $plan = ai_validate_plan(ai_request_plan($settings, $files, list_categories($stage), pdf_hints($files, $stage), $folder), $files);
     return $plan + [
         "token" => ai_plan_token($session, $plan["moves"]),
         "provider" => $settings["provider"],
@@ -1427,6 +1577,224 @@ function ai_apply(string $session, string $planJson, string $token, string $keep
         }
     }
     return ["moved" => $moved, "failed" => $failed];
+}
+
+function ai_folder_files(string $stage, string $folder): array
+{
+    $out = [];
+    foreach (list_stage($stage) as $file) {
+        $path = (string) $file["path"];
+        if ($path === $folder || str_starts_with($path, $folder . "/")) {
+            $out[] = $file;
+        }
+    }
+    return $out;
+}
+
+/** A short redacted excerpt. Identity numbers are removed. Empty when the file has no readable text. */
+function ai_excerpt(string $rel, string $stage): string
+{
+    try {
+        $abs = stage_file($rel, $stage);
+    } catch (Throwable $error) {
+        return "";
+    }
+    if (!is_file($abs)) {
+        return "";
+    }
+    $size = (int) (filesize($abs) ?: 0);
+    if ($size === 0 || $size > 2 * 1024 * 1024) {
+        return "";
+    }
+    $ext = strtolower(pathinfo($rel, PATHINFO_EXTENSION));
+    $text = "";
+    if ($ext === "pdf") {
+        if (!pdf_parser_ready()) {
+            return "";
+        }
+        try {
+            $text = pdf_first_pages_text($abs) ?? "";
+        } catch (Throwable $error) {
+            return "";
+        }
+    } elseif (in_array($ext, ["txt", "md", "csv"], true)) {
+        $raw = (string) file_get_contents($abs, false, null, 0, 8000);
+        if (str_contains($raw, "\0")) {
+            return "";
+        }
+        $text = $raw;
+    } else {
+        return "";
+    }
+    $text = trim((string) preg_replace('/\s+/u', " ", ai_redact($text)));
+    return ai_cut($text, 1200);
+}
+
+function ai_note(string $stage, string $folder, string $name): string
+{
+    $abs = normalize_under($stage, $stage . "/" . $folder . "/" . $name);
+    if (!is_file($abs)) {
+        return "";
+    }
+    return ai_cut(ai_redact(trim((string) file_get_contents($abs, false, null, 0, 12000))), 4000);
+}
+
+function ai_task_prompt(string $task, string $folder, string $stage, array $files): array
+{
+    $skillName = AI_TASKS[$task];
+    $skill = ai_load_skill($skillName);
+    $shapes = [
+        "summaries" => '{"markdown":"the full Summaries.md"}',
+        "audit" => '{"owed":"the full Owed Audit.md","rent":"the full Owe Audit Breakdown - Rent.md, or an empty string when there is no rental income"}',
+        "walkthrough" => '{"guidance":"what to type next on FreeTaxUSA, with the file each number comes from. Do not claim a browser was opened. Do not file, pay, or submit."}',
+    ];
+    $system = "You are doing one tax task for the folder \"" . $folder . "\" under sorter/. "
+        . "Follow the skill text. It is the procedure. "
+        . "Use only figures that appear in the excerpts. If a figure is not there, say it is missing. "
+        . "Never write an SSN, ITIN, EIN, account number, routing number, policy number, or IP PIN. "
+        . "Reply with JSON only, no prose, in this shape: " . $shapes[$task] . ".";
+    $system .= $skill !== ""
+        ? "\n\n" . $skill
+        : "\n\nThe skill file " . $skillName . " was not on this server. Follow the task shape and the excerpts.";
+    $lines = [];
+    $excerpts = 0;
+    $hints = pdf_hints($files, $stage);
+    foreach (array_slice($files, 0, 40) as $file) {
+        $forms = $hints[$file["path"]]["forms"] ?? [];
+        $line = $file["path"] . " (" . (int) $file["bytes"] . " bytes)" . ($forms === [] ? "" : " reads as: " . implode(", ", array_slice($forms, 0, 6)));
+        if ($excerpts < 8) {
+            $excerpt = ai_excerpt((string) $file["path"], $stage);
+            if ($excerpt !== "") {
+                $line .= "\nexcerpt: " . $excerpt;
+                $excerpts += 1;
+            }
+        }
+        $lines[] = $line;
+    }
+    $user = "Folder: " . $folder . "\n\nFiles:\n" . ($lines === [] ? "(none)" : implode("\n", $lines));
+    foreach (["Summaries.md", OWED_AUDIT_NAME, RENT_BREAKDOWN_NAME] as $note) {
+        $body = ai_note($stage, $folder, $note);
+        if ($body !== "") {
+            $user .= "\n\nExisting " . $note . ":\n" . $body;
+        }
+    }
+    return [$system, $user];
+}
+
+function ai_complete(array $settings, string $system, string $user, string $skill, string $folder): array
+{
+    if ($settings["provider"] === "openai") {
+        $reply = ai_http_post($settings["base"] . "/chat/completions", ["Authorization: Bearer " . $settings["key"]], [
+            "model" => $settings["model"],
+            "response_format" => ["type" => "json_object"],
+            "max_tokens" => 8000,
+            "messages" => [["role" => "system", "content" => $system], ["role" => "user", "content" => $user]],
+        ], $skill, $folder);
+        $text = (string) ($reply["choices"][0]["message"]["content"] ?? "");
+    } else {
+        $reply = ai_http_post($settings["base"] . "/v1/messages", ["x-api-key: " . $settings["key"], "anthropic-version: 2023-06-01"], [
+            "model" => $settings["model"],
+            "max_tokens" => 8000,
+            "system" => $system,
+            "messages" => [["role" => "user", "content" => $user]],
+        ], $skill, $folder);
+        $text = "";
+        foreach (is_array($reply["content"] ?? null) ? $reply["content"] : [] as $block) {
+            if (is_array($block) && ($block["type"] ?? "") === "text") {
+                $text .= (string) ($block["text"] ?? "");
+            }
+        }
+    }
+    $decoded = ai_json_from_text($text);
+    if ($decoded === null) {
+        fail("The AI reply could not be read. Try again.", 502);
+    }
+    return $decoded;
+}
+
+function ai_run(string $stage): array
+{
+    $task = (string) ($_POST["task"] ?? "");
+    if (!isset(AI_TASKS[$task]) || $task === "sort") {
+        fail("unknown task");
+    }
+    $folder = ai_posted_folder(true);
+    if (!is_dir(normalize_under($stage, $stage . "/" . $folder))) {
+        fail("That tax-year folder is not in sorter/.");
+    }
+    $settings = ai_require($task, $folder);
+    [$system, $user] = ai_task_prompt($task, $folder, $stage, ai_folder_files($stage, $folder));
+    $decoded = ai_complete($settings, $system, $user, AI_TASKS[$task], $folder);
+    $base = [
+        "task" => $task,
+        "skill" => AI_TASKS[$task],
+        "provider" => $settings["provider"],
+        "model" => $settings["model"],
+        "folder" => $folder,
+    ];
+    if ($task === "summaries") {
+        $markdown = trim((string) ($decoded["markdown"] ?? ""));
+        if ($markdown === "") {
+            fail("The AI reply was not a summary. Try again.", 502);
+        }
+        return $base + ["markdown" => ai_redact(ai_cut($markdown, 80000))];
+    }
+    if ($task === "audit") {
+        $owed = trim((string) ($decoded["owed"] ?? ""));
+        if ($owed === "") {
+            fail("The AI reply was not an owed audit. Try again.", 502);
+        }
+        $rent = trim((string) ($decoded["rent"] ?? ""));
+        return $base + [
+            "markdown" => ai_redact(ai_cut($owed, 80000)),
+            "rent" => $rent === "" ? "" : ai_redact(ai_cut($rent, 80000)),
+        ];
+    }
+    $guidance = trim((string) ($decoded["guidance"] ?? ""));
+    if ($guidance === "") {
+        fail("The AI reply was not walkthrough guidance. Try again.", 502);
+    }
+    return $base + ["guidance" => ai_redact(ai_cut($guidance, 80000))];
+}
+
+function ai_write_report(string $stage, string $folder, string $name, string $markdown): string
+{
+    $allowed = ["Summaries.md" => true, OWED_AUDIT_NAME => true, RENT_BREAKDOWN_NAME => true];
+    if (!isset($allowed[$name])) {
+        fail("bad report");
+    }
+    $markdown = trim(ai_redact($markdown));
+    if ($markdown === "" || strlen($markdown) > 200000) {
+        fail("bad report");
+    }
+    $dir = normalize_under($stage, $stage . "/" . $folder);
+    if (!is_dir($dir)) {
+        fail("That tax-year folder is not in sorter/.");
+    }
+    $path = normalize_under($stage, $dir . "/" . $name);
+    if (file_put_contents($path, $markdown . "\n") === false) {
+        fail("could not write the report", 500);
+    }
+    return $folder . "/" . $name;
+}
+
+function ai_save(string $stage): array
+{
+    $task = (string) ($_POST["task"] ?? "");
+    $folder = ai_posted_folder(true);
+    $wrote = [];
+    if ($task === "summaries") {
+        $wrote[] = ai_write_report($stage, $folder, "Summaries.md", (string) ($_POST["markdown"] ?? ""));
+    } elseif ($task === "audit") {
+        $wrote[] = ai_write_report($stage, $folder, OWED_AUDIT_NAME, (string) ($_POST["markdown"] ?? ""));
+        $rent = trim((string) ($_POST["rent"] ?? ""));
+        if ($rent !== "") {
+            $wrote[] = ai_write_report($stage, $folder, RENT_BREAKDOWN_NAME, $rent);
+        }
+    } else {
+        fail("bad task");
+    }
+    return ["wrote" => $wrote];
 }
 
 $method = (string) ($_SERVER["REQUEST_METHOD"] ?? "GET");
@@ -1489,6 +1857,12 @@ try {
         $result = ai_apply($session, (string) ($_POST["plan"] ?? ""), (string) ($_POST["token"] ?? ""), (string) ($_POST["keep"] ?? ""), $stage);
         respond(200, ["ok" => true] + $result);
     }
+    if ($action === "ai-run") {
+        respond(200, ["ok" => true] + ai_run($stage));
+    }
+    if ($action === "ai-save") {
+        respond(200, ["ok" => true] + ai_save($stage));
+    }
     if ($action === "remove") {
         remove_category((string) ($_POST["category"] ?? ""), $stage);
         respond(200, ["ok" => true]);
@@ -1518,6 +1892,15 @@ try {
     }
     respond(400, ["ok" => false, "error" => "unknown action"]);
 } catch (Throwable $error) {
+    if ($error instanceof AiUnavailable) {
+        respond(409, [
+            "ok" => false,
+            "code" => "ai-unavailable",
+            "error" => $error->getMessage(),
+            "skill" => $error->skill,
+            "folder" => $error->folder,
+        ]);
+    }
     if (!$error instanceof RuntimeException) {
         respond(500, ["ok" => false, "error" => "sorter error"]);
     }

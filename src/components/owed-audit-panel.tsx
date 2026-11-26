@@ -7,7 +7,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { sorterFetch } from "@/lib/sorter-client";
 import { sorterEndpoint, unreachableMessage } from "@/lib/sorter-endpoint";
-import { RENT_BREAKDOWN_NAME, reportFolder as folderOf, type OwedReportsState } from "@/lib/owed-reports";
+import { NO_AUDIT_HINT, RENT_BREAKDOWN_NAME, reportFolder as folderOf, type OwedReportsState } from "@/lib/owed-reports";
 
 type Status = {
   ok?: boolean;
@@ -106,6 +106,7 @@ export function OwedAuditPanel({
   onRefresh,
   onDialog,
   lede,
+  onAskAi,
 }: {
   /** One line under the heading: where this panel sits in the guided flow. */
   lede?: string;
@@ -113,6 +114,8 @@ export function OwedAuditPanel({
   state: OwedReportsState;
   onRefresh: () => void;
   onDialog?: (open: boolean) => void;
+  /** Asks ChatGPT or Claude to write Owed Audit.md for this tax-year folder. */
+  onAskAi?: () => void;
 }) {
   const checked = state.status !== "loading";
   const paths = state.status === "ready" ? state.reports.audits : [];
@@ -158,7 +161,7 @@ export function OwedAuditPanel({
       </h2>
       {lede ? <p className="panel-lede">{lede}</p> : null}
       <p className="mt-2 text-sm text-stone-800">
-        Place the federal and state returns in the tax-year folder with the other documents. Open this codebase in Cursor and invoke the skill tax-return-owed-audit.
+        Place the federal and state returns in the tax-year folder with the other documents.
       </p>
       <p className="mt-2 text-sm text-stone-800">
         The skill writes Owed Audit.md in the folder that holds those documents. Federal and state stay separate. Next year&apos;s estimated-tax vouchers are not this year&apos;s balance.
@@ -187,23 +190,32 @@ export function OwedAuditPanel({
       ) : null}
       <RentBreakdowns paths={rentPaths} />
       {checked && paths.length === 0 && !shownError ? (
-        <p className="mt-4 text-sm text-stone-600">No Owed Audit.md is in this tax-year folder yet.</p>
+        <p className="mt-4 text-sm text-stone-800" role="status">
+          {NO_AUDIT_HINT}
+        </p>
       ) : null}
       {shownError ? (
         <p className="mt-3 text-sm text-rust" role="alert">
           {shownError}
         </p>
       ) : null}
-      <button
-        type="button"
-        className="btn-secondary mt-3"
-        onClick={() => {
-          setError(null);
-          onRefresh();
-        }}
-      >
-        Refresh
-      </button>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {onAskAi ? (
+          <button type="button" className="btn-primary" onClick={onAskAi}>
+            Ask AI to audit owed
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className="btn-secondary"
+          onClick={() => {
+            setError(null);
+            onRefresh();
+          }}
+        >
+          Refresh
+        </button>
+      </div>
       {reading && typeof document !== "undefined"
         ? createPortal(
             <div className="modal-backdrop owed-audit-backdrop" role="presentation" onClick={close}>

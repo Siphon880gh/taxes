@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { MermaidView } from "@/components/mermaid-view";
+import { AiSkillDialog } from "@/components/ai-skill-dialog";
 import { DocumentSorter, SUMMARIES_SKILL_NOTE } from "@/components/document-sorter";
 import { OwedAuditPanel } from "@/components/owed-audit-panel";
 import { PromptBuilder } from "@/components/prompt-builder";
@@ -23,6 +24,7 @@ import {
   returnFolderNames,
   writeReturnFolder,
 } from "@/lib/return-folders";
+import type { AiTaskId } from "@/lib/ai-tasks";
 import { auditTab } from "@/lib/owed-reports";
 import { CHECKLIST_LEDE, flowSegments, PANEL_LEDES, rememberedRoute, ROUTE_LEADS, ROUTE_STORAGE_KEY, showsPath, spokenPrefix, type FrameMode } from "@/lib/flow";
 import { useOwedReports } from "@/lib/use-owed-reports";
@@ -306,6 +308,7 @@ export function CheckerApp() {
   /** Form names read inside the staged PDFs (sorter/api.php pdf-hints), by staged path. */
   const [pdfHints, setPdfHints] = useState<PdfHints>({});
   const [sorterReminder, setSorterReminder] = useState(false);
+  const [aiTask, setAiTask] = useState<Exclude<AiTaskId, "sort"> | null>(null);
   const [suggestSummaries, setSuggestSummaries] = useState(false);
   const [chartToolsNode, setChartToolsNode] = useState<HTMLDivElement | null>(null);
   const [purposeOpen, setPurposeOpen] = useState(false);
@@ -388,7 +391,7 @@ export function CheckerApp() {
     }
     const after = auditTab(await owedReports.refresh());
     if (after.disabled) {
-      setAuditHint(after.hint);
+      setAiTask("audit");
     } else {
       setAuditHint(null);
       showFrame("audit");
@@ -1129,7 +1132,7 @@ export function CheckerApp() {
             {sorterReminder ? (
               <p className="sorter-reminder" role="status">
                 <span>
-                  Open this codebase in Cursor and invoke the skill tax-document-classification.
+                  Documents are in this tax-year folder. Use Ask AI to sort them.
                   {suggestSummaries ? ` ${SUMMARIES_SKILL_NOTE}` : ""}
                 </span>
                 <button type="button" onClick={() => setSorterReminder(false)}>Dismiss</button>
@@ -1346,7 +1349,7 @@ export function CheckerApp() {
           {sorterReminder ? (
             <p className="sorter-reminder" role="status">
               <span>
-                Open this codebase in Cursor and invoke the skill tax-document-classification.
+                Documents are in this tax-year folder. Use Ask AI to sort them.
                 {suggestSummaries ? ` ${SUMMARIES_SKILL_NOTE}` : ""}
               </span>
               <button type="button" onClick={() => setSorterReminder(false)}>Dismiss</button>
@@ -1377,11 +1380,11 @@ export function CheckerApp() {
                 </button>
                 {walkthroughOpen ? (
                   <div id="freetaxusa-walkthrough" className="walkthrough-body" role="region" aria-label="FreeTaxUSA Walkthrough">
+                    <button type="button" className="btn-secondary" onClick={() => setAiTask("walkthrough")}>
+                      Ask AI to walk through FreeTaxUSA
+                    </button>
                     <p>
-                      After you upload the files and they are sorted, open this codebase in Cursor and invoke the skill freetaxusa-walkthrough.
-                    </p>
-                    <p>
-                      The Cursor harness can open a browser tab inside Cursor and read the FreeTaxUSA screen while you fill the forms. It tells you what to do next, gives you the numbers you need, and names the file each number comes from.
+                      That tries ChatGPT or Claude in this app, using the freetaxusa-walkthrough skill and this folder. You still type on FreeTaxUSA. A harness can also open a browser tab inside Cursor, read the screen, and name the file each number comes from.
                     </p>
                     <p>
                       It asks you when that step is done, or watches the screen for when you have done it.
@@ -1394,11 +1397,16 @@ export function CheckerApp() {
               </h2>
               <p className="panel-lede">{PANEL_LEDES.costs}</p>
               {scopedOverview ? (
-                <p className="flow-cue mt-1">
-                  {scopedOverview.summaries
-                    ? "Summaries.md is in this tax-year folder, ready to hand over."
-                    : "No Summaries.md yet: open this codebase in Cursor and invoke the skill tax-document-summaries."}
-                </p>
+                <div className="flow-cue mt-1 flex flex-wrap items-center gap-2">
+                  <p>
+                    {scopedOverview.summaries
+                      ? "Summaries.md is in this tax-year folder, ready to hand over."
+                      : "No Summaries.md yet."}
+                  </p>
+                  <button type="button" className="btn-secondary" onClick={() => setAiTask("summaries")}>
+                    Ask AI to write Summaries.md
+                  </button>
+                </div>
               ) : null}
               <p className="mt-2 text-sm text-stone-600">
                 Published prices for preparing a return of this shape. These are not tax figures and not a quote unless you enter one below or a case study loaded one.
@@ -1567,8 +1575,10 @@ export function CheckerApp() {
               onStatus={owedReports.accept}
               lede={PANEL_LEDES.sorter}
               returnFolder={returnFolder}
+              taxYear={selectedYearLabel}
               sortState={returnFolder ? owedReports.listing.sortStates[returnFolder] ?? null : null}
               onEnsureFolder={() => ensureReturnFolder("")}
+              onAskAi={(task) => setAiTask(task)}
             />
           ) : (
             <OwedAuditPanel
@@ -1576,6 +1586,7 @@ export function CheckerApp() {
               onRefresh={() => void owedReports.refresh()}
               onDialog={setOwedDialog}
               lede={PANEL_LEDES.audit}
+              onAskAi={() => setAiTask("audit")}
             />
           )}
           {frameMode !== "start" ? (
@@ -1890,6 +1901,17 @@ export function CheckerApp() {
         </nav>
         </div>
       </main>
+
+      {aiTask ? (
+        <AiSkillDialog
+          task={aiTask}
+          folder={returnFolder}
+          onClose={() => setAiTask(null)}
+          onSaved={async () => {
+            await owedReports.refresh();
+          }}
+        />
+      ) : null}
 
       {promptOpen && selected ? (
         <PromptBuilder

@@ -52,10 +52,15 @@ test("keepParam lists the kept indexes", () => {
   assert.equal(keepParam([false]), "");
 });
 
-test("examplePrompt names the uploads folder relative to the app, never an absolute path", () => {
-  const prompt = examplePrompt();
-  assert.match(prompt, /^Reorganize the tax documents in sorter\./);
-  assert.match(prompt, /AGENTS\.md/);
-  assert.doesNotMatch(prompt, /\/Users\/|taxes\//);
+test("examplePrompt names the selected year and folder, and asks when no folder is selected", () => {
+  const named = examplePrompt("2026", "Tax Year 2026 - Return");
+  assert.match(named, /^Reorganize the tax documents in sorter\./);
+  assert.match(named, /AGENTS\.md/);
+  assert.match(named, /the "Tax Year 2026 - Return" folder/);
+  assert.doesNotMatch(named, /Ask me what year/);
+  assert.doesNotMatch(named, /\/Users\/|taxes\//);
+  const open = examplePrompt("2025", null);
+  assert.match(open, /the selected Tax Year 2025 folder/);
+  assert.match(open, /Ask me what year and the name of your tax project should it be called\?$/);
   assert.equal(UPLOADS_FOLDER, "sorter");
 });

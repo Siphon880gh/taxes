@@ -13,8 +13,8 @@ import {
 
 /**
  * "Add / edit with AI" helper in the bottom frame's tab strip.
- * This app has no built-in AI (it keeps the app free). The panel points people at this app's folder so they can open it
- * in Cursor, Claude Code or another AI harness and run the local skills with their own tokens. Purely informational.
+ * In-app ChatGPT or Claude runs when a key is set. This panel is the harness path: open this app's folder in Cursor,
+ * Claude Code, or another AI harness and run the local skills with your own tokens.
  * The app never names its own folder or where it lives on disk; it describes the folder by what it contains.
  * Two accordion tiles (one open at a time): how it works, and a folder path this browser remembers, shown as the path
  * or a cd command. Path, mode and last-opened tile persist in localStorage under harnessAi:tax-final-confirmation:*.
@@ -255,7 +255,11 @@ export function HarnessHelp() {
                       <>Optional extra: {INPUT_WHAT} the app can use to do more.</>
                     )}
                   </p>
-                  <p>This app has no built-in AI, which keeps it free. Use the AI tool you already have, with your own tokens:</p>
+                  <p>
+                    Sorting, Summaries.md, the return and owe audit, and the FreeTaxUSA walkthrough try ChatGPT or Claude
+                    inside the app when an API key is set in <code>.env</code>. If the key or billing is not set up, the
+                    attempt stops and names the skill to run here, with your own tokens:
+                  </p>
                   <ol>
                     <li>
                       Find this app&apos;s folder on your computer: the one you downloaded or cloned, which holds{" "}
