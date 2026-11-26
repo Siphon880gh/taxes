@@ -14,8 +14,9 @@ import { readStoredQuote, writeStoredQuote } from "@/lib/quote-storage";
 import { clearStoredSession, readStoredSession, writeStoredSession } from "@/lib/session-storage";
 import { documentCoverage } from "@/lib/document-coverage";
 import { auditTab } from "@/lib/owed-reports";
-import { flowSegments, guidePlan, PANEL_LEDES, spokenPrefix, type FrameMode } from "@/lib/flow";
+import { CHECKLIST_LEDE, flowSegments, guidePlan, PANEL_LEDES, spokenPrefix, type FrameMode } from "@/lib/flow";
 import { useOwedReports } from "@/lib/use-owed-reports";
+import { useDialogFocus } from "@/lib/use-dialog-focus";
 import type { PdfHints } from "@/lib/pdf-hints";
 import {
   checklistMarkdown,
@@ -271,6 +272,10 @@ export function CheckerApp() {
   const [dockHeight, setDockHeight] = useState<number | null>(null);
   const [dockCollapsed, setDockCollapsed] = useState(false);
   const [checklistOpen, setChecklistOpen] = useState(false);
+  /** The Checklist side panel, opened from the Checklist button fixed in the bottom bar on every route. */
+  const [checklistPanelOpen, setChecklistPanelOpen] = useState(false);
+  const checklistPanelRef = useRef<HTMLElement>(null);
+  useDialogFocus(checklistPanelOpen, checklistPanelRef);
   /** Bumped by openGuide(); after that render, the chart scrolls into view and focus moves to the question. */
   const [guideKey, setGuideKey] = useState(0);
   const chartSectionRef = useRef<HTMLElement>(null);
@@ -504,8 +509,9 @@ export function CheckerApp() {
   }, []);
 
   useEffect(() => {
-    if (!modalId && !purposeOpen && !promptOpen && !owedDialog) return;
+    if (!modalId && !purposeOpen && !promptOpen && !owedDialog && !checklistPanelOpen) return;
     const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setChecklistPanelOpen(false);
       if (event.key === "Escape") setModalId(null);
       if (event.key === "Escape") setPurposeOpen(false);
       if (event.key === "Escape") setPromptOpen(false);
@@ -513,7 +519,7 @@ export function CheckerApp() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [modalId, purposeOpen, promptOpen, owedDialog]);
+  }, [modalId, purposeOpen, promptOpen, owedDialog, checklistPanelOpen]);
 
   const nodeTips = useMemo(
     () =>
@@ -760,7 +766,78 @@ export function CheckerApp() {
     setLevelExpanded(false);
   }
 
-  const dialogOpen = Boolean(promptOpen || purposeOpen || modalId || owedDialog);
+  /** The Checklist's contents: progress, ticks, .md download, print, and which documents are on file. */
+  function checklistBody() {
+    return (
+      <>
+      {checklist.length === 0 ? (
+        <p className="mt-2 text-stone-700">Answer a question to list forms and lines. Nothing is assumed yet.</p>
+      ) : (
+        <>
+        <div className="checklist-toolbar">
+          <p className="text-sm text-stone-800" role="status">
+            {checklistStats.done} of {checklistStats.total} confirmed on the return
+          </p>
+          <progress className="checklist-progress" max={checklistStats.total} value={checklistStats.done} aria-label="Checklist items confirmed" />
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="btn-secondary" onClick={downloadChecklist}>
+              Download .md
+            </button>
+            <button type="button" className="btn-secondary" onClick={printChecklist}>
+              Print
+            </button>
+          </div>
+        </div>
+        {coverage.expected.length > 0 ? (
+          <p className="checklist-coverage" role="note">
+            <span>
+              {stagedPaths == null
+                ? `This path calls for ${coverage.expected.length} source ${coverage.expected.length === 1 ? "document" : "documents"}.`
+                : `Documents on file: ${coverage.found} of ${coverage.expected.length} this path calls for${coverage.missing ? ` (${coverage.missing} not found yet)` : ""}.`}
+            </span>
+            <button type="button" className="btn-secondary" onClick={() => {
+                setChecklistPanelOpen(false);
+                showFrame("sorter");
+              }}>
+              {stagedPaths == null ? "Check in Document Sorter" : "Open Document Sorter"}
+            </button>
+          </p>
+        ) : null}
+        <ul className="mt-3 flex flex-col gap-3">
+          {checklist.map((item) => (
+            <li key={item.id} className={`rounded-md border px-3 py-2 ${confirmedHere.includes(item.id) ? "checklist-item-done" : "border-stone-200 bg-[#fffdf8]"}`}>
+              <label className="checklist-confirm">
+                <input
+                  type="checkbox"
+                  checked={confirmedHere.includes(item.id)}
+                  onChange={() => changeConfirmed(toggleConfirmedForYear(confirmed, item.id, yearAnswer))}
+                />
+                Confirmed on the return
+              </label>
+              <p className="font-medium text-stone-900">
+                {item.form}
+                {item.line ? ` · ${item.line}` : ""}
+              </p>
+              <p className="text-sm text-stone-700">{item.summary}</p>
+              <p className="mt-1 text-xs uppercase tracking-wide text-stone-500">
+                {item.certainty === "sourced" ? "Line cited for the year shown" : "Verify on the form"}
+                {item.source ? ` · ${item.source.yearLabel}` : ""}
+              </p>
+              {item.source ? (
+                <a className="text-sm text-rust underline-offset-2 hover:underline" href={item.source.url} target="_blank" rel="noreferrer">
+                  {item.source.title}
+                </a>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+        </>
+      )}
+      </>
+    );
+  }
+
+  const dialogOpen = Boolean(promptOpen || purposeOpen || modalId || owedDialog || checklistPanelOpen);
   const pageKeys = !dialogOpen;
   const dockShowsExpand = dockCollapsed;
   const checklistShowsExpand = !checklistOpen && !dockShowsExpand;
@@ -1093,6 +1170,29 @@ export function CheckerApp() {
               ) : null}
             </div>
             <div className="frame-tools" role="group" aria-label="Tools">
+              <button
+                type="button"
+                className="checklist-open"
+                aria-haspopup="dialog"
+                aria-expanded={checklistPanelOpen}
+                aria-controls={checklistPanelOpen ? "checklist-panel" : undefined}
+                onClick={() => setChecklistPanelOpen(true)}
+              >
+                <span className="checklist-open-icon" aria-hidden="true">
+                  ☑
+                </span>
+                Checklist
+                {checklistStats.total > 0 ? (
+                  <span className="tab-count">
+                    <span aria-hidden="true">
+                      {checklistStats.done}/{checklistStats.total}
+                    </span>
+                    <span className="sr-only">
+                      , {checklistStats.done} of {checklistStats.total} confirmed
+                    </span>
+                  </span>
+                ) : null}
+              </button>
               <HarnessHelp />
               <button
                 type="button"
@@ -1140,66 +1240,7 @@ export function CheckerApp() {
                     {checklistTitle(session)}
                   </h2>
                   <p className="panel-lede">{PANEL_LEDES.checklist}</p>
-                  {checklist.length === 0 ? (
-                    <p className="mt-2 text-stone-700">Answer a question to list forms and lines. Nothing is assumed yet.</p>
-                  ) : (
-                    <>
-                    <div className="checklist-toolbar">
-                      <p className="text-sm text-stone-800" role="status">
-                        {checklistStats.done} of {checklistStats.total} confirmed on the return
-                      </p>
-                      <progress className="checklist-progress" max={checklistStats.total} value={checklistStats.done} aria-label="Checklist items confirmed" />
-                      <div className="flex flex-wrap gap-2">
-                        <button type="button" className="btn-secondary" onClick={downloadChecklist}>
-                          Download .md
-                        </button>
-                        <button type="button" className="btn-secondary" onClick={printChecklist}>
-                          Print
-                        </button>
-                      </div>
-                    </div>
-                    {coverage.expected.length > 0 ? (
-                      <p className="checklist-coverage" role="note">
-                        <span>
-                          {stagedPaths == null
-                            ? `This path calls for ${coverage.expected.length} source ${coverage.expected.length === 1 ? "document" : "documents"}.`
-                            : `Documents on file: ${coverage.found} of ${coverage.expected.length} this path calls for${coverage.missing ? ` (${coverage.missing} not found yet)` : ""}.`}
-                        </span>
-                        <button type="button" className="btn-secondary" onClick={() => showFrame("sorter")}>
-                          {stagedPaths == null ? "Check in Document Sorter" : "Open Document Sorter"}
-                        </button>
-                      </p>
-                    ) : null}
-                    <ul className="mt-3 flex flex-col gap-3">
-                      {checklist.map((item) => (
-                        <li key={item.id} className={`rounded-md border px-3 py-2 ${confirmedHere.includes(item.id) ? "checklist-item-done" : "border-stone-200 bg-[#fffdf8]"}`}>
-                          <label className="checklist-confirm">
-                            <input
-                              type="checkbox"
-                              checked={confirmedHere.includes(item.id)}
-                              onChange={() => changeConfirmed(toggleConfirmedForYear(confirmed, item.id, yearAnswer))}
-                            />
-                            Confirmed on the return
-                          </label>
-                          <p className="font-medium text-stone-900">
-                            {item.form}
-                            {item.line ? ` · ${item.line}` : ""}
-                          </p>
-                          <p className="text-sm text-stone-700">{item.summary}</p>
-                          <p className="mt-1 text-xs uppercase tracking-wide text-stone-500">
-                            {item.certainty === "sourced" ? "Line cited for the year shown" : "Verify on the form"}
-                            {item.source ? ` · ${item.source.yearLabel}` : ""}
-                          </p>
-                          {item.source ? (
-                            <a className="text-sm text-rust underline-offset-2 hover:underline" href={item.source.url} target="_blank" rel="noreferrer">
-                              {item.source.title}
-                            </a>
-                          ) : null}
-                        </li>
-                      ))}
-                    </ul>
-                    </>
-                  )}
+                  {checklistBody()}
                 </>
               ) : frameMode === "costs" ? (
                 <>
@@ -1689,6 +1730,32 @@ export function CheckerApp() {
         </aside>
         </div>
       </main>
+
+      {checklistPanelOpen ? (
+        <div className="checklist-backdrop" role="presentation" onClick={() => setChecklistPanelOpen(false)}>
+          <aside
+            ref={checklistPanelRef}
+            id="checklist-panel"
+            className="checklist-drawer"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="checklist-heading"
+            tabIndex={-1}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="checklist-drawer-head">
+              <h2 id="checklist-heading" className="font-display text-2xl text-stone-900">
+                {checklistTitle(session)}
+              </h2>
+              <button type="button" className="btn-secondary" data-autofocus onClick={() => setChecklistPanelOpen(false)}>
+                Close<span className="sr-only"> the Checklist</span>
+              </button>
+            </div>
+            <p className="panel-lede">{CHECKLIST_LEDE}</p>
+            {checklistBody()}
+          </aside>
+        </div>
+      ) : null}
 
       {promptOpen && selected ? (
         <PromptBuilder

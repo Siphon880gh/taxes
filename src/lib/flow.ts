@@ -99,6 +99,10 @@ export const PANEL_LEDES: Record<FrameMode, string> = {
   checklist: `Step 2c · ${ROUTE_LEADS.checklist} opens the path, Path library, Checklist and your answers and comments. Usable any time.`,
 };
 
+/** Under the Checklist side panel's heading; the panel opens from the bottom bar on every route. */
+export const CHECKLIST_LEDE =
+  "The forms and lines your answers on the path call for. Tick each one off as you confirm it on the return. Open it from any route.";
+
 export type StageOverview = { staged: number; summaries: boolean };
 
 const APP_NOTES = new Set(["AGENTS.md", "Summaries.md", "Owed Audit.md", "Owe Audit Breakdown - Rent.md"]);
