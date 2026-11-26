@@ -41,7 +41,7 @@ The Tax year selector (header buttons, and a dropdown in the sticky Path library
 The site is a hybrid: a static build plus one PHP endpoint, served side by side from the same PHP host.
 
 - `npm run build` writes the static app to `out/`. The build rewrites asset paths to the page's own `.../out/` folder at runtime, so the same `out/` works wherever it is served (MAMP on localhost or the web host) and no folder path is baked into it. It also copies `public/sorter/` into `out/sorter/`, so `out/sorter/api.php` ships with the build, as before.
-- `sorter/api.php` is the document sorter's endpoint. It reads and writes `sorter/stage/` beside itself, and it is open: no login and no localhost check.
+- `sorter/api.php` is the document sorter's endpoint. It reads and writes `sorter/stage/` beside itself and answers only the app (see **api.php answers only the app** below).
 
 On the web host the layout is:
 
@@ -54,7 +54,19 @@ On the web host the layout is:
 
 The tabs find the endpoint in the browser (`src/lib/sorter-endpoint.ts`): `SERVER_URL_UPLOAD_API_PHP` from `.env` if it is set and reachable from the page, otherwise `sorter/api.php` next to the `out/` folder the page was served from. So on `https://wengindustries.com/app/taxes/out/` they call `https://wengindustries.com/app/taxes/sorter/api.php`, and a localhost URL in `.env` is used only on this computer. Keep `sorter/api.php` and `public/sorter/api.php` identical.
 
-There is no deploy script in this repo.
+There is no deploy script in this repo. After `npm run build`, upload into `<host>/app/taxes/`:
+
+| Upload | Why |
+|---|---|
+| `out/` (all of it, including `out/sorter/vendor/`, `out/sorter/.htaccess`, and `out/sorter/stage/.htaccess`) | The static app; `out/sorter/vendor/` is the PDF reader `sorter/api.php` loads from `../out/sorter/vendor` |
+| `sorter/api.php` | The endpoint the tabs call |
+| `sorter/app-config.php` | The allowed origins |
+| `sorter/.htaccess` and `sorter/stage/.htaccess` | Block direct access to the sorter and turn PHP off in `stage/` |
+| `.htaccess` (app root) | Blocks dotfiles, source folders, and everything under `sorter/` except `api.php` |
+| `index.html` (optional) | Redirects `<host>/app/taxes/` to `out/` |
+| `.env` (optional) | Only for Ask AI with your own `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` |
+
+Do not upload `sorter/.app-secret.php` (the server makes its own on first use), `sorter/stage/` documents you do not want on the host, `public/`, `src/`, `node_modules/`, `composer.json`, or `composer.lock`. On nginx, `.htaccess` does nothing; use [docs/NGINX.md](docs/NGINX.md) instead.
 
 **Direct access is blocked, api.php stays open.** The `.htaccess` files deny direct HTTP fetches of everything except `out/` and `api.php`: `sorter/stage/` and any other folder under `sorter/` (documents, `Summaries.md`, `Owed Audit.md`), the same under `out/sorter/`, dotfiles such as `.env*` and `.git/`, and `context/`, `.agents/`, `scripts/`, `src/`, `tests/`, `docs/`, `node_modules/`. They use Apache 2.4 syntax with a 2.2 fallback:
 
