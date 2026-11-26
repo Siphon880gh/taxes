@@ -585,6 +585,34 @@ body {
   }
 }
 
+/*
+ * Phones and narrow windows: the panel tabs wrap onto two lines, so an absolutely placed tab bar
+ * ran over the panel heading. Below 720px the tab bar sits in the frame's flow as its own row
+ * (room on the right for Hide / Expand), the content starts under it, and the collapsed frame
+ * grows to fit the tabs instead of clipping them over the question dock.
+ */
+@media (max-width: 719px) {
+  .checklist-frame .frame-switch {
+    position: static;
+    flex: 0 0 auto;
+    max-width: none;
+    padding: 0.35rem 4.75rem 0.35rem 0.75rem;
+  }
+
+  .checklist-frame .checklist-frame-inner {
+    padding-top: 0.5rem;
+  }
+
+  .checklist-frame.is-collapsed {
+    height: auto;
+    max-height: none;
+  }
+
+  .checklist-frame.is-collapsed .question-dock-tile {
+    display: none;
+  }
+}
+
 .question-dock {
   --dock-scale: 1;
   position: relative;
