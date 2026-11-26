@@ -20,12 +20,13 @@ SIBLING_SCRIPTS = HERE.parent.parent / "tax-document-classification" / "scripts"
 SUMMARIES_FILENAME = "Summaries.md"
 SORTED_FILENAME = "SORTED.md"
 OWED_AUDIT_FILENAME = "Owed Audit.md"
+RENT_BREAKDOWN_FILENAME = "Owe Audit Breakdown - Rent.md"
 WORK_DIRNAME = ".tax-sorter"
 WORK_SUBDIR = "summaries"
 DEFAULT_FOLDER = os.path.join("sorter", "stage")
 STAGE_NAMES = {"stage", "inbox", "staging"}
 SYSTEM_FILES = {".ds_store", "thumbs.db", "desktop.ini", ".gitkeep", ".htaccess"}
-REPORT_FILES = {SUMMARIES_FILENAME.lower(), SORTED_FILENAME.lower(), OWED_AUDIT_FILENAME.lower()}
+REPORT_FILES = {SUMMARIES_FILENAME.lower(), SORTED_FILENAME.lower(), OWED_AUDIT_FILENAME.lower(), RENT_BREAKDOWN_FILENAME.lower()}
 
 
 def is_report_name(name: str) -> bool:

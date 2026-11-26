@@ -20,9 +20,10 @@ DEFAULT_INPUT = os.path.join("sorter", "stage")
 SORTED_FILENAME = "SORTED.md"  # written at the output root by apply_plan.py: original -> new map + file-count check
 SUMMARIES_FILENAME = "Summaries.md"  # written by the tax-document-summaries skill; never sorted or counted as a document
 OWED_AUDIT_FILENAME = "Owed Audit.md"  # written by the tax-return-owed-audit skill; never sorted or counted as a document
+RENT_BREAKDOWN_FILENAME = "Owe Audit Breakdown - Rent.md"  # written by the tax-return-owed-audit skill when the return has rental income; never sorted
 SUMMARIES_SKILL = "tax-document-summaries"
 SYSTEM_FILES = {".ds_store", "thumbs.db", "desktop.ini", ".gitkeep", ".htaccess"}
-REPORT_FILES = {SORTED_FILENAME.lower(), SUMMARIES_FILENAME.lower(), OWED_AUDIT_FILENAME.lower()}
+REPORT_FILES = {SORTED_FILENAME.lower(), SUMMARIES_FILENAME.lower(), OWED_AUDIT_FILENAME.lower(), RENT_BREAKDOWN_FILENAME.lower()}
 
 
 def is_report_name(name: str) -> bool:
