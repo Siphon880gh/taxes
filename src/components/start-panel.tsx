@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { PANEL_LEDES, ROUTES, stagedLabel, type FrameMode, type Route, type StageOverview } from "@/lib/flow";
+import { PANEL_LEDES, ROUTES, spokenPrefix, stagedLabel, type FrameMode, type Route, type StageOverview } from "@/lib/flow";
 import { OWED_AUDIT_NAME, RENT_BREAKDOWN_NAME, type OwedReportsState } from "@/lib/owed-reports";
 
 type Props = {
@@ -46,8 +46,11 @@ function RouteCard({ route, cue, children }: { route: Route; cue: string | null;
         <span className="flow-step" aria-hidden="true">
           {route.step}
         </span>
-        <span className="sr-only">Route {route.step}: </span>
-        {route.title}
+        <span className="sr-only">{spokenPrefix(route)}</span>
+        <span className="route-lead" aria-hidden="true">
+          {route.lead}
+        </span>
+        {route.label}
       </h4>
       <p>{route.summary}</p>
       {cue ? <p className="flow-cue">{cue}</p> : null}
@@ -173,8 +176,11 @@ export function FlowNext({
               <span className="flow-step" aria-hidden="true">
                 {route.step}
               </span>
-              <span className="sr-only">Route {route.step}: </span>
-              {route.title}
+              <span className="sr-only">{spokenPrefix(route)}</span>
+              <span className="route-lead" aria-hidden="true">
+                {route.lead}
+              </span>
+              {route.label}
             </button>
           );
         })}

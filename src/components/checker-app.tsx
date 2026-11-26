@@ -14,7 +14,7 @@ import { readStoredQuote, writeStoredQuote } from "@/lib/quote-storage";
 import { clearStoredSession, readStoredSession, writeStoredSession } from "@/lib/session-storage";
 import { documentCoverage } from "@/lib/document-coverage";
 import { auditTab } from "@/lib/owed-reports";
-import { FLOW_TABS, PANEL_LEDES, type FrameMode } from "@/lib/flow";
+import { FLOW_TABS, PANEL_LEDES, spokenPrefix, type FrameMode } from "@/lib/flow";
 import { useOwedReports } from "@/lib/use-owed-reports";
 import type { PdfHints } from "@/lib/pdf-hints";
 import {
@@ -1013,7 +1013,7 @@ export function CheckerApp() {
                         <span className="tab-step" aria-hidden="true">
                           {tab.step}
                         </span>
-                        <span className="sr-only">{tab.stepLabel}: </span>
+                        <span className="sr-only">{spokenPrefix(tab)}</span>
                       </>
                     ) : null}
                     {tab.label}

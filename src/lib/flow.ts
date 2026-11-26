@@ -1,35 +1,57 @@
 /**
  * The guided flow over the bottom panel's tabs:
  *   Step 1  gather and sort documents (Document Sorter)
- *   Step 2  pick one route: (a) hand off to a tax preparer, (b) AI owed audit, (c) file it yourself.
+ *   Step 2  pick one route: (a) "Hand it to a pro:", (b) "AI calculate now:", (c) "Guide me on forms:".
  * The chart above is the guided path itself; route (c) uses it any time, with or without documents.
  */
 
 export type FrameMode = "start" | "sorter" | "costs" | "audit" | "checklist";
 
-/** The tabs in flow order, with the step chip each one shows. */
-export const FLOW_TABS: { mode: FrameMode; label: string; step: string | null; stepLabel: string }[] = [
-  { mode: "start", label: "Start here", step: null, stepLabel: "Overview" },
-  { mode: "sorter", label: "Document Sorter", step: "1", stepLabel: "Step 1" },
-  { mode: "costs", label: "Tax Pro Costs", step: "2a", stepLabel: "Route 2a" },
-  { mode: "audit", label: "Return & Owe Audit", step: "2b", stepLabel: "Route 2b" },
-  { mode: "checklist", label: "Checklist", step: "2c", stepLabel: "Route 2c" },
+/** The short lead shown before each route's tab, card and link; the same words everywhere. */
+export const ROUTE_LEADS = {
+  costs: "Hand it to a pro:",
+  audit: "AI calculate now:",
+  checklist: "Guide me on forms:",
+} as const;
+
+export type FlowTab = { mode: FrameMode; label: string; step: string | null; lead: string | null };
+
+/** The tabs in flow order, with the step chip each one shows and, for the routes, the lead before it. */
+export const FLOW_TABS: FlowTab[] = [
+  { mode: "start", label: "Start here", step: null, lead: null },
+  { mode: "sorter", label: "Document Sorter", step: "1", lead: null },
+  { mode: "costs", label: "Tax Pro Costs", step: "2a", lead: ROUTE_LEADS.costs },
+  { mode: "audit", label: "Return & Owe Audit", step: "2b", lead: ROUTE_LEADS.audit },
+  { mode: "checklist", label: "Checklist", step: "2c", lead: ROUTE_LEADS.checklist },
 ];
 
-export type Route = { id: "preparer" | "audit" | "self"; step: string; title: string; mode: FrameMode; summary: string };
+/** What a screen reader hears before the label: "Step 2a, Hand it to a pro: " (the chip and lead are drawn apart). */
+export function spokenPrefix(tab: { step: string | null; lead: string | null }): string {
+  if (!tab.step) return "";
+  return `Step ${tab.step}, ${tab.lead ? `${tab.lead} ` : ""}`;
+}
+
+export type Route = { id: "preparer" | "audit" | "self"; step: string; lead: string; label: string; mode: FrameMode; summary: string };
+
+/** "Hand it to a pro: Tax Pro Costs". */
+export function routeName(route: Route): string {
+  return `${route.lead} ${route.label}`;
+}
 
 export const ROUTES: Route[] = [
   {
     id: "preparer",
     step: "2a",
-    title: "Hand off to a tax preparer",
+    lead: ROUTE_LEADS.costs,
+    label: "Tax Pro Costs",
     mode: "costs",
     summary: "Give the preparer Summaries.md, written from your sorted documents by the tax-document-summaries skill, then judge their quote in Tax Pro Costs.",
   },
   {
     id: "audit",
     step: "2b",
-    title: "AI owed audit",
+    lead: ROUTE_LEADS.audit,
+    label: "Return & Owe Audit",
     mode: "audit",
     summary:
       "Already have the return? The I have my return - audit owed skill checks the amount owed against your documents and writes Owed Audit.md, plus a rent breakdown when there is rental income.",
@@ -37,7 +59,8 @@ export const ROUTES: Route[] = [
   {
     id: "self",
     step: "2c",
-    title: "File it yourself",
+    lead: ROUTE_LEADS.checklist,
+    label: "Checklist",
     mode: "checklist",
     summary: "Answer the guided path on the chart and work through the Checklist of forms and lines. Open it any time, even before any documents are staged.",
   },
@@ -47,9 +70,9 @@ export const ROUTES: Route[] = [
 export const PANEL_LEDES: Record<FrameMode, string> = {
   start: "Sort your documents first, then pick the route that fits. The chart above works any time.",
   sorter: "Step 1 · Upload your tax documents and sort them into folders. Every route reads them from here.",
-  costs: "Route 2a · Hand off to a tax preparer: give them Summaries.md, then check their quote against typical fees.",
-  audit: "Route 2b · AI owed audit: the owed-audit skill checks the return's amount owed against your documents.",
-  checklist: "Route 2c · File it yourself: the forms and lines your answers on the chart call for. Usable any time.",
+  costs: `Step 2a · ${ROUTE_LEADS.costs} give the preparer Summaries.md, then check their quote against typical fees.`,
+  audit: `Step 2b · ${ROUTE_LEADS.audit} the owed-audit skill checks the return's amount owed against your documents.`,
+  checklist: `Step 2c · ${ROUTE_LEADS.checklist} the forms and lines your answers on the chart call for. Usable any time.`,
 };
 
 export type StageOverview = { staged: number; summaries: boolean };
