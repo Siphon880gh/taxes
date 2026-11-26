@@ -3,6 +3,8 @@ import test from "node:test";
 import { applyCase } from "../src/lib/graph/cases";
 import { answerOf, applyAnswer, blankSession, importSession, sessionToJson } from "../src/lib/graph/session";
 import { DEFAULT_TAX_YEAR_ID, isTaxYearId, TAX_YEARS, taxYearLabel } from "../src/lib/graph/tax-years";
+import { costReport } from "../src/lib/graph/cost";
+import { tips } from "../src/lib/graph/tips";
 import { federalBasicStandard, parseYear, saltCap, socialSecurityWageBase } from "../src/lib/graph/thresholds";
 import { readStoredSession, writeStoredSession } from "../src/lib/session-storage";
 
@@ -60,4 +62,17 @@ test("the chosen year is saved in the browser and carried through Export and Imp
     assert.match(exported, new RegExp(`"answerId": "${id}"`));
     assert.equal(answerOf(importSession(exported), "year"), id);
   }
+});
+
+test("the 1099-K note and the quote label follow the selected year", () => {
+  const ten99k = (year: 2025 | 2026 | null) => tips.ten99k.readMore!({ year, quote: null, caseStudyId: null }).paragraphs.join(" ");
+  assert.match(ten99k(2025), /For tax year 2025,.*\$20,000.*200/);
+  assert.match(ten99k(2026), /For tax year 2026,.*same for 2025 and 2026/);
+  assert.match(ten99k(null), /For tax year 2025 and 2026/);
+  const quoted = (id: string) => {
+    const session = { ...applyAnswer(applyAnswer(blankSession(), "year", id), "filing_status", "single"), quote: 900 };
+    return costReport(session).rows.find((row) => row.id === "quote")?.yearLabel ?? "";
+  };
+  assert.match(quoted("y2025"), /Quote for the 2025 return/);
+  assert.match(quoted("y2026"), /Quote for the 2026 return/);
 });
