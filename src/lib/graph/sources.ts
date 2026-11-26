@@ -9,9 +9,34 @@ export const citations = {
   form1040_2025: {
     title: "2025 Form 1040 and 2025 Instructions for Form 1040",
     url: "https://www.irs.gov/instructions/i1040gi",
-    yearLabel: "Tax year 2025",
+    yearLabel: "Tax year 2025 (final form; rechecked November 25, 2026)",
+    checked: "2026-11-25",
     citation:
-      "IRS 2025 Form 1040 instructions: standard deduction $15,750 single or married filing separately; $31,500 married filing jointly or qualifying surviving spouse; $23,625 head of household. Form 1040 line 1a is W-2 box 1 wages; line 11b is adjusted gross income; line 12e is the standard deduction or itemized deductions; line 13b is additional deductions from Schedule 1-A.",
+      "IRS 2025 Form 1040 instructions: standard deduction $15,750 single or married filing separately; $31,500 married filing jointly or qualifying surviving spouse; $23,625 head of household. Form 1040 line 1a is W-2 box 1 wages; line 11b is adjusted gross income; line 12e is the standard deduction or itemized deductions; line 13a is the qualified business income deduction; line 13b is additional deductions from Schedule 1-A line 38; line 7a is capital gain or loss; line 15 is taxable income; line 25a is federal income tax withheld from Forms W-2; line 26 is estimated tax payments and the amount applied from the prior-year return; line 27a is the earned income credit. Form 1040 (2025) PDF: https://www.irs.gov/pub/irs-pdf/f1040.pdf.",
+  } satisfies Citation,
+  form1040_2026_draft: {
+    title: "2026 Form 1040, early release draft (created August 19, 2026)",
+    url: "https://www.irs.gov/pub/irs-dft/f1040--dft.pdf",
+    yearLabel: "Tax year 2026 (draft — not for filing; read November 25, 2026)",
+    checked: "2026-11-25",
+    citation:
+      "IRS early release draft of the 2026 Form 1040, created 8/19/26 and marked DRAFT — DO NOT FILE. It prints the standard deduction as $16,100 single or married filing separately, $32,200 married filing jointly or qualifying surviving spouse, and $24,150 head of household. Line 1a is W-2 box 1; line 7a is capital gain or loss; line 11b is adjusted gross income; line 12e is the standard deduction or itemized deductions; new line 12f is the charitable contribution deduction for non-itemizers; line 13a is now additional deductions from Schedule 1-A line 44; line 13b is now the qualified business income deduction (Form 8995 or 8995-A); line 15 is taxable income; line 25a is W-2 withholding; line 26 is 2026 estimated tax payments and the amount applied from the 2025 return; line 27a is the earned income credit. Line 12d's age box reads born before January 2, 1962. The IRS says a draft can change before the final form, so these line numbers stay marked verify.",
+  } satisfies Citation,
+  schedule1a_2026_draft: {
+    title: "2026 Schedule 1-A (Form 1040), early release draft (created June 16, 2026)",
+    url: "https://www.irs.gov/pub/irs-dft/f1040s1a--dft.pdf",
+    yearLabel: "Tax year 2026 (draft — not for filing; read November 25, 2026)",
+    checked: "2026-11-25",
+    citation:
+      "IRS early release draft of the 2026 Schedule 1-A, created 6/16/26. The amounts match the 2025 form; the line numbers move. Part II tips: line 9 is the smaller of qualified tips or $25,000, line 11 is $150,000 ($300,000 married filing jointly), line 13 drops to the next lower whole number of $1,000s, line 14 multiplies by $100, and line 15 is the deduction. Part III overtime: line 21 caps at $12,500 ($25,000 MFJ), line 23 is the same $150,000/$300,000, and line 27 is the deduction. Part IV car loan interest: line 28 lists the VINs, line 30 caps at $10,000, line 32 is $100,000 ($200,000 MFJ), line 34 rounds up, line 35 multiplies by $200, and line 36 is the deduction. Part V seniors: $6,000 less 6% of modified AGI over $75,000 ($150,000 MFJ) for each person born before January 2, 1962, totaled on line 43. Line 44 adds lines 15, 27, 36, and 43 and goes to Form 1040 line 13a.",
+  } satisfies Citation,
+  scheduleA_2026_draft: {
+    title: "2026 Schedule A (Form 1040), early release draft (created May 12, 2026)",
+    url: "https://www.irs.gov/pub/irs-dft/f1040sa--dft.pdf",
+    yearLabel: "Tax year 2026 (draft — not for filing; read November 25, 2026)",
+    checked: "2026-11-25",
+    citation:
+      "IRS early release draft of the 2026 Schedule A, created 5/12/26. Line 5e: enter the smaller of line 5d or $40,400 ($20,200 if married filing separately); if Form 1040 line 11b is more than $505,000 ($252,500 if married filing separately), see the instructions. The 2026 Schedule A instructions were not posted when this was read.",
   } satisfies Citation,
   ir2025_103: {
     title: "IRS news release IR-2025-103",
@@ -23,14 +48,16 @@ export const citations = {
   rp2025_32: {
     title: "Revenue Procedure 2025-32",
     url: "https://www.irs.gov/pub/irs-drop/rp-25-32.pdf",
-    yearLabel: "Tax year 2026",
+    yearLabel: "Tax year 2026 (rechecked November 25, 2026)",
+    checked: "2026-11-25",
     citation:
       "Rev. Proc. 2025-32, section 4.14 (standard deduction). For taxable years beginning in 2026: $32,200 married filing jointly and surviving spouses; $24,150 heads of household; $16,100 unmarried individuals and married filing separately. Additional amount for aged or blind: $1,650, or $2,050 if unmarried and not a surviving spouse. Dependent limitation: greater of $1,350 or $450 plus earned income.",
   } satisfies Citation,
   topic551: {
     title: "IRS Topic no. 551, Standard deduction",
     url: "https://www.irs.gov/taxtopics/tc551",
-    yearLabel: "Tax year 2025",
+    yearLabel: "Tax year 2025 (rechecked November 25, 2026)",
+    checked: "2026-11-25",
     citation:
       "Topic 551, page last reviewed September 24, 2026. For 2025, the additional standard deduction for age or blindness is $1,600, or $2,000 if unmarried and not a surviving spouse. A dependent's 2025 standard deduction is limited to the greater of $1,350 or earned income plus $450, and cannot exceed the basic standard deduction. You cannot take the standard deduction if you itemize. A married person filing separately whose spouse itemizes cannot take the standard deduction. The enhanced senior deduction of $6,000 is separate and is claimed on Schedule 1-A.",
   } satisfies Citation,
@@ -44,7 +71,8 @@ export const citations = {
   scheduleA_2025: {
     title: "2025 Instructions for Schedule A (Form 1040)",
     url: "https://www.irs.gov/instructions/i1040sca",
-    yearLabel: "Tax year 2025",
+    yearLabel: "Tax year 2025 (rechecked November 25, 2026)",
+    checked: "2026-11-25",
     citation:
       "2025 Schedule A instructions, line 5e. The state and local tax deduction is generally limited to $40,000 ($20,000 if married filing separately). If Form 1040 line 11b is more than $500,000 ($250,000 if married filing separately), the limit is reduced but not below $10,000 ($5,000 if married filing separately).",
   } satisfies Citation,
@@ -86,100 +114,106 @@ export const citations = {
   pub334_2025: {
     title: "Publication 334 (2025), Tax Guide for Small Business",
     url: "https://www.irs.gov/pub/irs-prior/p334--2025.pdf",
-    yearLabel: "Tax year 2025",
+    yearLabel: "Tax year 2025 (rechecked November 25, 2026)",
+    checked: "2026-11-25",
     citation:
       "Pub. 334 (2025). Net earnings for self-employment tax are generally 92.35% (0.9235) of net profit (Schedule SE line 4a under the regular method). The 2025 self-employment tax rate is 15.3% (12.4% Social Security plus 2.9% Medicare). Only the first $176,100 of combined wages, tips, and net earnings in 2025 is subject to the 12.4% Social Security portion. File Schedule SE if net earnings from self-employment are $400 or more. A separate Schedule C is filed for each business.",
   } satisfies Citation,
   ir2025_107: {
     title: "IRS news release IR-2025-107 and Fact Sheet 2025-08",
     url: "https://www.irs.gov/newsroom/irs-issues-faqs-on-form-1099-k-threshold-under-the-one-big-beautiful-bill-dollar-limit-reverts-to-20000",
-    yearLabel: "Tax year 2025",
+    yearLabel: "Tax years 2025 and later (rechecked November 25, 2026)",
+    checked: "2026-11-25",
     citation:
-      "IR-2025-107 (October 23, 2025) and Fact Sheet 2025-08. A third party settlement organization is not required to file Form 1099-K unless the gross amount of reportable payment transactions to a payee exceeds $20,000 and the number of transactions exceeds 200. A platform may still send a form below that threshold. Income from goods or services is reportable whether or not a form is issued. Personal transfers are not the same as payments for goods or services. A state may set a lower threshold; no state threshold is stored in this tool.",
+      "IR-2025-107 (October 23, 2025) and Fact Sheet 2025-08. A third party settlement organization is not required to file Form 1099-K unless the gross amount of reportable payment transactions to a payee exceeds $20,000 and the number of transactions exceeds 200. A platform may still send a form below that threshold. Income from goods or services is reportable whether or not a form is issued. Personal transfers are not the same as payments for goods or services. A state may set a lower threshold; no state threshold is stored in this tool. The release says the One, Big, Beautiful Bill retroactively reinstated the pre-2021 threshold, so the same $20,000 and 200-transaction test applies for 2026 too.",
   } satisfies Citation,
   rp2024_40: {
     title: "Revenue Procedure 2024-40",
     url: "https://www.irs.gov/pub/irs-drop/rp-24-40.pdf",
-    yearLabel: "Tax year 2025 (retrieved October 21, 2026)",
-    checked: "2026-10-21",
+    yearLabel: "Tax year 2025 (retrieved October 21, 2026; rechecked November 25, 2026)",
+    checked: "2026-11-25",
     citation:
       "Rev. Proc. 2024-40, section 3.27 (Qualified Business Income). For taxable years beginning in 2025, the § 199A threshold amount is $394,600 for married individuals filing joint returns (phase-in range ends at $494,600) and $197,300 for married filing separately and all other returns (phase-in range ends at $247,300).",
   } satisfies Citation,
   rp2025_32_more: {
     title: "Revenue Procedure 2025-32 (QBI, dependent standard deduction, information-return threshold)",
     url: "https://www.irs.gov/pub/irs-drop/rp-25-32.pdf",
-    yearLabel: "Tax year 2026 (retrieved October 21, 2026)",
-    checked: "2026-10-21",
+    yearLabel: "Tax year 2026 (retrieved October 21, 2026; rechecked November 25, 2026)",
+    checked: "2026-11-25",
     citation:
       "Rev. Proc. 2025-32. Section 4.26: for taxable years beginning in 2026, the § 199A threshold amount is $403,500 for married filing jointly (phase-in range ends at $553,500), $201,775 for married filing separately (ends at $276,775), and $201,750 for all other returns (ends at $276,750). Section 4.14(2): a dependent's 2026 standard deduction cannot exceed the greater of $1,350 or $450 plus earned income. Section 2.15: for payments made after December 31, 2025, the base threshold under § 6041(a) is $2,000.",
   } satisfies Citation,
   irs_salt_2026: {
     title: "IRS: Correction to the state and local income tax deduction amount in the 2026 Form 1040-ES",
     url: "https://www.irs.gov/forms-pubs/correction-to-state-and-local-income-tax-deduction-amount-in-the-2026-form-1040-es",
-    yearLabel: "Tax year 2026 (page updated March 16, 2026; retrieved October 21, 2026)",
-    checked: "2026-10-21",
+    yearLabel: "Tax year 2026 (page updated March 16, 2026; retrieved October 21, 2026; rechecked November 25, 2026)",
+    checked: "2026-11-25",
     citation:
       "For 2026, the limit on the deduction for state and local income, sales, and property taxes is $40,400 ($20,200 if married filing separately). The limit is reduced if modified adjusted gross income is more than $505,000 ($252,500 if married filing separately), but not below $10,000 ($5,000 if married filing separately).",
   } satisfies Citation,
   ssa_wage_base: {
     title: "SSA, Contribution and Benefit Base",
     url: "https://www.ssa.gov/oact/cola/cbb.html",
-    yearLabel: "Earnings years 2025 to 2027 (retrieved October 21, 2026)",
-    checked: "2026-10-21",
+    yearLabel: "Earnings years 2025 to 2027 (retrieved October 21, 2026; rechecked November 25, 2026)",
+    checked: "2026-11-25",
     citation:
       "Social Security Administration, Office of the Chief Actuary. Contribution and benefit base (the maximum earnings subject to the 12.4% Social Security portion): $176,100 for 2025, $184,500 for 2026, and $192,300 for 2027. Medicare (HI) has no taxable maximum.",
   } satisfies Citation,
   pub15_2026: {
     title: "Publication 15 (2026), Employer's Tax Guide",
     url: "https://www.irs.gov/publications/p15",
-    yearLabel: "Payments made in 2025 and 2026 (retrieved October 21, 2026)",
-    checked: "2026-10-21",
+    yearLabel: "Payments made in 2025 and 2026 (retrieved October 21, 2026; rechecked November 25, 2026)",
+    checked: "2026-11-25",
     citation:
       "Pub. 15 (2026). Form 1099-NEC reports payments of $600 or more made in 2025 ($2,000 or more for payments made in 2026) to people not treated as employees. For payments made after calendar year 2025, P.L. 119-21 raises the information-reporting threshold from $600 to $2,000, and the W-2 wage-reporting threshold to $2,000 when no federal income, Social Security, or Medicare tax was withheld. The threshold is adjusted for inflation after 2026.",
   } satisfies Citation,
   fs2025_03: {
     title: "IRS Fact Sheet FS-2025-03: Tax deductions for working Americans and seniors",
     url: "https://www.irs.gov/newsroom/one-big-beautiful-bill-act-tax-deductions-for-working-americans-and-seniors",
-    yearLabel: "Tax years 2025 through 2028 (retrieved October 21, 2026)",
-    checked: "2026-10-21",
+    yearLabel: "Tax years 2025 through 2028 (retrieved October 21, 2026; rechecked November 25, 2026)",
+    checked: "2026-11-25",
     citation:
       "FS-2025-03 (July 14, 2025; updated July 25, 2025). Each deduction is effective for 2025 through 2028 and is available whether or not the taxpayer itemizes. No tax on tips: up to $25,000 of qualified tips; for the self-employed, not more than the net income from the trade or business; phases out above $150,000 modified AGI ($300,000 joint); not available in a specified service trade or business; SSN required and married taxpayers must file jointly. No tax on overtime: the FLSA-required premium portion, up to $12,500 ($25,000 joint); phases out above $150,000 ($300,000 joint); SSN and joint filing required. Car loan interest: up to $10,000 of interest on a loan originated after December 31, 2024 for a new, personal-use vehicle under 14,000 pounds with final assembly in the United States, secured by a lien; leases do not qualify; VIN required on the return; phases out above $100,000 ($200,000 joint). Seniors: $6,000 per individual 65 or older by the end of the year ($12,000 if both spouses qualify); phases out above $75,000 ($150,000 joint); SSN and joint filing required.",
   } satisfies Citation,
   schedule1a_2025: {
     title: "2025 Schedule 1-A (Form 1040), Additional Deductions",
     url: "https://www.irs.gov/pub/irs-pdf/f1040s1a.pdf",
-    yearLabel: "Tax year 2025 (retrieved October 21, 2026)",
-    checked: "2026-10-21",
+    yearLabel: "Tax year 2025 (retrieved October 21, 2026; rechecked November 25, 2026)",
+    checked: "2026-11-25",
     citation:
       "2025 Schedule 1-A. Part II no tax on tips: line 7 is the smaller of qualified tips or $25,000; above $150,000 ($300,000 married filing jointly) of line 3 modified AGI, the deduction drops $100 for each full $1,000 (line 11 rounds down); line 13 is the deduction. Part III overtime: line 15 caps at $12,500 ($25,000 MFJ), same $150,000/$300,000 start and $100 per full $1,000; line 21. Part IV car loan interest: line 24 caps at $10,000; above $100,000 ($200,000 MFJ) it drops $200 per $1,000 or part of $1,000 (line 28 rounds up); line 30. Part V seniors: $6,000 less 6% of modified AGI over $75,000 ($150,000 MFJ), per qualifying person born before January 2, 1961; line 37. Line 38 totals the parts and goes to Form 1040 line 13b.",
   } satisfies Citation,
   la_rs_294: {
     title: "Louisiana Revised Statutes 47:294 and 2025 IT-540 instructions",
     url: "https://www.legis.la.gov/legis/Law.aspx?d=101761",
-    yearLabel: "Tax year 2025",
+    yearLabel: "Tax year 2025 (rechecked November 25, 2026)",
+    checked: "2026-11-25",
     citation:
       "La. R.S. 47:294(A), as amended by Act 11 of the 2024 Third Extraordinary Session: for tax year 2025, the standard deduction is $12,500 for single and married filing separately, and 200% of that amount ($25,000) for married filing jointly, qualifying surviving spouse, and head of household. 2025 IT-540 instructions, line 8, repeat those amounts. Lines 9A through 9D are used only if the federal return was itemized; otherwise skip them. Filing status must match the federal return.",
   } satisfies Citation,
   la_rib_2026: {
     title: "Louisiana Revenue Information Bulletin 26-019",
     url: "https://dam.ldr.la.gov/lawspolicies/RIB%2026-019.pdf",
-    yearLabel: "Tax year 2026",
+    yearLabel: "Tax year 2026 (rechecked November 25, 2026)",
+    checked: "2026-11-25",
     citation:
       "LDR Revenue Information Bulletin No. 26-019 (September 28, 2026), under La. R.S. 47:294. Tax year 2026 standard deduction after a 2.7% CPI-U adjustment: $12,838 single or married filing separately; $25,676 married filing jointly, head of household, or qualifying surviving spouse. 2026 IT-540 line numbers were not in this bulletin and are not treated as confirmed.",
   } satisfies Citation,
   ftb_2025: {
     title: "2025 Instructions for California Form 540",
     url: "https://www.ftb.ca.gov/forms/2025/2025-540-instructions.html",
-    yearLabel: "Tax year 2025",
+    yearLabel: "Tax year 2025 (rechecked November 25, 2026)",
+    checked: "2026-11-25",
     citation:
       "FTB 2025 Form 540 instructions, line 18. California standard deduction: $5,706 single or married/RDP filing separately; $11,412 married/RDP filing jointly, head of household, or qualifying surviving spouse/RDP. FTB says the tax is lower if you take the larger of California itemized deductions or the California standard deduction. The California standard deduction is less than the federal standard deduction.",
   } satisfies Citation,
   ftb_2026: {
-    title: "FTB Tax News — 2026 indexing",
-    url: "https://www.ftb.ca.gov/about-ftb/newsroom/tax-news/index.html",
-    yearLabel: "Tax year 2026",
+    title: "FTB Tax News, October 2026 — 2026 Indexing",
+    url: "https://www.ftb.ca.gov/about-ftb/newsroom/tax-news/2026/10.html",
+    yearLabel: "Tax year 2026 (rechecked November 25, 2026)",
+    checked: "2026-11-25",
     citation:
-      "Franchise Tax Board Tax News index, “2026 Indexing,” page last updated September 30, 2026. Standard deduction $5,900 single or married filing separate; $11,800 joint, surviving spouse, or head of household. The CCPI change cited on the page is 3.4% from June 2025 to June 2026. FTB said the complete 2026 tax rates and exemption amounts would be posted in late December.",
+      "Franchise Tax Board Tax News, October 2026 edition, “2026 Indexing” (first read on the Tax News index, page last updated September 30, 2026; the index now shows the November edition, so the link points at the October edition). Standard deduction $5,900 single or married filing separate; $11,800 joint, surviving spouse, or head of household. The CCPI change cited on the page is 3.4% from June 2025 to June 2026. FTB said the complete 2026 tax rates and exemption amounts would be posted in late December.",
   } satisfies Citation,
   turbotax_premium: {
     title: "TurboTax Do It Yourself Premium online, 2025–2026",
