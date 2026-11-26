@@ -4,7 +4,7 @@ Build the Document Sorter panel into the existing Checklist/Tax Pro Costs interf
 
 The file upload tax docs, mention can upload zip or tar too and its folder structure or category structure will be retained. When that's uploaded. the api.php should handle unzipping/untarring the files into stage and retain any folder structures uncompressed
 
-While we keep the app Next, for the upload process we use PHP. We can make sure the PHP can run by having .env.sample for SERVER_URL_UPLOAD_API_PHP. In our case .env set to http://localhost:8888/weng/app/taxes/sorter/api.php. Add CORS headers to api.php so we can cross connect across NextJS port to a PHP port - but do not assume the port numbers. We do not change package.json to add a PHP server runner.
+While we keep the app Next, for the upload process we use PHP. We can make sure the PHP can run by having .example.env (formerly .env.sample) for SERVER_URL_UPLOAD_API_PHP. In our case .env set to http://localhost:8888/weng/app/taxes/sorter/api.php. Add CORS headers to api.php so we can cross connect across NextJS port to a PHP port - but do not assume the port numbers. We do not change package.json to add a PHP server runner.
 
 
 ---
