@@ -84,6 +84,7 @@ export function DocumentSorter({
   const [hints, setHints] = useState<PdfHints>({});
   /** null until api.php has answered; false when the PDF reader is not installed on the server. */
   const [reader, setReader] = useState<boolean | null>(null);
+  const [readingPdfs, setReadingPdfs] = useState(false);
   const [files, setFiles] = useState<StagedFile[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [suggestSummaries, setSuggestSummaries] = useState(false);
@@ -120,8 +121,10 @@ export function DocumentSorter({
       onFilesRef.current?.(listed.map((file) => file.path));
       // Reading inside the PDFs can take a moment the first time; the list shows right away and the hints follow.
       const request = ++hintsRequest.current;
+      setReadingPdfs(listed.some((file) => file.path.toLowerCase().endsWith(".pdf")));
       void fetchPdfHints(endpoint.url).then((result) => {
         if (request !== hintsRequest.current) return;
+        setReadingPdfs(false);
         setHints(result.hints);
         setReader(result.available);
         onPdfHintsRef.current?.(result.hints);
@@ -335,11 +338,13 @@ export function DocumentSorter({
           <h3 id="sorter-coverage-heading" className="font-medium text-stone-900">
             Documents this path calls for
           </h3>
-          <p className="text-sm text-stone-600">
+          <p className="text-sm text-stone-600" aria-live="polite">
             {coverage.found} of {coverage.expected.length} look like they are on file in sorter/stage.{" "}
-            {reader
-              ? "PDFs count by the form named in their text; scans and other files count by folder and file name."
-              : "Judging by folder and file names."}{" "}
+            {readingPdfs
+              ? "Reading the PDFs for form names…"
+              : reader
+                ? "PDFs count by the form named in their text; scans and other files count by folder and file name."
+                : "Judging by folder and file names."}{" "}
             The list grows as you answer more of the chart.
           </p>
           <ul className="sorter-coverage-list">
