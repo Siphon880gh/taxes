@@ -1,9 +1,10 @@
 /**
  * Folder-path memory for the "Add / edit with AI" helper (harness-first: no built-in AI).
- * Keys are namespaced by the app's path under the weng folder (harnessAi:app/taxes:*) so apps that share an origin
- * never overwrite each other. Same scheme and quoting rules as the shared harness-ai.js / harness-fab.js helpers.
+ * Keys are namespaced by the app's package name (harnessAi:tax-final-confirmation:*) so apps that share an origin
+ * never overwrite each other, without putting the app's folder layout in the bundle. Same quoting rules as the shared
+ * harness-ai.js / harness-fab.js helpers.
  */
-export const HARNESS_APP_ID = "app/taxes";
+export const HARNESS_APP_ID = "tax-final-confirmation";
 const NS = `harnessAi:${HARNESS_APP_ID}:`;
 
 export type HarnessTile = "about" | "path";

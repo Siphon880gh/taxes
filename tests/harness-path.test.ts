@@ -2,8 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { cdCommand, cleanPath, HARNESS_APP_ID } from "../src/lib/harness-path";
 
-test("harness app id is the app's path under weng", () => {
-  assert.equal(HARNESS_APP_ID, "app/taxes");
+test("harness app id is the package name, not a folder path", () => {
+  assert.equal(HARNESS_APP_ID, "tax-final-confirmation");
+  assert.doesNotMatch(HARNESS_APP_ID, /\//);
 });
 
 test("cleanPath trims and strips surrounding quotes", () => {

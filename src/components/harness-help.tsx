@@ -17,7 +17,7 @@ import {
  * in Cursor, Claude Code or another AI harness and run the local skills with their own tokens. Purely informational.
  * The app never names its own folder or where it lives on disk; it describes the folder by what it contains.
  * Two accordion tiles (one open at a time): how it works, and a folder path this browser remembers, shown as the path
- * or a cd command. Path, mode and last-opened tile persist in localStorage under harnessAi:app/taxes:*.
+ * or a cd command. Path, mode and last-opened tile persist in localStorage under harnessAi:tax-final-confirmation:*.
  */
 
 /**
