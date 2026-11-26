@@ -208,8 +208,8 @@ export function saltCap(year: TaxYear | null, status: FilingStatus | null): Mone
     citation: citations.irs_salt_2026,
     unverified: false,
     note: mfs
-      ? "For 2026 the state-and-local-tax cap is $20,200 for married filing separately. It is reduced when modified AGI is more than $252,500 but not below $5,000. The 2026 Schedule A line number is not confirmed here. This tool does not compute the phase-down."
-      : "For 2026 the state-and-local-tax cap is $40,400. It is reduced when modified AGI is more than $505,000 but not below $10,000. The 2026 Schedule A line number is not confirmed here. This tool does not compute the phase-down.",
+      ? "For 2026 the state-and-local-tax cap is $20,200 for married filing separately. It is reduced when modified AGI is more than $252,500 but not below $5,000. The IRS early-release draft of the 2026 Schedule A puts it on line 5e; confirm the line on the final form. This tool does not compute the phase-down."
+      : "For 2026 the state-and-local-tax cap is $40,400. It is reduced when modified AGI is more than $505,000 but not below $10,000. The IRS early-release draft of the 2026 Schedule A puts it on line 5e; confirm the line on the final form. This tool does not compute the phase-down.",
   };
 }
 
@@ -406,8 +406,10 @@ export const seRates = {
   citation: citations.pub334_2025,
 };
 
+/** Form 1099-K filing test. The OBBB reinstated it retroactively and permanently, so it is the same for every year here. */
 export const ten99kThreshold = {
   year: 2025 as const,
+  years: [2025, 2026] as TaxYear[],
   grossExceeds: 20000,
   transactionsExceed: 200,
   citation: citations.ir2025_107,

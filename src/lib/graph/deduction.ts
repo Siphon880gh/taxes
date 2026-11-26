@@ -98,7 +98,11 @@ export function deductionNarrative(session: Session): string[] {
       );
     }
     if (jurisdiction === "louisiana" && choice === "itemized") {
-      lines.push("Because the federal return itemized, verify Louisiana IT-540 lines 9A–9D for 2025. If the federal return used the standard deduction, the 2025 instructions say to skip those lines.");
+      lines.push(
+        year === 2026
+          ? "Because the federal return itemized, verify the Louisiana itemized lines on the 2026 IT-540. They were lines 9A–9D on the 2025 form; RIB 26-019 does not give 2026 line numbers, so confirm them on the form."
+          : "Because the federal return itemized, verify Louisiana IT-540 lines 9A–9D for 2025. If the federal return used the standard deduction, the 2025 instructions say to skip those lines.",
+      );
     }
   }
 

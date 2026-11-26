@@ -71,10 +71,10 @@ export const tips: Record<string, Tip> = {
   ten99k: {
     id: "ten99k",
     toast: "A payment app may not issue Form 1099-K, and goods-and-services income can still be reportable. Read more",
-    readMore: () => ({
+    readMore: (ctx: TipContext) => ({
       title: "Form 1099-K and payment apps",
       paragraphs: [
-        "For tax year 2025, a third party settlement organization such as a payment app is not required to file Form 1099-K unless the gross amount of payments for goods or services exceeds $20,000 and the number of transactions exceeds 200. The platform may still send a form below that line. Personal friends-and-family transfers are not the same payments.",
+        `For tax year ${ctx.year ?? "2025 and 2026"}, a third party settlement organization such as a payment app is not required to file Form 1099-K unless the gross amount of payments for goods or services exceeds $20,000 and the number of transactions exceeds 200. The IRS says the One, Big, Beautiful Bill reinstated that test retroactively, so it is the same for 2025 and 2026. The platform may still send a form below that line. Personal friends-and-family transfers are not the same payments.`,
         "If the activity is goods and services and no form was generated, the income is still reportable and has to be entered on the return manually. An unknown dollar amount is not treated as “under the threshold.” A state may use a lower threshold; Louisiana and California thresholds are not stored here, so none is applied.",
       ],
       citations: [citations.ir2025_107],

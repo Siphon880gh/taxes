@@ -281,8 +281,8 @@ export function buildChecklist(session: Session): ChecklistItem[] {
       form: "Form 1040 / Schedule C",
       line: "Schedule C line 1, if the payments belong to a sole proprietorship",
       summary: amount
-        ? `Goods-and-services payments are reportable even without Form 1099-K. You entered: ${amount}. Compare that with the ${ten99kThreshold.year} threshold only if it includes both a dollar total and a transaction count. Verify the manual entry.`
-        : `Goods-and-services payments are reportable even when no Form 1099-K is generated. The amount is unknown, so the ${ten99kThreshold.year} threshold (over $${ten99kThreshold.grossExceeds.toLocaleString("en-US")} and over ${ten99kThreshold.transactionsExceed} transactions) is not applied to a guessed number. Verify the manual entry on the prepared return.`,
+        ? `Goods-and-services payments are reportable even without Form 1099-K. You entered: ${amount}. Compare that with the ${taxYear ?? ten99kThreshold.year} threshold only if it includes both a dollar total and a transaction count. Verify the manual entry.`
+        : `Goods-and-services payments are reportable even when no Form 1099-K is generated. The amount is unknown, so the ${taxYear ?? ten99kThreshold.year} threshold (over $${ten99kThreshold.grossExceeds.toLocaleString("en-US")} and over ${ten99kThreshold.transactionsExceed} transactions) is not applied to a guessed number. Verify the manual entry on the prepared return.`,
       certainty: amount ? "verify" : "verify",
       source: citations.ir2025_107,
     });
