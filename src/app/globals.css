@@ -2708,3 +2708,17 @@ button.question-dock-tile {
     padding-inline: 1rem;
   }
 }
+
+/*
+ * On a phone, the sticky Path library, the answer panel and the steps bar would cover the whole chart, so while the
+ * answer panel is open the library scrolls with the page and the panel stays shorter.
+ */
+@media (max-width: 719px) {
+  body:has(.bottom-frames .question-dock) .library-stack {
+    position: static;
+  }
+
+  .bottom-frames .question-dock {
+    max-height: 40vh !important;
+  }
+}
