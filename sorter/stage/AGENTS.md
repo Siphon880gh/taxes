@@ -20,7 +20,8 @@ folder a file sits in is its category. When someone asks you to reorganize these
    put the category folders inside it.
 4. Put anything you cannot place with confidence in `_Needs Human Review`.
 5. Keep the original filenames unless the skill says to rename. Never delete a document.
-6. Leave these files where they are: `AGENTS.md`, `Summaries.md`, `Owed Audit.md`, `.gitkeep`, `.htaccess`.
+6. Leave these files where they are: `AGENTS.md`, `Summaries.md`, `Owed Audit.md`, `Owe Audit Breakdown - Rent.md`,
+   `.gitkeep`, `.htaccess`.
 7. Don't create folders whose names start with a dot; the app hides them.
 
 When you finish, tell the person to press Refresh in the Document Sorter (or reload the app) to see the new folders.

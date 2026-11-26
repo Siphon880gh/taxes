@@ -84,5 +84,5 @@ export function keepParam(kept: boolean[]): string {
 
 /** Example prompt for an AI harness opened on the app's folder. The path is relative, never an absolute one. */
 export function examplePrompt(): string {
-  return `Reorganize the tax documents in ${UPLOADS_FOLDER}. Follow AGENTS.md in that folder (and the tax-document-classification skill if you have it): sort in place, move each file into its category folder such as "Income - Wages" or "Deductions", put anything unclear in "_Needs Human Review", and leave AGENTS.md, Summaries.md and Owed Audit.md where they are.`;
+  return `Reorganize the tax documents in ${UPLOADS_FOLDER}. Follow AGENTS.md in that folder (and the tax-document-classification skill if you have it): sort in place, move each file into its category folder such as "Income - Wages" or "Deductions", put anything unclear in "_Needs Human Review", and leave AGENTS.md, Summaries.md, Owed Audit.md and Owe Audit Breakdown - Rent.md where they are.`;
 }
