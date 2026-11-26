@@ -242,7 +242,7 @@ export function AiReorganizeDialog({ onClose, onRefresh }: { onClose: () => void
             </div>
 
             <ol className="ai-reorg-steps">
-              <li>Open this app&apos;s folder (or its <code>{UPLOADS_FOLDER}</code> folder) in Cursor, Claude Code or another AI harness. The uploads folder has an AGENTS.md that tells it how this app expects documents to be sorted.</li>
+              <li>Open this app&apos;s folder in Cursor, Claude Code or another AI harness. AGENTS.md at the app root tells it how documents in <code>{UPLOADS_FOLDER}</code> should be sorted.</li>
               <li>
                 Ask it to reorganize the tax documents. Example prompt (yours can differ):
                 <span className="harness-help-copyrow">
@@ -276,7 +276,7 @@ export function AiReorganizeDialog({ onClose, onRefresh }: { onClose: () => void
                   id="ai-reorg-path-input"
                   className="harness-help-input"
                   value={path}
-                  placeholder="/Users/you/…/sorter/stage"
+                  placeholder="/Users/you/…/sorter"
                   spellCheck={false}
                   autoComplete="off"
                   onChange={(event) => changePath(event.target.value)}

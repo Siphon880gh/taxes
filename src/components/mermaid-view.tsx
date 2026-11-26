@@ -950,7 +950,7 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
     setWidgetMode(readWidgetMode());
   }, []);
 
-  // Keep the rail above the fixed steps bar. The side panel starts under the page header.
+  // Keep the rail above the fixed steps bar. The side panel starts at the top of the screen and stops above this rail.
   useEffect(() => {
     const dock = document.querySelector<HTMLElement>(".bottom-frames");
     if (!dock) return;
@@ -958,26 +958,19 @@ export function MermaidView({ source, nodeIds, nodeTips, edgeTips, selectedId, c
     const place = () => {
       const dockTop = dock.getBoundingClientRect().top;
       const stackBottom = stack ? Math.max(0, stack.getBoundingClientRect().bottom) : 0;
-      const header = document.querySelector("header");
-      const headerBottom = header ? Math.max(0, header.getBoundingClientRect().bottom) : 0;
       setWidgetBottom(Math.max(0, window.innerHeight - dockTop) + 16);
       setWidgetRoom(Math.max(0, dockTop - stackBottom));
-      // The sheet starts under the page header, not under the Path library, so it stays tall enough to read.
-      document.documentElement.style.setProperty("--side-panel-top", `${Math.round(headerBottom)}px`);
     };
     place();
     const observer = new ResizeObserver(place);
     observer.observe(dock);
     if (stack) observer.observe(stack);
-    const header = document.querySelector("header");
-    if (header) observer.observe(header);
     window.addEventListener("resize", place);
     window.addEventListener("scroll", place, { passive: true });
     return () => {
       observer.disconnect();
       window.removeEventListener("resize", place);
       window.removeEventListener("scroll", place);
-      document.documentElement.style.removeProperty("--side-panel-top");
     };
   }, []);
 

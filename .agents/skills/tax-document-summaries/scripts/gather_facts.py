@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Step 1: gather the facts a tax professional needs from the sorted documents.
 
-Reads the tax-document-classification work folder (<out>/.tax-sorter: manifest, plan, extracted text, labels,
+Reads the tax-document-classification work folder (<return>/.taxes: manifest, plan, extracted text, labels,
 tax year), walks the document folders, reads the key amounts out of each document (box values on IRS forms,
 totals on bills and receipts, dates, percentages), groups everything by Summaries.md section, totals each
 expense category for the tax year, lists the months each monthly bill covers, flags what still needs AI vision,
@@ -1071,7 +1071,7 @@ def render_facts_md(facts: Dict, groups: Dict, tc) -> str:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("folder", nargs="?", help="folder with Summaries.md (default: ./sorter/stage)")
+    ap.add_argument("folder", nargs="?", help="return folder with Summaries.md (default: the only Tax Year folder under ./sorter)")
     ap.add_argument("--tax-year", type=int)
     ap.add_argument("--summaries", help="path of Summaries.md (default: <folder>/Summaries.md)")
     ap.add_argument("--max-chars", type=int, default=40000, help="characters of text read per document")

@@ -73,7 +73,8 @@ test("only Path guide shows the chart; the Checklist is a side panel, not a rout
   assert.ok(!FLOW_TABS.some((tab) => /Checklist/.test(tab.label)), "no Checklist tab");
   assert.ok(!ROUTES.some((route) => route.label === "Checklist"));
   assert.ok(/Click a box to answer it/.test(PANEL_LEDES.guide));
-  assert.ok(/any route/.test(CHECKLIST_LEDE));
+  assert.ok(/Tick each one off/.test(CHECKLIST_LEDE));
+  assert.ok(!/any route/.test(CHECKLIST_LEDE));
 });
 
 test("a reload reopens Path guide if it was open, and otherwise Start here", () => {

@@ -7,7 +7,7 @@
 export type AiProvider = "openai" | "anthropic";
 
 /** The uploads folder, relative to the app's folder. The app never shows where that folder lives on disk. */
-export const UPLOADS_FOLDER = "sorter/stage";
+export const UPLOADS_FOLDER = "sorter";
 
 export type AiStatus = { configured: true; provider: AiProvider; model: string } | { configured: false; reason: string };
 
@@ -84,5 +84,5 @@ export function keepParam(kept: boolean[]): string {
 
 /** Example prompt for an AI harness opened on the app's folder. The path is relative, never an absolute one. */
 export function examplePrompt(): string {
-  return `Reorganize the tax documents in ${UPLOADS_FOLDER}. Follow AGENTS.md in that folder (and the tax-document-classification skill if you have it): sort in place, move each file into its category folder such as "Income - Wages" or "Deductions", put anything unclear in "_Needs Human Review", and leave AGENTS.md, Summaries.md, Owed Audit.md and Owe Audit Breakdown - Rent.md where they are.`;
+  return `Reorganize the tax documents in ${UPLOADS_FOLDER}. Follow AGENTS.md at the app root (and the tax-document-classification skill if you have it): sort in place inside the selected Tax Year YYYY - NAME folder, move each file into its category folder such as "Income - Wages" or "Deductions", put anything unclear in "_Needs Human Review", and leave Summaries.md, Owed Audit.md, Owe Audit Breakdown - Rent.md, and sort-state.json where they are.`;
 }

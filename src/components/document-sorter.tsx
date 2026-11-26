@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } fro
 import { AiReorganizeDialog } from "@/components/ai-reorganize-dialog";
 import { WhyNotAutomatic } from "@/components/prompt-builder";
 import { documentCoverage } from "@/lib/document-coverage";
+import { unsortedFiles, type SortState } from "@/lib/return-folders";
 import { fetchPdfHints, formsLabel, hintBadge, type PdfHints } from "@/lib/pdf-hints";
 import { sorterFetch } from "@/lib/sorter-client";
 import { sorterEndpoint, unreachableMessage } from "@/lib/sorter-endpoint";
@@ -65,6 +66,9 @@ export function DocumentSorter({
   onPdfHints,
   onStatus,
   lede,
+  returnFolder = null,
+  sortState = null,
+  onEnsureFolder,
 }: {
   onUploaded: () => void;
   /** One line under the heading: where this panel sits in the guided flow. */
@@ -72,12 +76,18 @@ export function DocumentSorter({
   onSuggestSummaries?: (suggest: boolean) => void;
   /** Chart boxes on the current path, used to list the documents the path calls for. */
   revealed?: string[];
-  /** Hears the staged paths (relative to sorter/stage) after every refresh. */
+  /** Hears the staged paths (relative to sorter) after every refresh. */
   onFiles?: (paths: string[]) => void;
   /** Hears the form names api.php read inside the staged PDFs, after every refresh. */
   onPdfHints?: (hints: PdfHints) => void;
   /** Hears every status api.php returns, so the Return & Owe Audit tab learns about new reports too. */
   onStatus?: (body: unknown) => void;
+  /** "Tax Year 2026 - Return". Only documents in this folder are shown. Null shows nothing from other years. */
+  returnFolder?: string | null;
+  /** sort-state.json for this folder. Files not listed there are unsorted. */
+  sortState?: SortState | null;
+  /** Creates the year's folder when an upload arrives before one has been named. */
+  onEnsureFolder?: () => Promise<string>;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const onSuggestSummariesRef = useRef(onSuggestSummaries);
@@ -127,7 +137,6 @@ export function DocumentSorter({
         category: typeof file.category === "string" ? file.category : categoryOf(file),
       }));
       setFiles(listed);
-      onFilesRef.current?.(listed.map((file) => file.path));
       // Reading inside the PDFs can take a moment the first time; the list shows right away and the hints follow.
       const request = ++hintsRequest.current;
       setReadingPdfs(listed.some((file) => file.path.toLowerCase().endsWith(".pdf")));
@@ -151,9 +160,10 @@ export function DocumentSorter({
     void refresh();
   }, [refresh]);
 
-  async function uploadOne(file: File) {
+  async function uploadOne(file: File, folder: string) {
     const payload = new FormData();
     payload.append("action", "upload");
+    payload.append("folder", folder);
     payload.append("file", file, file.name);
     const response = await sorterFetch(requireEndpoint(), { method: "POST", body: payload });
     const body = (await response.json()) as { ok?: boolean; error?: string; archive?: boolean };
@@ -169,9 +179,11 @@ export function DocumentSorter({
     setMessage(null);
     let finished = 0;
     try {
+      const folder = returnFolder || (await onEnsureFolder?.());
+      if (!folder) throw new Error("Choose or create a folder for this tax year first.");
       let archives = 0;
       for (const file of batch) {
-        const result = await uploadOne(file);
+        const result = await uploadOne(file, folder);
         if (result.archive) archives += 1;
         finished += 1;
       }
@@ -179,8 +191,8 @@ export function DocumentSorter({
       onUploaded();
       setMessage(
         archives > 0
-          ? "Upload finished. Folder structure from the archive was kept under sorter/stage."
-          : "Upload finished. Files are in sorter/stage.",
+          ? `Upload finished. Folder structure from the archive was kept under sorter/${folder}.`
+          : `Upload finished. Files are in sorter/${folder}.`,
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed.");
@@ -199,13 +211,16 @@ export function DocumentSorter({
 
   async function place(filePath: string, category: string) {
     if (!category) return false;
+    const target = returnFolder && category !== returnFolder && !category.startsWith(`${returnFolder}/`)
+      ? `${returnFolder}/${category}`
+      : category;
     setBusy(true);
     setError(null);
     try {
       const payload = new FormData();
       payload.append("action", "place");
       payload.append("path", filePath);
-      payload.append("category", category);
+      payload.append("category", target);
       const response = await sorterFetch(requireEndpoint(), { method: "POST", body: payload });
       const body = (await response.json()) as { ok?: boolean; error?: string };
       if (!response.ok || !body.ok) throw new Error(body.error || "Could not place that file.");
@@ -238,9 +253,16 @@ export function DocumentSorter({
     }
   }
 
-  function openCategory(file: StagedFile) {
+  function displayCategory(category: string) {
+  if (!returnFolder) return category;
+  if (category === returnFolder) return "";
+  if (category.startsWith(`${returnFolder}/`)) return category.slice(returnFolder.length + 1);
+  return category;
+}
+
+function openCategory(file: StagedFile) {
     setEditingPath(file.path);
-    setPicked(categoryOf(file));
+    setPicked(displayCategory(categoryOf(file)));
     setNewCategory("");
     setError(null);
   }
@@ -251,22 +273,54 @@ export function DocumentSorter({
     setNewCategory("");
   }
 
-  const coverage = useMemo(() => documentCoverage({ revealed }, files.map((file) => file.path), hints), [revealed, files, hints]);
+  const scoped = useMemo(() => {
+    if (!returnFolder) return [];
+    return files.filter((file) => {
+      const category = categoryOf(file);
+      return category === returnFolder || category.startsWith(`${returnFolder}/`);
+    });
+  }, [files, returnFolder]);
+  const scopedCategories = useMemo(() => {
+    if (!returnFolder) return [];
+    return categories.filter((category) => category === returnFolder || category.startsWith(`${returnFolder}/`));
+  }, [categories, returnFolder]);
+
+  useEffect(() => {
+    onFilesRef.current?.(scoped.map((file) => file.path));
+  }, [scoped]);
+
+  const unsorted = useMemo(
+    () =>
+      returnFolder
+        ? unsortedFiles(
+            scoped.map((file) => ({ path: file.path, category: categoryOf(file) })),
+            returnFolder,
+            sortState,
+          )
+        : [],
+    [scoped, returnFolder, sortState],
+  );
+  const coverage = useMemo(() => documentCoverage({ revealed }, scoped.map((file) => file.path), hints), [revealed, scoped, hints]);
   const shown = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return needle
-      ? files.filter((file) => file.path.toLowerCase().includes(needle) || formsLabel(hints[file.path]?.forms ?? []).toLowerCase().includes(needle))
-      : files;
-  }, [files, query, hints]);
+      ? scoped.filter((file) => file.path.toLowerCase().includes(needle) || formsLabel(hints[file.path]?.forms ?? []).toLowerCase().includes(needle))
+      : scoped;
+  }, [scoped, query, hints]);
   /** Shown files by category folder; uncategorized first, then folders in name order. */
   const groups = useMemo(() => {
     const byCategory = new Map<string, StagedFile[]>();
     for (const file of shown) {
-      const category = categoryOf(file);
+      const full = categoryOf(file);
+      const category = !returnFolder || full === returnFolder
+        ? (full === returnFolder ? "" : full)
+        : full.startsWith(`${returnFolder}/`)
+          ? full.slice(returnFolder.length + 1)
+          : full;
       byCategory.set(category, [...(byCategory.get(category) ?? []), file]);
     }
     return [...byCategory.entries()].sort(([a], [b]) => (a === "" ? -1 : b === "" ? 1 : a.localeCompare(b)));
-  }, [shown]);
+  }, [shown, returnFolder]);
   const editing = files.find((file) => file.path === editingPath) ?? null;
   const categoryDialogRef = useRef<HTMLDivElement>(null);
   useDialogFocus(editing != null, categoryDialogRef);
@@ -323,7 +377,10 @@ export function DocumentSorter({
         />
       </div>
       <div className="mt-3 flex items-center justify-between gap-3">
-        <p className="text-sm text-stone-600">Staging directory sorter/stage</p>
+        <p className="text-sm text-stone-600">{returnFolder ? `Folder sorter/${returnFolder}` : "Name a folder for this tax year before uploading."}</p>
+        {files.length > scoped.length ? (
+          <p className="text-sm text-stone-600">{files.length - scoped.length} documents are in other folders and are not shown for this year.</p>
+        ) : null}
         <div className="flex flex-wrap justify-end gap-2">
           <button type="button" className="btn-secondary ai-reorg-open" disabled={busy} onClick={() => setAiOpen(true)}>
             <span aria-hidden="true">✦</span> Ask AI to reorganize
@@ -349,7 +406,7 @@ export function DocumentSorter({
             Documents this path calls for
           </h3>
           <p className="text-sm text-stone-600" aria-live="polite">
-            {coverage.found} of {coverage.expected.length} look like they are on file in sorter/stage.{" "}
+            {coverage.found} of {coverage.expected.length} look like they are on file in this tax-year folder.{" "}
             {readingPdfs
               ? "Reading the PDFs for form names…"
               : reader
@@ -375,8 +432,8 @@ export function DocumentSorter({
                       {found
                         ? `On file: ${doc.files.map((path) => (doc.byContent.includes(path) ? `${fileName(path)} (read inside the PDF)` : fileName(path))).join(", ")}`
                         : reader
-                          ? "Nothing in sorter/stage reads as this form or matches by name yet. Upload it; a scan with no text needs the form name in its file name."
-                          : "Nothing in sorter/stage matches by name yet. Upload it, or rename it so the form name is in the file name."}
+                          ? "Nothing in this tax-year folder reads as this form or matches by name yet. Upload it; a scan with no text needs the form name in its file name."
+                          : "Nothing in this tax-year folder matches by name yet. Upload it, or rename it so the form name is in the file name."}
                     </p>
                   </div>
                 </li>
@@ -387,8 +444,28 @@ export function DocumentSorter({
       ) : (
         <p className="mt-3 text-sm text-stone-600">Answer questions on the chart to see which source documents this return calls for.</p>
       )}
-      {files.length === 0 ? (
-        <p className="mt-3 text-stone-700">Nothing is staged.</p>
+      {unsorted.length > 0 ? (
+        <section className="sorter-note mt-3" aria-labelledby="unsorted-heading">
+          <h3 id="unsorted-heading" className="font-medium text-stone-900">
+            Unsorted
+          </h3>
+          <p>
+            {unsorted.length} {unsorted.length === 1 ? "file is" : "files are"} not in sort-state.json
+            {sortState?.sorted ? " since the last sort" : ""}. The tax-document-classification skill records a file there once it has a category.
+          </p>
+          <ul className="mt-2 flex flex-col gap-1">
+            {unsorted.map((path) => (
+              <li key={path} className="break-all text-sm text-stone-800">
+                {path}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : returnFolder && scoped.length > 0 ? (
+        <p className="mt-3 text-sm text-stone-700" role="status">Every document in this folder is recorded as sorted.</p>
+      ) : null}
+      {scoped.length === 0 ? (
+        <p className="mt-3 text-stone-700">{returnFolder ? "Nothing is in this folder yet." : "Nothing is staged for this tax year."}</p>
       ) : (
         <>
           <div className="sorter-filter">
@@ -438,19 +515,20 @@ export function DocumentSorter({
           ))}
         </>
       )}
-      {categories.length > 0 ? (
+      {scopedCategories.filter((category) => category !== returnFolder).length > 0 ? (
         <section className="sorter-categories" aria-labelledby="sorter-categories-heading">
           <h3 id="sorter-categories-heading" className="font-medium text-stone-900">
             Categories
           </h3>
           <p className="text-sm text-stone-600">A category can be removed after every document has been moved out of its folder.</p>
           <ul className="sorter-category-list">
-            {categories.map((category) => {
-              const count = documentsInCategory(category, files);
-              const removable = categoryIsEmpty(category, files, categories);
+            {scopedCategories.filter((category) => category !== returnFolder).map((category) => {
+              const count = documentsInCategory(category, scoped);
+              const removable = categoryIsEmpty(category, scoped, scopedCategories);
+              const shownName = displayCategory(category);
               return (
                 <li key={category} className="sorter-category">
-                  <p className="min-w-0 break-all text-stone-900">{category}</p>
+                  <p className="min-w-0 break-all text-stone-900">{shownName}</p>
                   <p className="text-sm text-stone-600">
                     {count} {count === 1 ? "document" : "documents"}
                   </p>
@@ -482,10 +560,10 @@ export function DocumentSorter({
             onClick={(event) => event.stopPropagation()}
           >
             <h2 id="category-title" className="font-display text-2xl text-stone-900">
-              {categoryOf(editing) ? "Change category" : "Assign category"}
+              {displayCategory(categoryOf(editing)) ? "Change category" : "Assign category"}
             </h2>
             <p className="mt-3 break-all text-stone-800">{editing.path}</p>
-            <p className="mt-2 text-stone-700">Current category: {categoryOf(editing) || "None"}</p>
+            <p className="mt-2 text-stone-700">Current category: {displayCategory(categoryOf(editing)) || "None"}</p>
             <form
               className="mt-4 flex flex-col gap-3"
               onSubmit={(event) => {
@@ -495,7 +573,7 @@ export function DocumentSorter({
                   setError("Choose a category, or type a new one.");
                   return;
                 }
-                if (category === categoryOf(editing)) {
+                if (category === displayCategory(categoryOf(editing))) {
                   closeCategory();
                   return;
                 }
@@ -504,24 +582,27 @@ export function DocumentSorter({
                 });
               }}
             >
-              {categories.length > 0 ? (
+              {scopedCategories.some((category) => category !== returnFolder) ? (
                 <fieldset className="flex flex-col gap-2">
                   <legend className="text-sm font-medium text-stone-800">Existing category</legend>
-                  {categories.map((category) => (
+                  {scopedCategories.filter((category) => category !== returnFolder).map((category) => {
+                    const shown = displayCategory(category);
+                    return (
                     <label key={category} className="flex items-center gap-2 text-stone-800">
                       <input
                         type="radio"
                         name="existing-category"
-                        value={category}
-                        checked={newCategory.trim() === "" && picked === category}
+                        value={shown}
+                        checked={newCategory.trim() === "" && picked === shown}
                         onChange={() => {
-                          setPicked(category);
+                          setPicked(shown);
                           setNewCategory("");
                         }}
                       />
-                      <span className="break-all">{category}</span>
+                      <span className="break-all">{shown}</span>
                     </label>
-                  ))}
+                    );
+                  })}
                 </fieldset>
               ) : null}
               <label className="flex flex-col gap-1 text-sm text-stone-800">

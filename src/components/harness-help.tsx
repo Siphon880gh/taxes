@@ -28,13 +28,13 @@ const INPUT_ROLE: "primary" | "complete" | "supplementary" = "primary";
 const ROLE_BADGE = { primary: "Primary", complete: "Complete · add more", supplementary: "Supplementary" } as const;
 const INPUT_WHAT = (
   <>
-    your tax documents (W-2s, 1099s, receipts and statements) placed in <code>sorter/stage/</code>
+    your tax documents (W-2s, 1099s, receipts and statements) placed in <code>sorter/</code>
   </>
 );
 
 const SKILLS = [
-  ["tax-document-classification", "sorts the files in sorter/stage/ into tax-prep folders"],
-  ["tax-document-summaries", "writes sorter/stage/Summaries.md for a tax professional"],
+  ["tax-document-classification", "sorts the files in the tax-year folder under sorter/ into tax-prep folders"],
+  ["tax-document-summaries", "writes Summaries.md inside that tax-year folder for a tax professional"],
   ["tax-return-owed-audit", "checks a prepared return and the balance due"],
   ["freetaxusa-walkthrough", "fills FreeTaxUSA from the sorted documents"],
 ] as const;
@@ -265,7 +265,7 @@ export function HarnessHelp() {
                       Open that folder in <strong>Cursor</strong>, <strong>Claude Code</strong>, or your favorite AI harness.
                     </li>
                     <li>
-                      Put your tax documents in <code>sorter/stage/</code> (or use Document Sorter), then ask it to run a skill
+                      Put your tax documents in <code>sorter/</code> (or use Document Sorter), then ask it to run a skill
                       from <code>.agents/skills/</code>:
                       <ul>
                         {SKILLS.map(([name, what]) => (

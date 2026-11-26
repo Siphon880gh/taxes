@@ -1,6 +1,6 @@
 # Folder taxonomy and routing
 
-The output root (`sorter/sorted/` by default) holds the folders below. The names are exact; `apply_plan.py`
+The return folder (`sorter/Tax Year YYYY - NAME`) holds the folders below. The names are exact; `apply_plan.py`
 reuses an existing folder whose name differs only by apostrophe style (`’` vs `'`), case or spacing, so a
 pre-existing `_Last year’s return` is used rather than duplicated.
 
@@ -121,4 +121,4 @@ Entity for identity documents is the person's name; the scripts never guess it, 
 - **IRS notices** (CP2000, CP14, letters): review; file with the return year they refer to once known, usually
   `_Last year's return`.
 - **Several tax years in the inbox**: sort the target year first; park the others in review or use a second output
-  root (`--out sorter/sorted/TY2024 --tax-year 2024`).
+  return folder (`sorter/Tax Year 2024 - Return`, with `--tax-year 2024`).

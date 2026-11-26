@@ -13,6 +13,16 @@ import { DISCLAIMER } from "@/lib/disclaimer";
 import { readStoredQuote, writeStoredQuote } from "@/lib/quote-storage";
 import { clearStoredSession, readStoredSession, writeStoredSession } from "@/lib/session-storage";
 import { documentCoverage } from "@/lib/document-coverage";
+import { sorterFetch } from "@/lib/sorter-client";
+import { sorterEndpoint } from "@/lib/sorter-endpoint";
+import {
+  inReturnFolder,
+  normalizeReturnName,
+  readReturnFolders,
+  returnFolderLabel,
+  returnFolderNames,
+  writeReturnFolder,
+} from "@/lib/return-folders";
 import { auditTab } from "@/lib/owed-reports";
 import { CHECKLIST_LEDE, flowSegments, PANEL_LEDES, rememberedRoute, ROUTE_LEADS, ROUTE_STORAGE_KEY, showsPath, spokenPrefix, type FrameMode } from "@/lib/flow";
 import { useOwedReports } from "@/lib/use-owed-reports";
@@ -246,15 +256,52 @@ export function CheckerApp() {
   const importInput = useRef<HTMLInputElement>(null);
   const [modalId, setModalId] = useState<string | null>(null);
   const [frameMode, setFrameMode] = useState<FrameMode>("start");
-  /** Owed Audit.md and Owe Audit Breakdown - Rent.md in sorter/stage; the Return & Owe Audit tab is grayed out without them. */
+  /** Owed Audit.md and Owe Audit Breakdown - Rent.md in sorter; the Return & Owe Audit tab is grayed out without them. */
   const owedReports = useOwedReports();
-  const auditState = auditTab(owedReports.state);
+  const [returnFolder, setReturnFolder] = useState<string | null>(null);
+  const [namingFolder, setNamingFolder] = useState(false);
+  const [folderDraft, setFolderDraft] = useState("");
+  const [folderError, setFolderError] = useState<string | null>(null);
+  const selectedYearId = answerOf(session, "year");
+  const selectedYearLabel = taxYearLabel(selectedYearId) ?? "2026";
+  const folderNames = useMemo(
+    () => returnFolderNames(owedReports.listing.categories, selectedYearLabel),
+    [owedReports.listing.categories, selectedYearLabel],
+  );
+  useEffect(() => {
+    const saved = readReturnFolders()[selectedYearId ?? ""];
+    if (saved && folderNames.includes(saved)) {
+      setReturnFolder(saved);
+      return;
+    }
+    setReturnFolder(folderNames[0] ?? null);
+  }, [selectedYearId, folderNames]);
+  const scopedReportState = useMemo(() => {
+    if (owedReports.state.status !== "ready") return owedReports.state;
+    if (!returnFolder) return { status: "ready" as const, reports: { audits: [], rentBreakdowns: [] } };
+    const keep = (path: string) => path.startsWith(`${returnFolder}/`);
+    return {
+      status: "ready" as const,
+      reports: {
+        audits: owedReports.state.reports.audits.filter(keep),
+        rentBreakdowns: owedReports.state.reports.rentBreakdowns.filter(keep),
+      },
+    };
+  }, [owedReports.state, returnFolder]);
+  const auditState = auditTab(scopedReportState);
+  const scopedOverview = useMemo(() => {
+    if (!owedReports.overview) return null;
+    return {
+      staged: returnFolder ? owedReports.listing.files.filter((file) => inReturnFolder(file.category, returnFolder)).length : 0,
+      summaries: returnFolder ? owedReports.listing.summaryFolders.includes(returnFolder) : false,
+    };
+  }, [owedReports.overview, owedReports.listing.files, owedReports.listing.summaryFolders, returnFolder]);
   /** Shown at the top of the panel after the grayed-out tab is pressed, until dismissed or the tab opens. */
   const [auditHint, setAuditHint] = useState<string | null>(null);
   const [walkthroughOpen, setWalkthroughOpen] = useState(false);
   const [quoteDraft, setQuoteDraft] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState<string[]>([]);
-  /** Files in sorter/stage as of the Document Sorter's last refresh; null until it has listed them. */
+  /** Files in sorter as of the Document Sorter's last refresh; null until it has listed them. */
   const [stagedPaths, setStagedPaths] = useState<string[] | null>(null);
   /** Form names read inside the staged PDFs (sorter/api.php pdf-hints), by staged path. */
   const [pdfHints, setPdfHints] = useState<PdfHints>({});
@@ -302,6 +349,7 @@ export function CheckerApp() {
       return;
     }
     setFrameMode(mode);
+    if (sidePanel === "forms") setSidePanel(null);
     focusRoute("panel");
   }
 
@@ -737,6 +785,32 @@ export function CheckerApp() {
     setSession(applyAnswer(session, "year", answerId));
   }
 
+  async function ensureReturnFolder(raw = ""): Promise<string> {
+    const year = taxYearLabel(yearAnswer) ?? "2026";
+    const name = normalizeReturnName(raw, year, folderNames);
+    const endpoint = sorterEndpoint();
+    if (!endpoint.ok) throw new Error(endpoint.message);
+    const payload = new FormData();
+    payload.append("action", "ensure-folder");
+    payload.append("folder", name);
+    const response = await sorterFetch(endpoint.url, { method: "POST", body: payload });
+    const body = (await response.json()) as { ok?: boolean; error?: string; folder?: string };
+    if (!response.ok || !body.ok) throw new Error(body.error || "Could not create that folder.");
+    const folder = body.folder || name;
+    if (yearAnswer) writeReturnFolder(yearAnswer, folder);
+    setReturnFolder(folder);
+    setNamingFolder(false);
+    setFolderDraft("");
+    setFolderError(null);
+    await owedReports.refresh();
+    return folder;
+  }
+
+  function chooseReturnFolder(folder: string) {
+    setReturnFolder(folder);
+    if (yearAnswer) writeReturnFolder(yearAnswer, folder);
+  }
+
   function showTip(tipId: string, nodeId?: string) {
     const node = nodeId ? getNode(nodeId) : null;
     if (node?.tipId) {
@@ -976,6 +1050,55 @@ export function CheckerApp() {
                   );
                 })}
               </div>
+              <div className="mt-3">
+                <p className="mb-1 text-sm font-medium text-stone-600" id="return-folder-label">
+                  Folder
+                </p>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <select
+                    aria-labelledby="return-folder-label"
+                    className="rounded-md border border-stone-300 bg-white px-3 py-2 text-stone-900"
+                    value={returnFolder ?? ""}
+                    onChange={(event) => {
+                      if (event.target.value) chooseReturnFolder(event.target.value);
+                    }}
+                  >
+                    {folderNames.length === 0 ? <option value="">No folder yet</option> : null}
+                    {folderNames.map((folder) => (
+                      <option key={folder} value={folder}>
+                        {returnFolderLabel(folder, selectedYearLabel)}
+                      </option>
+                    ))}
+                  </select>
+                  {namingFolder ? (
+                    <form
+                      className="flex items-center gap-2"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        void ensureReturnFolder(folderDraft).catch((err: unknown) => {
+                          setFolderError(err instanceof Error ? err.message : "Could not create that folder.");
+                        });
+                      }}
+                    >
+                      <input
+                        className="w-36 rounded-md border border-stone-300 bg-white px-3 py-2 text-stone-900"
+                        aria-label="New folder name"
+                        placeholder="Name"
+                        value={folderDraft}
+                        onChange={(event) => setFolderDraft(event.target.value)}
+                      />
+                      <button type="submit" className="btn-secondary">
+                        Create
+                      </button>
+                    </form>
+                  ) : (
+                    <button type="button" className="btn-secondary" onClick={() => setNamingFolder(true)}>
+                      New folder
+                    </button>
+                  )}
+                </div>
+                {folderError ? <p className="mt-1 text-sm text-rust">{folderError}</p> : null}
+              </div>
             </div>
             </div>
             <p className="disclaimer" role="note">
@@ -1053,6 +1176,24 @@ export function CheckerApp() {
                   {TAX_YEARS.map((year) => (
                     <option key={year.id} value={year.id}>
                       {year.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex items-center gap-2 text-sm font-medium text-stone-700" htmlFor="return-folder-select">
+                Folder
+                <select
+                  id="return-folder-select"
+                  className="rounded-md border border-stone-300 bg-white px-3 py-2 text-stone-900"
+                  value={returnFolder ?? ""}
+                  onChange={(event) => {
+                    if (event.target.value) chooseReturnFolder(event.target.value);
+                  }}
+                >
+                  {folderNames.length === 0 ? <option value="">No folder yet</option> : null}
+                  {folderNames.map((folder) => (
+                    <option key={folder} value={folder}>
+                      {returnFolderLabel(folder, selectedYearLabel)}
                     </option>
                   ))}
                 </select>
@@ -1213,8 +1354,8 @@ export function CheckerApp() {
           ) : null}
           {frameMode === "start" ? (
             <StartPanel
-              overview={owedReports.overview}
-              reports={owedReports.state}
+              overview={scopedOverview}
+              reports={scopedReportState}
               auditDisabled={auditState.disabled}
               checklist={checklistStats}
               openCount={open.length}
@@ -1222,7 +1363,6 @@ export function CheckerApp() {
               onOpen={showFrame}
               onOpenAudit={() => void openAuditTab()}
               onAnswerNext={() => answerNext(open[0])}
-              onOpenChecklist={() => toggleSide("forms")}
             />
           ) : frameMode === "costs" ? (
             <>
@@ -1253,10 +1393,10 @@ export function CheckerApp() {
                 Tax Pro Costs
               </h2>
               <p className="panel-lede">{PANEL_LEDES.costs}</p>
-              {owedReports.overview ? (
+              {scopedOverview ? (
                 <p className="flow-cue mt-1">
-                  {owedReports.overview.summaries
-                    ? "Summaries.md is in sorter/stage, ready to hand over."
+                  {scopedOverview.summaries
+                    ? "Summaries.md is in this tax-year folder, ready to hand over."
                     : "No Summaries.md yet: open this codebase in Cursor and invoke the skill tax-document-summaries."}
                 </p>
               ) : null}
@@ -1426,10 +1566,13 @@ export function CheckerApp() {
               onPdfHints={setPdfHints}
               onStatus={owedReports.accept}
               lede={PANEL_LEDES.sorter}
+              returnFolder={returnFolder}
+              sortState={returnFolder ? owedReports.listing.sortStates[returnFolder] ?? null : null}
+              onEnsureFolder={() => ensureReturnFolder("")}
             />
           ) : (
             <OwedAuditPanel
-              state={owedReports.state}
+              state={scopedReportState}
               onRefresh={() => void owedReports.refresh()}
               onDialog={setOwedDialog}
               lede={PANEL_LEDES.audit}
@@ -1688,8 +1831,8 @@ export function CheckerApp() {
                 const columns = segment.tabs.map((tab) => {
                   const isAudit = tab.mode === "audit";
                   const count =
-                    tab.mode === "sorter" && owedReports.overview
-                      ? { shown: String(owedReports.overview.staged), spoken: `${owedReports.overview.staged} staged` }
+                    tab.mode === "sorter" && scopedOverview
+                      ? { shown: String(scopedOverview.staged), spoken: `${scopedOverview.staged} staged` }
                       : tab.mode === "guide" && open.length > 0
                         ? { shown: `${open.length} open`, spoken: `${open.length} open ${open.length === 1 ? "question" : "questions"}` }
                         : null;
@@ -1741,30 +1884,6 @@ export function CheckerApp() {
               ) : null}
             </div>
             <div className="frame-tools" role="group" aria-label="Tools">
-              {showsPath(frameMode) ? null : (
-              <button
-                type="button"
-                className="checklist-open"
-                aria-expanded={sidePanel === "forms"}
-                aria-controls="node-sidepanel"
-                onClick={() => toggleSide("forms")}
-              >
-                <span className="checklist-open-icon" aria-hidden="true">
-                  ☑
-                </span>
-                Forms Needed
-                {checklistStats.total > 0 ? (
-                  <span className="tab-count">
-                    <span aria-hidden="true">
-                      {checklistStats.done}/{checklistStats.total}
-                    </span>
-                    <span className="sr-only">
-                      , {checklistStats.done} of {checklistStats.total} confirmed
-                    </span>
-                  </span>
-                ) : null}
-              </button>
-              )}
               <HarnessHelp />
             </div>
           </div>

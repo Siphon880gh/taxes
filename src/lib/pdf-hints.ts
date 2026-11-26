@@ -10,7 +10,7 @@ export type PdfText = "read" | "none" | "skipped" | "error";
 
 export type PdfHint = { path: string; forms: string[]; text: PdfText };
 
-/** Hints by staged path (relative to sorter/stage). */
+/** Hints by staged path (relative to sorter). */
 export type PdfHints = Record<string, PdfHint>;
 
 export type PdfHintsResult = { available: boolean; hints: PdfHints };

@@ -1,6 +1,7 @@
 <?php
 // Upload endpoint for the static export. The panel calls /sorter/api.php.
-// Staged files are written to stage/ beside this script and are not executed.
+// Return folders live beside this script (sorter/Tax Year YYYY - NAME). There is no stage/ folder.
+// Dot entries, including each return's .taxes metadata, are not listed or executed.
 //
 // App-only gate (every action, reads included):
 //   1. Origin (or, for a GET without Origin, the Referer's origin) must be in app-config.php "origins".
@@ -44,7 +45,7 @@ if (!function_exists("str_ends_with")) {
     }
 }
 
-$stage = __DIR__ . "/stage";
+$stage = __DIR__;
 
 const SESSION_COOKIE = "taxes_sorter";
 const SESSION_TTL = 12 * 60 * 60;
@@ -492,6 +493,42 @@ function relocate(string $scratch, string $stage): array
     return $stored;
 }
 
+function upload_directory(string $stage): string
+{
+    $folder = trim((string) ($_POST["folder"] ?? ""));
+    if ($folder === "") {
+        return $stage;
+    }
+    $folder = sanitize_category($folder);
+    if (str_contains($folder, "/") || !preg_match('/^Tax Year (19|20)\d{2} - .+/', $folder)) {
+        fail("folder must be named like Tax Year 2026 - Return");
+    }
+    $dir = normalize_under($stage, $stage . "/" . $folder);
+    ensure_dir($dir);
+    protect_return_folder($dir);
+    return $dir;
+}
+
+/** Copies return.htaccess into a tax-year folder so uploads there are not served or executed as PHP. */
+function protect_return_folder(string $dir): void
+{
+    $dest = $dir . "/.htaccess";
+    if (is_file($dest) || is_link($dest)) {
+        return;
+    }
+    $template = __DIR__ . "/return.htaccess";
+    if (is_file($template)) {
+        copy($template, $dest);
+    }
+}
+
+/** App files and hidden metadata that share the sorter directory with the return folders. */
+function skip_entry(string $name): bool
+{
+    return $name === "." || $name === ".." || $name === "" || $name[0] === "."
+        || $name === "vendor" || $name === "api.php" || $name === "app-config.php" || $name === "return.htaccess";
+}
+
 function save_upload(array $file, string $stage): array
 {
     if (($file["error"] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_INI_SIZE || ($file["error"] ?? 0) === UPLOAD_ERR_FORM_SIZE) {
@@ -553,7 +590,7 @@ function list_stage(string $stage): array
     $root = rtrim(str_replace("\\", "/", (string) realpath($stage)), "/");
     $walk = function (string $dir) use (&$walk, &$files, $root): void {
         foreach (scandir($dir) ?: [] as $name) {
-            if ($name === "." || $name === ".." || $name === ".gitkeep" || $name === ".htaccess" || $name === ".incoming") {
+            if (skip_entry($name)) {
                 continue;
             }
             $abs = $dir . "/" . $name;
@@ -568,7 +605,7 @@ function list_stage(string $stage): array
                 continue;
             }
             $path = substr(str_replace("\\", "/", $abs), strlen($root) + 1);
-            if (in_array(basename($path), OWED_REPORT_NAMES, true) || $path === "AGENTS.md") {
+            if (in_array(basename($path), OWED_REPORT_NAMES, true) || $path === "AGENTS.md" || basename($path) === "sort-state.json" || basename($path) === "Summaries.md" || basename($path) === "SORTED.md") {
                 continue;
             }
             $parent = dirname($path);
@@ -591,7 +628,7 @@ function visible_child_dirs(string $dir): array
         return $found;
     }
     foreach (scandir($dir) ?: [] as $name) {
-        if ($name === "." || $name === ".." || $name === "" || $name[0] === ".") {
+        if (skip_entry($name)) {
             continue;
         }
         $abs = $dir . "/" . $name;
@@ -605,23 +642,7 @@ function visible_child_dirs(string $dir): array
 
 function document_folders_present(string $stage): bool
 {
-    if (visible_child_dirs($stage) !== []) {
-        return true;
-    }
-    $sorter = dirname($stage);
-    foreach (visible_child_dirs($sorter) as $name) {
-        if ($name === "stage") {
-            continue;
-        }
-        if ($name === "sorted") {
-            if (visible_child_dirs($sorter . "/sorted") !== []) {
-                return true;
-            }
-            continue;
-        }
-        return true;
-    }
-    return false;
+    return visible_child_dirs($stage) !== [];
 }
 
 /** Paths under stage/ of every file named exactly $name (Owed Audit.md by default). */
@@ -635,7 +656,7 @@ function owed_audit_paths(string $stage, string $name = OWED_AUDIT_NAME): array
     $report = $name;
     $walk = function (string $dir) use (&$walk, &$found, $root, $report): void {
         foreach (scandir($dir) ?: [] as $name) {
-            if ($name === "." || $name === ".." || $name === "" || $name[0] === ".") {
+            if (skip_entry($name)) {
                 continue;
             }
             $abs = $dir . "/" . $name;
@@ -678,14 +699,51 @@ function read_owed_audit(string $rel, string $stage): array
     ];
 }
 
+function read_sort_states(string $stage): array
+{
+    $states = [];
+    foreach (visible_child_dirs($stage) as $name) {
+        $file = $stage . "/" . $name . "/sort-state.json";
+        if (is_link($file) || !is_file($file)) {
+            continue;
+        }
+        $parsed = json_decode((string) file_get_contents($file), true);
+        if (!is_array($parsed)) {
+            continue;
+        }
+        $names = [];
+        foreach (($parsed["filenames"] ?? []) as $item) {
+            if (is_string($item) && $item !== "") {
+                $names[] = $item;
+            }
+        }
+        $states[$name] = ["sorted" => ($parsed["sorted"] ?? false) === true, "filenames" => $names];
+    }
+    return $states;
+}
+
+function summary_folders(string $stage): array
+{
+    $found = [];
+    foreach (visible_child_dirs($stage) as $name) {
+        $file = $stage . "/" . $name . "/Summaries.md";
+        if (!is_link($file) && is_file($file)) {
+            $found[] = $name;
+        }
+    }
+    return $found;
+}
+
 function status_payload(string $stage): array
 {
     return [
         "ok" => true,
-        "root" => "sorter/stage",
+        "root" => "sorter",
         "files" => list_stage($stage),
         "categories" => list_categories($stage),
-        "summaries" => is_file($stage . "/Summaries.md"),
+        "summaries" => summary_folders($stage) !== [] || is_file($stage . "/Summaries.md"),
+        "summaryFolders" => summary_folders($stage),
+        "sortStates" => read_sort_states($stage),
         "folders" => document_folders_present($stage),
         "owedAudits" => owed_audit_paths($stage),
         "rentBreakdowns" => owed_audit_paths($stage, RENT_BREAKDOWN_NAME),
@@ -717,7 +775,7 @@ function list_categories(string $stage): array
     $root = rtrim(str_replace("\\", "/", (string) realpath($stage)), "/");
     $walk = function (string $dir) use (&$walk, &$found, $root): void {
         foreach (scandir($dir) ?: [] as $name) {
-            if ($name === "." || $name === ".." || $name === "" || $name[0] === ".") {
+            if (skip_entry($name)) {
                 continue;
             }
             $abs = $dir . "/" . $name;
@@ -736,6 +794,10 @@ function list_categories(string $stage): array
 function stage_file(string $rel, string $stage): string
 {
     if ($rel === "" || str_contains($rel, "\0") || str_starts_with($rel, "/") || str_starts_with($rel, "\\")) {
+        fail("bad path");
+    }
+    $rel = str_replace("\\", "/", $rel);
+    if ($rel === "api.php" || $rel === "app-config.php" || $rel === "return.htaccess" || str_starts_with($rel, "vendor/")) {
         fail("bad path");
     }
     return normalize_under($stage, $stage . "/" . $rel);
@@ -1076,7 +1138,7 @@ function ai_status_payload(string $stage): array
 {
     $settings = ai_settings();
     // Relative to the app folder only: the browser never sees where the app lives on disk.
-    $body = ["ok" => true, "configured" => $settings["configured"], "folder" => "sorter/stage"];
+    $body = ["ok" => true, "configured" => $settings["configured"], "folder" => "sorter"];
     if ($settings["configured"]) {
         return $body + ["provider" => $settings["provider"], "model" => $settings["model"]];
     }
@@ -1431,19 +1493,28 @@ try {
         remove_category((string) ($_POST["category"] ?? ""), $stage);
         respond(200, ["ok" => true]);
     }
+    if ($action === "ensure-folder") {
+        $folder = sanitize_category((string) ($_POST["folder"] ?? ""));
+        if (str_contains($folder, "/") || !preg_match('/^Tax Year (19|20)\d{2} - .+/', $folder)) {
+            fail("folder must be named like Tax Year 2026 - Return");
+        }
+        ensure_dir(normalize_under($stage, $stage . "/" . $folder));
+        respond(200, ["ok" => true, "folder" => $folder]);
+    }
     if ($action === "upload") {
         $uploads = uploads_of($_FILES["file"] ?? []);
         if ($uploads === []) {
             respond(400, ["ok" => false, "error" => "missing file"]);
         }
+        $dest = upload_directory($stage);
         $stored = [];
         $archive = false;
         foreach ($uploads as $upload) {
-            $result = save_upload($upload, $stage);
+            $result = save_upload($upload, $dest);
             $archive = $archive || $result["archive"];
             $stored = array_merge($stored, $result["stored"]);
         }
-        respond(200, ["ok" => true, "archive" => $archive, "stored" => $stored]);
+        respond(200, ["ok" => true, "archive" => $archive, "stored" => $stored, "folder" => trim((string) ($_POST["folder"] ?? ""))]);
     }
     respond(400, ["ok" => false, "error" => "unknown action"]);
 } catch (Throwable $error) {

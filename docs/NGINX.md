@@ -1,6 +1,6 @@
 # nginx: the same blocking as the .htaccess files
 
-nginx ignores `.htaccess` entirely. On an nginx host, `.htaccess`, `sorter/.htaccess`, `sorter/stage/.htaccess`, and the `out/sorter/` copies do nothing, and every staged tax document is downloadable unless the server block has rules like the ones below.
+nginx ignores `.htaccess` entirely. On an nginx host, `.htaccess`, `sorter/.htaccess`, each tax-year folder's `.htaccess`, and the `out/sorter/` copies do nothing, and every tax document is downloadable unless the server block has rules like the ones below.
 
 The rules match the `.htaccess` files:
 
@@ -8,11 +8,11 @@ The rules match the `.htaccess` files:
 |---|---|
 | `out/`, `index.html` | served |
 | `sorter/api.php`, `out/sorter/api.php` | passed to PHP-FPM |
-| anything else under `sorter/` or `out/sorter/` (`stage/`, `sorted/`, `vendor/` (the PDF reader), uploads, `Summaries.md`, `Owed Audit.md`, `app-config.php`, `.app-secret.php`) | denied |
+| anything else under `sorter/` or `out/sorter/` (tax-year folders, `.taxes` metadata, `vendor/` (the PDF reader), uploads, `Summaries.md`, `Owed Audit.md`, `app-config.php`, `.app-secret.php`) | denied |
 | dotfiles and dot-folders (`.env*`, `.git/`, `.agents/`, `.htaccess`) | denied |
 | `context/`, `scripts/`, `src/`, `tests/`, `docs/`, `node_modules/` | denied |
 
-`api.php` still reads and writes `sorter/stage/` on disk. These rules govern HTTP only.
+`api.php` still reads and writes `sorter/` on disk. These rules govern HTTP only.
 
 `api.php` creates `sorter/.app-secret.php` (the key that signs its session cookie) on first use. Both the dotfile rule and the sorter rule below deny it; make sure at least one of them is in place before the first request. `api.php` also checks the app itself (Origin allowlist in `app-config.php`, the `X-Taxes-App` header, a session cookie, and a CSRF token on POSTs), so nginx only needs to pass `api.php` to PHP-FPM unchanged: keep the request headers (`Origin`, `Referer`, `Cookie`, `X-Taxes-*`) and do not add an `add_header Access-Control-Allow-Origin *` for this path. If PHP sits behind a TLS-terminating proxy, pass `X-Forwarded-Proto` or `fastcgi_param HTTPS on;` so the cookie gets its `Secure` flag.
 
@@ -20,7 +20,7 @@ The rules match the `.htaccess` files:
 
 Change `/app/taxes` if the app lives at another path (locally under MAMP it is `/weng/app/taxes`).
 
-Regex locations are tried **in the order they appear**, and the first match wins. Put these **above** the existing PHP block (`location ~ \.php$ { ... fastcgi_pass ...; }`). If they come after it, a request such as `/app/taxes/sorter/stage/x.php` matches the PHP block first and runs.
+Regex locations are tried **in the order they appear**, and the first match wins. Put these **above** the existing PHP block (`location ~ \.php$ { ... fastcgi_pass ...; }`). If they come after it, a request such as `/app/taxes/sorter/x.php` matches the PHP block first and runs.
 
 ```nginx
 # --- Tax Final Confirmation (app/taxes): keep above "location ~ \.php$" ---
@@ -35,7 +35,7 @@ location ~* ^/app/taxes/(context|scripts|src|tests|docs|node_modules)(/|$) {
     deny all;
 }
 
-# Document sorter: everything except api.php (stage/, sorted/, uploads, Summaries.md, Owed Audit.md)
+# Document sorter: everything except api.php (tax-year folders, .taxes, uploads, Summaries.md, Owed Audit.md)
 location ~* ^/app/taxes/(out/)?sorter(/(?!api\.php$)|$) {
     deny all;
 }
@@ -71,6 +71,6 @@ Both versions were checked with nginx 1.26 against a stand-in PHP block: `api.ph
 ```bash
 sudo nginx -t && sudo systemctl reload nginx
 curl -s -o /dev/null -w '%{http_code}\n' https://<host>/app/taxes/sorter/api.php          # 200 (JSON)
-curl -s -o /dev/null -w '%{http_code}\n' https://<host>/app/taxes/sorter/stage/Summaries.md  # 403
+curl -s -o /dev/null -w '%{http_code}\n' https://<host>/app/taxes/sorter/Summaries.md  # 403
 curl -s -o /dev/null -w '%{http_code}\n' https://<host>/app/taxes/.env                       # 403
 ```

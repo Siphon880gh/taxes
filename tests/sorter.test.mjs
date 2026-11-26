@@ -18,6 +18,13 @@ const APP_ORIGIN = "http://localhost:8888";
 // The vendored PDF reader, where the build puts it beside out/sorter/api.php.
 fs.symlinkSync(fileURLToPath(new URL("../public/sorter/vendor", import.meta.url)), path.join(sorterDir, "vendor"));
 fs.writeFileSync(path.join(sorterDir, "app-config.php"), `<?php return ["origins" => ["${APP_ORIGIN}", "https://app.test"]];\n`);
+const RESERVED = new Set(["api.php", "app-config.php", "vendor", "return.htaccess", ".htaccess"]);
+function clearUploads() {
+  for (const name of fs.readdirSync(sorterDir)) {
+    if (RESERVED.has(name) || name.startsWith(".")) continue;
+    fs.rmSync(path.join(sorterDir, name), { recursive: true, force: true });
+  }
+}
 
 function freePort() {
   return new Promise((resolve, reject) => {
@@ -205,7 +212,7 @@ test("php api stores a file, keeps archive folders, rejects traversal, and place
   assert.equal(rejectedBody.ok, false);
   assert.match(rejectedBody.error, /path traversal/);
   assert.equal(fs.existsSync(path.join(tmp, "evil.txt")), false);
-  assert.equal(fs.existsSync(path.join(sorterDir, "stage", "evil.txt")), false);
+  assert.equal(fs.existsSync(path.join(sorterDir, "evil.txt")), false);
 
   const tgz = path.join(tmp, "docs.tgz");
   const tar = spawnSync("python3", ["-c", `
@@ -230,13 +237,13 @@ with tarfile.open(sys.argv[1], "w:gz") as tf:
   assert.equal(status.categories.includes("notes"), true);
   assert.equal(status.folders, true);
   assert.equal(status.summaries, false);
-  fs.writeFileSync(path.join(sorterDir, "stage", "Summaries.md"), "# Tax year\n");
+  fs.writeFileSync(path.join(sorterDir, "Summaries.md"), "# Tax year\n");
   const withSummary = await (await app(base)).json();
   assert.equal(withSummary.summaries, true);
   assert.equal(withSummary.folders, true);
   assert.deepEqual(withSummary.owedAudits, []);
-  fs.mkdirSync(path.join(sorterDir, "stage", "Tax Year"), { recursive: true });
-  fs.writeFileSync(path.join(sorterDir, "stage", "Tax Year", "Owed Audit.md"), "# Owed\n\n**$4**\n");
+  fs.mkdirSync(path.join(sorterDir, "Tax Year"), { recursive: true });
+  fs.writeFileSync(path.join(sorterDir, "Tax Year", "Owed Audit.md"), "# Owed\n\n**$4**\n");
   const withAudit = await (await app(base)).json();
   assert.deepEqual(withAudit.owedAudits, ["Tax Year/Owed Audit.md"]);
   assert.equal(withAudit.files.some((file) => file.path.endsWith("Owed Audit.md")), false);
@@ -244,8 +251,8 @@ with tarfile.open(sys.argv[1], "w:gz") as tf:
   assert.equal(opened.ok, true);
   assert.match(opened.markdown, /\$4/);
   assert.deepEqual(withAudit.rentBreakdowns, [], "no rent breakdown yet");
-  fs.writeFileSync(path.join(sorterDir, "stage", "Tax Year", "Owe Audit Breakdown - Rent.md"), "| Piece | From rental |\n|---|---|\n| Income tax | $610 |\n");
-  fs.writeFileSync(path.join(sorterDir, "stage", "Tax Year", "Owe Audit Breakdown - Rent (copy).md"), "not this one");
+  fs.writeFileSync(path.join(sorterDir, "Tax Year", "Owe Audit Breakdown - Rent.md"), "| Piece | From rental |\n|---|---|\n| Income tax | $610 |\n");
+  fs.writeFileSync(path.join(sorterDir, "Tax Year", "Owe Audit Breakdown - Rent (copy).md"), "not this one");
   const withRent = await (await app(base)).json();
   assert.deepEqual(withRent.rentBreakdowns, ["Tax Year/Owe Audit Breakdown - Rent.md"], "exact name only");
   assert.deepEqual(withRent.owedAudits, ["Tax Year/Owed Audit.md"]);
@@ -260,7 +267,7 @@ with tarfile.open(sys.argv[1], "w:gz") as tf:
   assert.equal(climb.ok, false);
   const noCookieRent = await fetch(`${base}?owed=${encodeURIComponent("Tax Year/Owe Audit Breakdown - Rent.md")}`, { headers: { Origin: APP_ORIGIN, "X-Taxes-App": "1" } });
   assert.equal(noCookieRent.status, 403, "opening a report keeps the app-only gate");
-  fs.rmSync(path.join(sorterDir, "stage", "Tax Year", "Owe Audit Breakdown - Rent (copy).md"));
+  fs.rmSync(path.join(sorterDir, "Tax Year", "Owe Audit Breakdown - Rent (copy).md"));
   const refused = await (await app(`${base}?owed=${encodeURIComponent("notes/readme.txt")}`)).json();
   assert.equal(refused.ok, false);
   const blocked = await app(base, {
@@ -270,7 +277,7 @@ with tarfile.open(sys.argv[1], "w:gz") as tf:
   const blockedBody = await blocked.json();
   assert.equal(blockedBody.ok, false);
   assert.match(blockedBody.error, /Move every document out/);
-  assert.equal(fs.existsSync(path.join(sorterDir, "stage", "notes")), true);
+  assert.equal(fs.existsSync(path.join(sorterDir, "notes")), true);
 
   const placed = await app(base, {
     method: "POST",
@@ -280,8 +287,8 @@ with tarfile.open(sys.argv[1], "w:gz") as tf:
   assert.equal(placedBody.ok, true);
   assert.equal(placedBody.path, "Medical/readme.txt");
   assert.equal(placedBody.category, "Medical");
-  assert.equal(fs.existsSync(path.join(sorterDir, "stage", "Medical", "readme.txt")), true);
-  assert.equal(fs.existsSync(path.join(sorterDir, "stage", "notes", "readme.txt")), false);
+  assert.equal(fs.existsSync(path.join(sorterDir, "Medical", "readme.txt")), true);
+  assert.equal(fs.existsSync(path.join(sorterDir, "notes", "readme.txt")), false);
 
   // Hybrid deploy: the endpoint answers any host, including requests that came through a proxy.
   const proxied = await app(base, { headers: { "X-Forwarded-For": "203.0.113.9" } });
@@ -294,7 +301,7 @@ with tarfile.open(sys.argv[1], "w:gz") as tf:
   });
   const removedBody = await removed.json();
   assert.equal(removedBody.ok, true);
-  assert.equal(fs.existsSync(path.join(sorterDir, "stage", "notes")), false);
+  assert.equal(fs.existsSync(path.join(sorterDir, "notes")), false);
 
   const escaped = await app(base, {
     method: "POST",
@@ -311,24 +318,18 @@ with tarfile.open(sys.argv[1], "w:gz") as tf:
   assert.equal(badCategoryBody.ok, false);
   assert.equal(fs.existsSync(path.join(sorterDir, "outside")), false);
 
-  const stageDir = path.join(sorterDir, "stage");
-  fs.renameSync(stageDir, path.join(tmp, "parked-stage"));
-  fs.mkdirSync(stageDir);
+  clearUploads();
   const placedCategory = await (await app(base)).json();
   assert.equal(placedCategory.folders, false);
   assert.equal(placedCategory.summaries, false);
 
-  const cleared = await (await app(base)).json();
-  assert.equal(cleared.folders, false);
-  assert.equal(cleared.summaries, false);
+  fs.mkdirSync(path.join(sorterDir, "Income - Rental"));
+  const withFolder = await (await app(base)).json();
+  assert.equal(withFolder.folders, true);
+  assert.equal(withFolder.summaries, false);
 
-  fs.mkdirSync(path.join(sorterDir, "sorted", "Income - Rental"), { recursive: true });
-  const sortedFolders = await (await app(base)).json();
-  assert.equal(sortedFolders.folders, true);
-  assert.equal(sortedFolders.summaries, false);
-
-  fs.rmSync(path.join(sorterDir, "sorted"), { recursive: true, force: true });
-  fs.mkdirSync(path.join(sorterDir, "sorted", ".tax-sorter"), { recursive: true });
+  fs.rmSync(path.join(sorterDir, "Income - Rental"), { recursive: true, force: true });
+  fs.mkdirSync(path.join(sorterDir, ".taxes"));
   const hiddenWork = await (await app(base)).json();
   assert.equal(hiddenWork.folders, false);
 });
@@ -340,8 +341,8 @@ test("api.php pdf-hints reads form names inside staged PDFs without touching the
     fs.readFileSync(new URL("../public/sorter/api.php", import.meta.url), "utf8"),
     "sorter/api.php and public/sorter/api.php stay identical",
   );
-  const stageDir = path.join(sorterDir, "stage");
-  fs.rmSync(stageDir, { recursive: true, force: true });
+  clearUploads();
+  const stageDir = sorterDir;
   fs.mkdirSync(path.join(stageDir, "inbox"), { recursive: true });
   const fixtures = {
     "inbox/scan-0001.pdf": makePdf(["Form W-2 Wage and Tax Statement 2026", "Copy B To Be Filed With Employee's FEDERAL Tax Return"]),
@@ -402,8 +403,8 @@ test("api.php AI reorganize: .env parsing, no-key warning, validated plan, one-t
   await ready();
   const http = await import("node:http");
   const envFile = path.join(tmp, ".env");
-  const stageDir = path.join(sorterDir, "stage");
-  fs.rmSync(stageDir, { recursive: true, force: true });
+  clearUploads();
+  const stageDir = sorterDir;
   fs.mkdirSync(path.join(stageDir, "inbox"), { recursive: true });
   fs.writeFileSync(path.join(stageDir, "inbox", "w2.pdf"), makePdf(["Form W-2 Wage and Tax Statement 2026"]));
   fs.writeFileSync(path.join(stageDir, "1099.pdf"), "1099");
@@ -420,7 +421,7 @@ test("api.php AI reorganize: .env parsing, no-key warning, validated plan, one-t
   assert.equal(none.ok, true);
   assert.equal(none.configured, false);
   assert.equal(none.reason, "No OPENAI_API_KEY or ANTHROPIC_API_KEY in .env.");
-  assert.equal(none.folder, "sorter/stage", "relative to the app folder");
+  assert.equal(none.folder, "sorter", "relative to the app folder");
   assert.equal(none.root, undefined);
   assert.doesNotMatch(JSON.stringify(none), new RegExp(tmp.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   const noCookie = await fetch(`${base}?action=ai-status`, { headers: { Origin: APP_ORIGIN, "X-Taxes-App": "1" } });

@@ -3,11 +3,11 @@ import test from "node:test";
 import { examplePrompt, isSafeRelativePath, keepParam, parseAiPlan, parseAiStatus, UPLOADS_FOLDER } from "../src/lib/ai-reorganize";
 
 test("parseAiStatus reads both the configured and the no-key answer", () => {
-  assert.deepEqual(parseAiStatus({ ok: true, configured: false, folder: "sorter/stage", reason: "No key" }), {
+  assert.deepEqual(parseAiStatus({ ok: true, configured: false, folder: "sorter", reason: "No key" }), {
     configured: false,
     reason: "No key",
   });
-  assert.deepEqual(parseAiStatus({ ok: true, configured: true, folder: "sorter/stage", provider: "anthropic", model: "m" }), {
+  assert.deepEqual(parseAiStatus({ ok: true, configured: true, folder: "sorter", provider: "anthropic", model: "m" }), {
     configured: true,
     provider: "anthropic",
     model: "m",
@@ -54,8 +54,8 @@ test("keepParam lists the kept indexes", () => {
 
 test("examplePrompt names the uploads folder relative to the app, never an absolute path", () => {
   const prompt = examplePrompt();
-  assert.match(prompt, /^Reorganize the tax documents in sorter\/stage\./);
+  assert.match(prompt, /^Reorganize the tax documents in sorter\./);
   assert.match(prompt, /AGENTS\.md/);
   assert.doesNotMatch(prompt, /\/Users\/|taxes\//);
-  assert.equal(UPLOADS_FOLDER, "sorter/stage");
+  assert.equal(UPLOADS_FOLDER, "sorter");
 });

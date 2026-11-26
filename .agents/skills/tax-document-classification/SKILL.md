@@ -1,6 +1,6 @@
 ---
 name: tax-document-classification
-description: Sorts a folder of tax documents (default sorter/stage/) into tax-prep folders such as "_Last year's return", "_Proof of identity", "Deductions", "Income - Investments", "Income - Rental", "Income - Self-employment" and "Regulations - Health Insurance", parks anything it cannot classify in "_Needs Human Review", and renames every file to a glanceable name that keeps the original filename in parentheses, e.g. "Electric Bill - Property 200 - 2026-07-01 (IMG_2048.jpg).jpg". Classifies from content (PDF text layer or OCR, photos and HEIC, DOCX, XLSX, CSV, EML), from AI vision when text cannot be extracted, and from helpful words in the filename. Counts files before and after moving and re-hashes each one so nothing is lost, and writes SORTED.md with the original → new map. Use when the user asks to sort, classify, organize, rename or file tax documents, W-2s, 1099s, receipts, bills or statements, or mentions the tax inbox or the sorter/stage folder.
+description: Sorts a folder of tax documents (default the Tax Year folder under sorter/) into tax-prep folders such as "_Last year's return", "_Proof of identity", "Deductions", "Income - Investments", "Income - Rental", "Income - Self-employment" and "Regulations - Health Insurance", parks anything it cannot classify in "_Needs Human Review", and renames every file to a glanceable name that keeps the original filename in parentheses, e.g. "Electric Bill - Property 200 - 2026-07-01 (IMG_2048.jpg).jpg". Classifies from content (PDF text layer or OCR, photos and HEIC, DOCX, XLSX, CSV, EML), from AI vision when text cannot be extracted, and from helpful words in the filename. Counts files before and after moving and re-hashes each one so nothing is lost, and writes SORTED.md with the original → new map. Use when the user asks to sort, classify, organize, rename or file tax documents, W-2s, 1099s, receipts, bills or statements, or mentions the tax inbox or the sorter folder.
 argument-hint: "[folder] [--out folder] [--tax-year YYYY] [--property \"Label=keyword|keyword\"]"
 ---
 
@@ -44,9 +44,7 @@ Run every command from the repository root, or use the absolute path to `SKILL_D
 
 ## Folders and filenames (summary)
 
-Input: the folder the user names; otherwise `sorter/stage/` under the current working directory (the directory
-the skill was invoked from), created if it does not exist yet. Output: `--out`, else `sorter/sorted/` for the
-default inbox, else the input folder itself (sorted in place). Work files live in `<out>/.tax-sorter/`.
+Input: the return folder under `sorter/` named `Tax Year YYYY - NAME` (`Tax Year 2025 - Extended to Oct 15`). Sort in place inside that folder. Do not create `stage/` or `sorted/` anywhere under `sorter/`. Category folders stay inside the return folder. Metadata lives in `<return>/.taxes/`. When the sort is applied, write `sort-state.json` in the return folder: `{ "sorted": true, "filenames": ["Category/file.pdf", ...] }` using paths relative to the return folder. Leave out `Summaries.md`, `Owed Audit.md`, `Owe Audit Breakdown - Rent.md`, `sort-state.json`, and dotfiles such as `.DS_Store`. A file that is not in `filenames` is unsorted.
 
 Destination folders (leading `_` sorts first, `zz_` sorts last; the full list and routing rules are in
 [reference/taxonomy.md](reference/taxonomy.md)):
@@ -118,7 +116,7 @@ simply flagged `needs_vision` and you read them yourself.
 Copy this checklist and work through it:
 
 ```
-- [ ] 1 Confirm input folder (default sorter/stage/ in the cwd; create it if missing), output root, tax year; check the inbox is gitignored
+- [ ] 1 Confirm the return folder (default: the only Tax Year folder under sorter/), tax year, and that `.taxes` will hold the metadata; check the folder is gitignored
 - [ ] 2 inventory.py -> report counts, duplicates, warnings
 - [ ] 3 extract_text.py -> note needs_vision items
 - [ ] 4 Read every needs_vision page image; read other images when confidence < 0.75
@@ -130,9 +128,7 @@ Copy this checklist and work through it:
 - [ ] 9 Recommend the next step: invoke the skill tax-document-summaries to create or update Summaries.md
 ```
 
-**Step 1.** Default inbox is `sorter/stage/`. If the user named a folder, use it. Ask the user for the tax year only
-if the documents do not make it obvious (classify infers it from the W-2/1099/1098 forms; pass `--tax-year` when
-known). If the folder is inside a git repository and not ignored, stop and tell the user before continuing.
+**Step 1.** A return's documents live in one folder under `sorter/` named `Tax Year YYYY - NAME`, for example `sorter/Tax Year 2025 - Extended to Oct 15/`. That folder is both the inbox and the output. Category folders are created inside it. Do not create `stage/` or `sorted/`. Metadata (extracted text, page images, the plan) goes in `.taxes` inside that folder. If the user has not named a folder, create `Tax Year <year> - Return` under `sorter/`. Pass `--tax-year` when the year is already chosen in the app. If the folder is inside a git repository and not ignored, stop and tell the user before continuing. After apply, write `sort-state.json` in that folder with `"sorted": true` and `filenames` set to every document's path relative to the folder. Leave `.taxes` out of `filenames`.
 
 **Step 2.**
 
@@ -150,7 +146,7 @@ python3 "$SKILL_DIR/scripts/extract_text.py" [INPUT] --only FILE --render       
 
 **Step 4. Read documents yourself when the scripts cannot.** `needs_vision` means the text pipeline (text layer,
 then OCR) produced nothing usable; it is your cue to use vision, not a reason to hand the file to a person. For
-every `needs_vision` item (and any item you doubt), open the listed PNGs under `<out>/.tax-sorter/pages/` with
+every `needs_vision` item (and any item you doubt), open the listed PNGs under `<out>/.taxes/pages/` with
 the Read tool and identify the document from what is printed on it. The filename is a hint to check against
 (`plan.md` shows the filename-based guess, e.g. "Rental Income Statement Dec 2025.pdf" -> Rental Income
 Statement, 2025-12): confirm it from the image rather than trusting it. Look for: the form title and
@@ -185,7 +181,7 @@ the filename when they disagree, and the note `filename suggests W-2; content re
 is added so you can double-check. A filename alone never clears the confidence bar for an unreadable file: the
 `needs_vision` gate still makes you look at it, with the filename-based guess already filled in.
 
-Labels are remembered in `<out>/.tax-sorter/config.json`. A bill, receipt, invoice, insurance, HOA, property-tax
+Labels are remembered in `<out>/.taxes/config.json`. A bill, receipt, invoice, insurance, HOA, property-tax
 or 1098 document that mentions a property label is routed to `Income - Rental` and named with that label
 (`Electric Bill - Property 200 - ...`); receipts and invoices matching a business label go to
 `Income - Self-employment`. Without a matching label those documents stay in review, because a personal utility
@@ -193,17 +189,17 @@ bill or a Home Depot receipt is not a tax document by itself. If `plan.md` lists
 ask the user which property or business they belong to, then re-run with labels. Add `--group-by-entity` to get
 one subfolder per property or business.
 
-**Step 6.** Read `<out>/.tax-sorter/plan.md`. For each item check: document type, folder, entity (payer, property
+**Step 6.** Read `<out>/.taxes/plan.md`. For each item check: document type, folder, entity (payer, property
 or business), year or date, and the proposed name. Fix with:
 
 ```bash
-python3 "$SKILL_DIR/scripts/edit_plan.py" --work OUT/.tax-sorter --list
-python3 "$SKILL_DIR/scripts/edit_plan.py" --work OUT/.tax-sorter --item 7 \
+python3 "$SKILL_DIR/scripts/edit_plan.py" --work OUT/.taxes --list
+python3 "$SKILL_DIR/scripts/edit_plan.py" --work OUT/.taxes --item 7 \
     --set doc_type="Electric Bill" --set entity="Property 200" --set date=2026-07-01 \
     --set category="Income - Rental" --status ready
-python3 "$SKILL_DIR/scripts/edit_plan.py" --work OUT/.tax-sorter --item 3 --set entity="Jane Doe" --status ready   # identity docs
-python3 "$SKILL_DIR/scripts/edit_plan.py" --work OUT/.tax-sorter --item 9 --status skip                           # leave it alone
-python3 "$SKILL_DIR/scripts/edit_plan.py" --work OUT/.tax-sorter --item 4 --vision-failed "blurry; ask for a re-photograph"   # looked, cannot tell
+python3 "$SKILL_DIR/scripts/edit_plan.py" --work OUT/.taxes --item 3 --set entity="Jane Doe" --status ready   # identity docs
+python3 "$SKILL_DIR/scripts/edit_plan.py" --work OUT/.taxes --item 9 --status skip                           # leave it alone
+python3 "$SKILL_DIR/scripts/edit_plan.py" --work OUT/.taxes --item 4 --vision-failed "blurry; ask for a re-photograph"   # looked, cannot tell
 ```
 
 `doc_type` values and their default folders are listed in [reference/taxonomy.md](reference/taxonomy.md); a
@@ -218,10 +214,10 @@ parentheses even then.
 **Step 8.**
 
 ```bash
-python3 "$SKILL_DIR/scripts/apply_plan.py" --work OUT/.tax-sorter            # dry run
-python3 "$SKILL_DIR/scripts/apply_plan.py" --work OUT/.tax-sorter --yes      # move + rename; review items -> _Needs Human Review
-python3 "$SKILL_DIR/scripts/apply_plan.py" --work OUT/.tax-sorter --yes --leave-review   # keep review items in the inbox instead
-python3 "$SKILL_DIR/scripts/apply_plan.py" --work OUT/.tax-sorter --undo OUT/.tax-sorter/applied-<stamp>.json
+python3 "$SKILL_DIR/scripts/apply_plan.py" --work OUT/.taxes            # dry run
+python3 "$SKILL_DIR/scripts/apply_plan.py" --work OUT/.taxes --yes      # move + rename; review items -> _Needs Human Review
+python3 "$SKILL_DIR/scripts/apply_plan.py" --work OUT/.taxes --yes --leave-review   # keep review items in the inbox instead
+python3 "$SKILL_DIR/scripts/apply_plan.py" --work OUT/.taxes --undo OUT/.taxes/applied-<stamp>.json
 ```
 
 If the output starts with `BLOCKED`, a `needs_vision` item still has no verdict: go back to step 4 for the items it
@@ -233,7 +229,7 @@ The dry run prints the file count now and the total the run must end with. The r
 File count: before 16 (inbox 16 + sorted 0) -> after 16 (inbox 0 + sorted 16)
 PASS: no file was lost. 16 moved; total before 16, after 16. Every moved file was re-hashed at its new location and matches the original byte for byte.
 Renames (original -> new): ...
-SORTED.md written: sorter/sorted/SORTED.md
+SORTED.md written: sorter/Tax Year 2025 - Extended to Oct 15/SORTED.md
 ```
 
 Quote the `File count` and `PASS` lines to the user verbatim and point them to `SORTED.md`, which holds the same
@@ -265,7 +261,7 @@ labels and move on to their folders; whatever is still unclear stays parked.
   business). Writing `--vision-failed` without having opened the images is not allowed; the reason must say what
   you saw.
 - Privacy: never put an SSN, EIN or account number in a filename, note or report. Cached text under
-  `<out>/.tax-sorter/text/` has SSNs masked; offer to delete `text/` and `pages/` when done.
+  `<out>/.taxes/text/` has SSNs masked; offer to delete `text/` and `pages/` when done.
 - Multi-form packages (brokerage "Consolidated 1099", employer W-2 + 1095-C, K-1 packets with state copies):
   read all pages, name the file by the package (`Consolidated 1099 - Fidelity - 2025.pdf`) and list the forms it
   contains in the report. Split pages only if the user asks.
@@ -273,7 +269,7 @@ labels and move on to their folders; whatever is still unclear stays parked.
 - Returns: a Form 1040 or state return for a year before the target tax year goes to `_Last year's return`;
   for the target year to `_This year's return`.
 - Several tax years in one inbox: tell the user; sort the target year, and either park the rest in review or run
-  again with `--out sorter/sorted/TY2024 --tax-year 2024` for the other year.
+  again on `sorter/Tax Year 2024 - Return` with `--tax-year 2024` for the other year.
 - Ask the user only what only they know: which property or business a bill belongs to, whose identity document
   it is, whether a Home Depot receipt is personal or business.
 
@@ -282,7 +278,7 @@ labels and move on to their folders; whatever is still unclear stays parked.
 End with a short report:
 
 ```
-Sorted 14 files from sorter/stage -> sorter/sorted (tax year 2025)
+Sorted 14 files in sorter/Tax Year 2025 - Extended to Oct 15 (tax year 2025)
 File count: before 16 (inbox 16 + sorted 0) -> after 16 (inbox 0 + sorted 16). PASS: no file was lost;
   every moved file re-hashed at its destination and matches the original.
   Income - Wages (1)              a3f9c2d1….pdf -> W-2 - Acme Corporation - 2025 (a3f9c2d1….pdf).pdf
@@ -291,10 +287,10 @@ File count: before 16 (inbox 16 + sorted 0) -> after 16 (inbox 0 + sorted 16). P
 Needs human review (2) -> _Needs Human Review: mystery.pdf (text read, no document type matched),
   IMG_2051.heic (AI vision: too blurry to read the title or payer; please re-photograph)
 Duplicates (1): scan0001 copy.pdf -> zz_Duplicates
-Full original -> new map and the count check: sorter/sorted/SORTED.md
+Full original -> new map and the count check: sorter/Tax Year 2025 - Extended to Oct 15/SORTED.md
 Questions: Is "200 Oak St" the rental? Two bills mention it but no property label was given.
 Next: to turn these documents into the numbers your tax professional needs, invoke the skill
-  tax-document-summaries. It creates or updates Summaries.md (default: sorter/stage/Summaries.md).
+  tax-document-summaries. It creates or updates Summaries.md inside that return folder.
 ```
 
 Always end with that recommendation (the user may not know the second skill exists). If the user asks to go

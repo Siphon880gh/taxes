@@ -6,7 +6,7 @@ path), rebuilds the destination filename from the naming convention, and
 regenerates plan.md.
 
 Examples:
-  python3 edit_plan.py --work sorter/sorted/.tax-sorter --list
+  python3 edit_plan.py --work "sorter/Tax Year 2025 - Return/.taxes" --list
   python3 edit_plan.py --work W --item 7 --set doc_type="Electric Bill" --set entity="Property 200" \
                        --set date=2026-07-01 --set category="Income - Rental" --status ready
   python3 edit_plan.py --work W --src IMG_2048 --set entity="Jane Doe" --status ready

@@ -18,7 +18,7 @@ test("reports come from the api.php status, exact names only", () => {
 test("the Return & Owe Audit tab is grayed out until a report exists", () => {
   assert.deepEqual(auditTab({ status: "loading" }), { disabled: false, hint: null }, "no flicker while checking");
   assert.deepEqual(auditTab({ status: "ready", reports: { audits: [], rentBreakdowns: [] } }), { disabled: true, hint: NO_AUDIT_HINT });
-  assert.match(NO_AUDIT_HINT, /No Owed Audit\.md yet; run the I have my return - audit owed skill on sorter\/stage/);
+  assert.match(NO_AUDIT_HINT, /No Owed Audit\.md yet; run the I have my return - audit owed skill on sorter/);
   assert.deepEqual(auditTab({ status: "ready", reports: { audits: ["Owed Audit.md"], rentBreakdowns: [] } }), { disabled: false, hint: null });
   assert.equal(auditTab({ status: "ready", reports: { audits: [], rentBreakdowns: ["x/Owe Audit Breakdown - Rent.md"] } }).disabled, false);
   const down = auditTab({ status: "error", message: "Could not reach the document sorter (sorter/api.php)." });
@@ -26,7 +26,7 @@ test("the Return & Owe Audit tab is grayed out until a report exists", () => {
   assert.match(down.hint ?? "", /Could not check for Owed Audit\.md/);
 });
 
-test("report folders are shown relative to sorter/stage", () => {
-  assert.equal(reportFolder("Owed Audit.md"), "sorter/stage");
+test("report folders are shown relative to sorter", () => {
+  assert.equal(reportFolder("Owed Audit.md"), "sorter");
   assert.equal(reportFolder("Tax Year 2025/Owe Audit Breakdown - Rent.md"), "Tax Year 2025");
 });

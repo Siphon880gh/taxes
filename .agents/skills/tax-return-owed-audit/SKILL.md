@@ -1,6 +1,6 @@
 ---
 name: tax-return-owed-audit
-description: Use when a federal or state tax return is in sorter/stage, or the user asks how much they owe, whether a balance due is correct, "I have my return - audit owed", a client copy, Form 1040 amount you owe, Form 540 balance due, or an audit of the preparer's figure against the other documents in the folder. Also use when the user asks what portion of the federal tax comes from rental income (writes Owe Audit Breakdown - Rent.md).
+description: Use when a federal or state tax return is in sorter, or the user asks how much they owe, whether a balance due is correct, "I have my return - audit owed", a client copy, Form 1040 amount you owe, Form 540 balance due, or an audit of the preparer's figure against the other documents in the folder. Also use when the user asks what portion of the federal tax comes from rental income (writes Owe Audit Breakdown - Rent.md).
 ---
 
 # Tax return owed audit
@@ -31,7 +31,7 @@ When the return has rental property income, also write `Owe Audit Breakdown - Re
 - [ ] 7 If there is rental income, write or update Owe Audit Breakdown - Rent.md
 ```
 
-**Step 1.** Default folder is `sorter/stage/`, including its subfolders. A return may instead be in `sorter/sorted/`. One PDF often contains both the federal return and the state return. A cover letter, a filing-instruction page, and a payment voucher can each state the balance; read the forms themselves.
+**Step 1.** Work inside the return folder named `Tax Year YYYY - NAME`, for example `sorter/Tax Year 2025 - Extended to Oct 15/`, including its category folders. Do not open another year's folder, and do not use `sorter/sorted/` or a `stage/` subfolder. One PDF often contains both the federal return and the state return. A cover letter, a filing-instruction page, and a payment voucher can each state the balance; read the forms themselves.
 
 **Step 2.** Read the pages. For a scanned page, open the page image. Quote a figure only after seeing it on the form or the source document.
 
@@ -54,7 +54,7 @@ An allocation the folder does state (a headcount, a percentage carried on the pr
 
 **Step 5.** Recompute only the pieces that changed: self-employment tax, adjusted gross income, the qualified business income limit, income tax, and a credit that depends on income (premium tax credit). Show the new federal balance and, when the same income flows through, the direction of the state balance.
 
-**Step 6.** The file name is exactly `Owed Audit.md`. Write it in the folder that holds the source documents for the return. When those documents are in a subfolder of `sorter/stage/`, the file belongs in that subfolder, not in `sorter/stage/` itself. If `Owed Audit.md` is already there, update the figures and keep sentences the user wrote. Relative links to the files used. Never write an SSN, ITIN, EIN, account number, routing number, policy number, or IP PIN.
+**Step 6.** The file name is exactly `Owed Audit.md`. Write it in the folder that holds the source documents for the return. When those documents are in a subfolder of `sorter/`, the file belongs in that subfolder, not in `sorter/` itself. If `Owed Audit.md` is already there, update the figures and keep sentences the user wrote. Relative links to the files used. Never write an SSN, ITIN, EIN, account number, routing number, policy number, or IP PIN.
 
 `Owed Audit.md`, `Owe Audit Breakdown - Rent.md`, and any `balance check.md` are reports. The classification and summaries skills do not sort or count them, the Document Sorter does not list them, and Ask AI to reorganize leaves them in place.
 

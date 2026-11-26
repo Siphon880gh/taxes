@@ -1,6 +1,6 @@
 /**
  * Cross-links the chart and the Document Sorter: which source documents the answers so far call for,
- * and whether something in sorter/stage looks like each one. A PDF whose text api.php could read counts by the form
+ * and whether something in sorter looks like each one. A PDF whose text api.php could read counts by the form
  * names found inside it (see pdf-hints.ts); everything else (scans, photos, spreadsheets) counts by folder or file name.
  */
 
@@ -13,7 +13,7 @@ export type ExpectedDocument = {
   label: string;
   /** Why the chart expects it. */
   reason: string;
-  /** Matched against the lower-cased path under sorter/stage (category folders plus file name). */
+  /** Matched against the lower-cased path under sorter (category folders plus file name). */
   pattern: RegExp;
   /** Form tags from pdf-hints that count as this document when read inside a PDF. */
   forms: string[];
@@ -155,7 +155,7 @@ export function expectedDocuments(session: Pick<Session, "revealed">): ExpectedD
 }
 
 /**
- * Match staged files (paths relative to sorter/stage) to what the chart expects. With hints, a PDF whose text named
+ * Match staged files (paths relative to sorter) to what the chart expects. With hints, a PDF whose text named
  * one or more tax forms counts only by those forms, so "w2.pdf" that reads as a 1099-NEC is filed as a 1099-NEC.
  * Files with no hint, no text layer, or text without a known form fall back to the name match.
  */

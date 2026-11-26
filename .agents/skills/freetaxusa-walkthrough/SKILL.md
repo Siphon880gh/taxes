@@ -24,9 +24,9 @@ Open https://www.freetaxusa.com in the Cursor IDE browser. Do not use an externa
 
 ## Before the browser
 
-Default folder is `sorter/stage/`, with sorted files in `sorter/sorted/` or in category folders the app created. If the inbox still holds unsorted files and there is no sorted tree, stop and name `tax-document-classification`.
+Default folder is the Tax Year folder under `sorter/` (`Tax Year YYYY - NAME`). Category folders are inside it. If files there are still unsorted, stop and name `tax-document-classification`.
 
-Read `Summaries.md` (default `sorter/stage/Summaries.md`). If it is missing, stop and name `tax-document-summaries`. Continue from the source files only when the user says to. Still cite those files.
+Read `Summaries.md` inside that Tax Year folder. If it is missing, stop and name `tax-document-summaries`. Continue from the source files only when the user says to. Still cite those files.
 
 The user signs in. Do not ask for a password, SSN, bank account, routing number, or IP PIN to be pasted into the chat. For those fields, name the file and the box label. The user reads the value from the file.
 

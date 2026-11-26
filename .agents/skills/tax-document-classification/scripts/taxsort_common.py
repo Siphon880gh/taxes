@@ -15,8 +15,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-WORK_DIRNAME = ".tax-sorter"
-DEFAULT_INPUT = os.path.join("sorter", "stage")
+WORK_DIRNAME = ".taxes"
+RETURN_DIR_RE = re.compile(r"^Tax Year (19|20)\d{2} - .+")
 SORTED_FILENAME = "SORTED.md"  # written at the output root by apply_plan.py: original -> new map + file-count check
 SUMMARIES_FILENAME = "Summaries.md"  # written by the tax-document-summaries skill; never sorted or counted as a document
 OWED_AUDIT_FILENAME = "Owed Audit.md"  # written by the tax-return-owed-audit skill; never sorted or counted as a document
@@ -175,36 +175,49 @@ INFO_RETURNS = {
 # Paths
 # --------------------------------------------------------------------------
 
+def return_folders(root: Path) -> list:
+    """Tax-year folders directly under root. Hidden folders, including .taxes, are not returns."""
+    if not root.is_dir():
+        return []
+    found = [p for p in root.iterdir() if p.is_dir() and not p.name.startswith(".") and RETURN_DIR_RE.match(p.name)]
+    return sorted(found, key=lambda p: p.name)
+
+
+def default_return_folder() -> Path:
+    """The only Tax Year folder under ./sorter. Ask when there are none or several."""
+    root = Path("sorter")
+    if not root.is_dir():
+        die("No ./sorter folder. Create a return folder named like 'Tax Year 2025 - Return' under sorter/, or pass that folder.")
+    found = return_folders(root)
+    if len(found) == 1:
+        return found[0].resolve()
+    if not found:
+        die("No return folder under ./sorter. Create one named like 'Tax Year 2025 - Return', or pass that folder.")
+    die("More than one return folder under ./sorter. Pass one of them: %s" % ", ".join(p.name for p in found))
+
+
 def resolve_paths(input_arg: Optional[str], out_arg: Optional[str], work_arg: Optional[str]) -> Dict[str, Path]:
     """Resolve input / output / work folders.
 
-    input : given folder (must exist), else ./sorter/stage under the current
-            working directory, created (with parents) when it does not exist yet.
-    out   : given folder; else <input>/../sorted when the input folder is named
-            "stage" (sorter/stage -> sorter/sorted); else the input folder itself
-            (sort in place).
-    work  : given folder; else <out>/.tax-sorter
+    input : given folder (must exist), else the only Tax Year folder under ./sorter.
+    out   : given folder, else the input folder. Sorting stays in that folder.
+    work  : given folder, else <out>/.taxes (metadata for that return).
     """
     if input_arg:
         inp = Path(input_arg).expanduser().resolve()
+        if inp.name in ("stage", "sorted"):
+            die("Pass the return folder (sorter/Tax Year YYYY - NAME), not %s." % inp.name)
+        found = return_folders(inp)
+        if found and not RETURN_DIR_RE.match(inp.name):
+            if len(found) == 1:
+                inp = found[0].resolve()
+            else:
+                die("Pass one return folder: %s" % ", ".join(p.name for p in found))
     else:
-        inp = Path(DEFAULT_INPUT).resolve()
-        if not inp.is_dir():
-            if inp.exists():
-                die("Default inbox ./%s exists but is not a folder." % DEFAULT_INPUT)
-            try:
-                inp.mkdir(parents=True, exist_ok=True)
-            except OSError as exc:
-                die("Could not create the default inbox ./%s: %s" % (DEFAULT_INPUT, exc))
-            warn("default inbox ./%s did not exist; created it (empty) at %s" % (DEFAULT_INPUT, inp))
+        inp = default_return_folder()
     if not inp.is_dir():
         die("Input folder not found: %s" % inp)
-    if out_arg:
-        out = Path(out_arg).expanduser().resolve()
-    elif inp.name.lower() in ("stage", "inbox", "staging"):
-        out = inp.parent / "sorted"
-    else:
-        out = inp
+    out = Path(out_arg).expanduser().resolve() if out_arg else inp
     work = Path(work_arg).expanduser().resolve() if work_arg else out / WORK_DIRNAME
     return {"input": inp, "out": out, "work": work, "in_place": out == inp}
 

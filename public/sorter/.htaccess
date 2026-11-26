@@ -1,5 +1,5 @@
-# Document sorter: only api.php is reachable over HTTP. Everything else here (stage/, sorted/, uploaded and
-# placed documents, Summaries.md, Owed Audit.md, app-config.php, and the generated .app-secret.php) is denied,
+# Document sorter: only api.php is reachable over HTTP. Everything else here (tax-year folders, .taxes
+# metadata, uploaded documents, Summaries.md, Owed Audit.md, app-config.php, and the generated .app-secret.php) is denied,
 # so documents are served only through api.php, which answers only the app (see the top of api.php).
 # .htaccess governs HTTP requests only. api.php reads and writes these folders on disk and is unaffected.
 # nginx ignores .htaccess entirely: use the location blocks in docs/NGINX.md instead.

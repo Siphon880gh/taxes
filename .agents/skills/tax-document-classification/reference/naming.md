@@ -118,7 +118,7 @@ year in the text. When several differ, trust the printed form year over statemen
 ## SORTED.md
 
 `apply_plan.py` writes `SORTED.md` at the output root after every run (and after every `--undo`), regenerated
-from `<out>/.tax-sorter/manifest.jsonl`:
+from `<out>/.taxes/manifest.jsonl`:
 
 - the **file count check** of the last run: inbox and sorted counts before and after, the total, and the
   `PASS` / `CHECK FAILED` line (total unchanged, every moved file re-hashed at its destination);

@@ -14,14 +14,13 @@ type Props = {
   onOpen: (mode: FrameMode) => void;
   onOpenAudit: () => void;
   onAnswerNext: () => void;
-  onOpenChecklist: () => void;
 };
 
 /** Where things stand for each step, in a few words. */
 function cues(props: Props) {
   const { overview, reports, checklist, openCount } = props;
   const unreachable = reports.status === "error" && overview == null;
-  const staged = overview == null ? (unreachable ? "Sorter not reachable; open it for details" : "Checking sorter/stage…") : stagedLabel(overview.staged);
+  const staged = overview == null ? (unreachable ? "Sorter not reachable; open it for details" : "Checking the tax-year folder…") : stagedLabel(overview.staged);
   const summaries = overview == null ? null : overview.summaries ? "Summaries.md found" : "No Summaries.md yet";
   let audit: string | null = null;
   if (reports.status === "ready") {
@@ -62,7 +61,7 @@ function RouteCard({ route, cue, children }: { route: Route; cue: string | null;
 
 /** The default panel: step 1, then three routes to pick from, and how the chart relates to them. */
 export function StartPanel(props: Props) {
-  const { onOpen, onOpenAudit, onAnswerNext, onOpenChecklist, auditDisabled, nextQuestion } = props;
+  const { onOpen, onOpenAudit, onAnswerNext, auditDisabled, nextQuestion } = props;
   const cue = cues(props);
   const [preparer, audit, self] = ROUTES;
   return (
@@ -81,7 +80,7 @@ export function StartPanel(props: Props) {
             Gather and sort your documents
           </h3>
           <div className="flow-card">
-            <p>Upload W-2s, 1099s, statements and last year&apos;s return. The sorter files them into folders in sorter/stage, which every route below reads.</p>
+            <p>Upload W-2s, 1099s, statements and last year&apos;s return. The sorter files them into the tax-year folder under sorter/, which every route below reads.</p>
             <p className="flow-cue" role="status">
               {cue.staged}
             </p>
@@ -119,7 +118,7 @@ export function StartPanel(props: Props) {
               </button>
               {auditDisabled ? (
                 <p id="flow-audit-note" className="flow-note">
-                  Grayed out until the skill writes {OWED_AUDIT_NAME} into sorter/stage.
+                  Grayed out until the skill writes {OWED_AUDIT_NAME} into the tax-year folder.
                 </p>
               ) : null}
             </RouteCard>
@@ -132,9 +131,6 @@ export function StartPanel(props: Props) {
                   Answer next: {nextQuestion}
                 </button>
               ) : null}
-              <button type="button" className="btn-secondary" onClick={onOpenChecklist}>
-                Open Forms Needed
-              </button>
             </RouteCard>
           </ul>
         </li>
@@ -145,7 +141,7 @@ export function StartPanel(props: Props) {
           Its chart asks one question at a time, starting with Filing status, and each answer adds the forms and lines that Forms Needed and Tax Pro Costs (2a)
           use. Answer it whenever you like, before or after sorting; the more you answer, the more complete your path gets.
         </p>
-        <p>Forms Needed opens that list from any route.</p>
+        <p>Forms Needed is the pill above the magnifier on Path guide.</p>
       </aside>
     </div>
   );

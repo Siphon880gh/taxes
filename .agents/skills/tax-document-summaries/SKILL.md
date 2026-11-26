@@ -1,6 +1,6 @@
 ---
 name: tax-document-summaries
-description: Creates or updates Summaries.md, the document a tax professional reads to see at a glance which numbers go on the return, from the documents sorted by the tax-document-classification skill (default sorter/stage/Summaries.md unless the user points to another folder). One section per topic, in the taxpayer's voice, with key figures in bold and links to the files; deductions and credits sit in the section they belong to, and anything else in Misc Deductions or Misc Credits. When information is missing, Things that need answering is the first section, and the user writes the answers there or copies in the documents that have them, then runs this skill again. Sections that do not apply say N/A and are listed last. Use when the user asks for a tax summary, a summary for the accountant, CPA or preparer, Summaries.md, or what numbers the preparer needs.
+description: Creates or updates Summaries.md, the document a tax professional reads to see at a glance which numbers go on the return, from the documents sorted by the tax-document-classification skill (default Summaries.md inside the Tax Year folder under sorter/, unless the user points to another folder). One section per topic, in the taxpayer's voice, with key figures in bold and links to the files; deductions and credits sit in the section they belong to, and anything else in Misc Deductions or Misc Credits. When information is missing, Things that need answering is the first section, and the user writes the answers there or copies in the documents that have them, then runs this skill again. Sections that do not apply say N/A and are listed last. Use when the user asks for a tax summary, a summary for the accountant, CPA or preparer, Summaries.md, or what numbers the preparer needs.
 argument-hint: "[folder] [--tax-year YYYY] [--summaries path]"
 ---
 
@@ -34,12 +34,10 @@ the repository root or with absolute paths.
 
 ## Where Summaries.md lives
 
-- Default: `sorter/stage/Summaries.md` (the inbox folder the classification skill starts from). The documents
-  themselves are read from `sorter/sorted/` (where that skill files them), from anything still in
-  `sorter/stage/`, and from `sorter/<category>/` folders the web app's "place" action may have created.
+- Default: `Summaries.md` inside the return folder named `Tax Year YYYY - NAME`, for example `sorter/Tax Year 2025 - Extended to Oct 15/Summaries.md`. Read documents from that folder only. Do not read another year's folder.
 - If the user points to another folder: `<folder>/Summaries.md`, documents read from that folder (and from its
   `../sorted` sibling when the folder is an inbox). `--summaries PATH` overrides the file location.
-- Work files: `<sorted>/.tax-sorter/summaries/` (`facts.json`, `facts.md`, `backups/`). `Summaries.md` is never
+- Work files: `<return>/.taxes/summaries/` (`facts.json`, `facts.md`, `backups/`). `Summaries.md` is never
   inventoried, sorted or counted by the classification skill.
 
 ## Sections
@@ -79,7 +77,7 @@ Rules:
 ## Workflow
 
 ```
-- [ ] 1 Resolve the folder (default sorter/stage) and the tax year; run gather_facts.py and read facts.md
+- [ ] 1 Resolve the return folder (the only Tax Year folder under sorter/, unless the user names one) and the tax year; run gather_facts.py and read facts.md
 - [ ] 2 Read the documents you will quote: page images for every NEEDS VISION item, the page image or text for
         every OCR amount, and the text file for any figure you are not sure about
 - [ ] 3 summaries.py scaffold (creates Summaries.md or adds missing sections); read Summaries.md if it existed
@@ -174,7 +172,7 @@ figure you changed in text they had written.
 ## Report
 
 ```
-Summaries.md written: sorter/stage/Summaries.md (tax year 2025, 20 documents, backup of the previous version kept)
+Summaries.md written: sorter/Tax Year 2025 - Extended to Oct 15/Summaries.md (tax year 2025, 20 documents, backup of the previous version kept)
 Sections with information: Filing Information · Work Income / Businesses (W-2 Acme $52,300; Nursing 1099:
   1099-NEC $18,450, 46.8 business miles) · Rental Property (Property 200: property tax $2,145.60, insurance
   $1,240.00, water 3 bills $189.15, electricity 2 bills $378.49 [VERIFY], 2024 depreciation schedule linked) ·

@@ -17,8 +17,8 @@ placeholders left in the text and sorted documents that the summary never mentio
 gather_facts.py).
 
 Usage examples:
-  python3 summaries.py scaffold sorter/stage --tax-year 2025
-  python3 summaries.py finalize sorter/stage
+  python3 summaries.py scaffold "sorter/Tax Year 2025 - Return" --tax-year 2025
+  python3 summaries.py finalize "sorter/Tax Year 2025 - Return"
 """
 import argparse
 import re
@@ -276,7 +276,7 @@ def main() -> int:
     sub = ap.add_subparsers(dest="cmd")
     for name, fn in (("scaffold", cmd_scaffold), ("status", cmd_status), ("finalize", cmd_finalize), ("check", cmd_check)):
         sp = sub.add_parser(name)
-        sp.add_argument("folder", nargs="?", help="folder with Summaries.md (default: ./sorter/stage)")
+        sp.add_argument("folder", nargs="?", help="return folder with Summaries.md (default: the only Tax Year folder under ./sorter)")
         sp.add_argument("--summaries", help="path of Summaries.md (default: <folder>/Summaries.md)")
         if name in ("scaffold", "finalize"):
             sp.add_argument("--tax-year", type=int)

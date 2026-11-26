@@ -2022,7 +2022,7 @@ body {
   }
 }
 
-/* Document coverage: what the chart calls for vs what is in sorter/stage */
+/* Document coverage: what the chart calls for vs what is in the tax-year folder */
 .sorter-read {
   margin-top: 0.35rem;
   display: inline-block;
@@ -2430,45 +2430,19 @@ body {
 }
 
 /*
- * Forms Needed on routes other than Path guide. On Path guide the same list is a pill above the magnifier.
- */
-.frame-tools button.checklist-open {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  border: 1px solid #9a3412;
-  border-radius: 0.5rem;
-  background: #fffdf8;
-  padding: 0.5rem 0.95rem;
-  color: #7c2d12;
-  font-size: 1.2rem;
-  font-weight: 600;
-  line-height: 1.3;
-}
-
-.frame-tools button.checklist-open:hover,
-.frame-tools button.checklist-open[aria-expanded="true"] {
-  background: #fff7ed;
-}
-
-.checklist-open-icon {
-  font-size: 1.15rem;
-  line-height: 1;
-}
-
-/*
- * Node Answer, Node Comment, and Forms Needed. The sheet slides in from the right and runs from
- * under the page header down to the steps bar. The pills and magnifier stay on top of its lower corner.
- * --side-panel-top is the header's bottom edge. --chart-rail-height pads the sheet so the last line
- * can scroll clear of that rail. --bottom-frames-height keeps the sheet above the steps bar.
+ * Node Answer, Node Comment, and Forms Needed sit in one row above the magnifier.
+ * The sheet slides in from the right, from the top of the screen down to that row, so it can cover the header.
+ * --chart-rail-height is the pills and magnifier. --bottom-frames-height is the steps bar.
  */
 .node-pills {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.5rem;
-  width: auto;
-  max-width: 100%;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  width: max-content;
+  max-width: calc(100vw - 2rem);
   pointer-events: auto;
 }
 
@@ -2476,18 +2450,17 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 0.55rem;
+  gap: 0.35rem;
   width: auto;
-  min-height: 3rem;
   border: 1px solid #d6d3d1;
   border-radius: 999px;
   background: #fffdf8;
   box-shadow: 0 4px 14px rgb(28 25 23 / 0.14);
-  padding: 0.55rem 1.05rem;
+  padding: 0.28rem 0.7rem;
   color: #44403c;
-  font-size: 1.2rem;
+  font-size: 0.875rem;
   font-weight: 650;
-  line-height: 1.3;
+  line-height: 1.2;
   cursor: pointer;
 }
 
@@ -2517,8 +2490,8 @@ body {
 }
 
 .node-pill-check {
-  width: 1.45rem;
-  height: 1.45rem;
+  width: 1rem;
+  height: 1rem;
   flex: none;
 }
 
@@ -2546,8 +2519,8 @@ body {
 }
 
 .node-pill-cue {
-  width: 0.7rem;
-  height: 0.7rem;
+  width: 0.5rem;
+  height: 0.5rem;
   flex: none;
   border-radius: 999px;
   background: #9a3412;
@@ -2556,7 +2529,7 @@ body {
 
 .node-pill-count {
   color: #57534e;
-  font-size: 1rem;
+  font-size: 0.8rem;
   font-variant-numeric: tabular-nums;
   font-weight: 650;
 }
@@ -2567,9 +2540,9 @@ body {
 
 .node-sidepanel {
   position: fixed;
-  top: var(--side-panel-top, 0px);
+  top: 0;
   right: 0;
-  bottom: var(--bottom-frames-height, 0px);
+  bottom: calc(var(--bottom-frames-height, 0px) + var(--chart-rail-height, 0px));
   z-index: 34;
   display: flex;
   flex-direction: column;
@@ -2609,7 +2582,7 @@ body {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  padding: 0.35rem 1.15rem calc(var(--chart-rail-height, 0px) + 1.25rem);
+  padding: 0.35rem 1.15rem 1.25rem;
 }
 
 .node-info {

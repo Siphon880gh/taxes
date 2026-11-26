@@ -80,7 +80,7 @@ def git_warning(inp: Path):
     rc, out, _ = run(["git", "-C", str(inp), "rev-parse", "--is-inside-work-tree"], timeout=20)
     if rc != 0 or out.strip() != "true":
         return None
-    # probe a hypothetical document inside the folder so rules like "sorter/stage/*" count
+    # probe a hypothetical document inside the folder so rules like "sorter/Tax Year 2025 - Return/*" count
     rc, _, _ = run(["git", "-C", str(inp), "check-ignore", "-q", str(inp / "probe-document.pdf")], timeout=20)
     if rc == 0:
         return None
@@ -90,8 +90,8 @@ def git_warning(inp: Path):
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("input", nargs="?", help="folder to sort (default: ./sorter/stage, created if missing)")
-    ap.add_argument("--out", help="output root (default: sorter/sorted for sorter/stage, else in place)")
+    ap.add_argument("input", nargs="?", help="return folder to sort (default: the only Tax Year folder under ./sorter)")
+    ap.add_argument("--out", help="output root (default: the return folder, sorted in place)")
     ap.add_argument("--work", help="work folder (default: <out>/%s)" % WORK_DIRNAME)
     ap.add_argument("--json", action="store_true", help="print inventory JSON to stdout instead of a summary")
     ap.add_argument("--include-sorted", action="store_true",

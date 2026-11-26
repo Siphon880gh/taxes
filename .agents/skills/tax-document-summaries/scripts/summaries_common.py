@@ -21,10 +21,9 @@ SUMMARIES_FILENAME = "Summaries.md"
 SORTED_FILENAME = "SORTED.md"
 OWED_AUDIT_FILENAME = "Owed Audit.md"
 RENT_BREAKDOWN_FILENAME = "Owe Audit Breakdown - Rent.md"
-WORK_DIRNAME = ".tax-sorter"
+WORK_DIRNAME = ".taxes"
 WORK_SUBDIR = "summaries"
-DEFAULT_FOLDER = os.path.join("sorter", "stage")
-STAGE_NAMES = {"stage", "inbox", "staging"}
+STAGE_NAMES = {"stage", "inbox", "staging", "sorted"}
 SYSTEM_FILES = {".ds_store", "thumbs.db", "desktop.ini", ".gitkeep", ".htaccess"}
 REPORT_FILES = {SUMMARIES_FILENAME.lower(), SORTED_FILENAME.lower(), OWED_AUDIT_FILENAME.lower(), RENT_BREAKDOWN_FILENAME.lower()}
 
@@ -508,25 +507,28 @@ def looks_like_taxonomy_folder(name: str) -> bool:
 def resolve(folder_arg: Optional[str], summaries_arg: Optional[str] = None) -> Dict:
     """Where Summaries.md lives, where the documents are, and where the classification work folder is.
 
-    folder     : the folder the user named, else ./sorter/stage (must exist).
+    folder     : the folder the user named, else the only Tax Year folder under ./sorter.
     summaries  : --summaries PATH, else <folder>/Summaries.md.
-    out        : the sorted documents: <folder>/../sorted for a stage/inbox folder, else the folder itself.
-    roots      : folders scanned for documents: out, the folder (leftovers), and for a stage folder any taxonomy-named
-                 sibling folders (the web app's "place" action puts files in sorter/<category>/).
-    work       : <out>/.tax-sorter (the classification skill's cache); swork = <work>/summaries.
+    out        : the same folder. Documents are not moved to a sorted/ or stage/ folder.
+    roots      : that folder. Category folders live inside it.
+    work       : <folder>/.taxes (the classification skill's metadata); swork = <work>/summaries.
     """
-    folder = Path(folder_arg).expanduser().resolve() if folder_arg else Path(DEFAULT_FOLDER).resolve()
+    tc = sibling()
+    if folder_arg:
+        folder = Path(folder_arg).expanduser().resolve()
+    elif tc:
+        folder = tc.default_return_folder()
+    else:
+        die("Pass the return folder (sorter/Tax Year YYYY - NAME).")
     if not folder.is_dir():
         die("folder not found: %s (run the tax-document-classification skill first, or point to the folder with the documents)" % folder)
-    tc = sibling()
+    if folder.name.lower() in STAGE_NAMES:
+        die("Pass the return folder (sorter/Tax Year YYYY - NAME), not %s." % folder.name)
     if tc:
         paths = tc.resolve_paths(str(folder), None, None)
         out, work, in_place = Path(paths["out"]), Path(paths["work"]), bool(paths["in_place"])
     else:
-        if folder.name.lower() in STAGE_NAMES and (folder.parent / "sorted").is_dir():
-            out, in_place = folder.parent / "sorted", False
-        else:
-            out, in_place = folder, True
+        out, in_place = folder, True
         work = out / WORK_DIRNAME
     roots: List[Path] = [out]
     if not in_place:
