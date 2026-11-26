@@ -2506,18 +2506,24 @@ button.question-dock-tile {
   width: min(62rem, 100%);
 }
 
-@media (min-width: 1100px) {
+@media (min-width: 1340px) {
   .checklist-frame .frame-switch {
     max-width: calc(100% - 20rem);
   }
 
-  .checklist-frame .question-dock-tile {
-    padding-inline: 50rem 19rem;
+  /* The one-line strip fills the collapsed bar, so its title stays for screen readers only. */
+  .checklist-frame.is-collapsed .question-dock-tile p {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
   }
 }
 
-/* Below 1100px the strip no longer fits one line: tools on a top row by Hide, the tabs under them. */
-@media (max-width: 1099px) {
+/* Below 1340px the strip (with the route leads) no longer fits one line: tools on a top row by Hide, the tabs under them. */
+@media (max-width: 1339px) {
   .checklist-frame .frame-switch {
     position: static;
     flex: 0 0 auto;
@@ -2595,4 +2601,30 @@ button.question-dock-tile {
 .flow-card h4 .route-lead,
 .flow-next .route-lead {
   margin-right: 0.3rem;
+}
+
+/* Tab bar: each route tab sits behind its lead ("Hand it to a pro:"); on phones the lead goes above the tab. */
+.route-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-left: 0.35rem;
+}
+
+.route-pick .route-lead {
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+@media (max-width: 719px) {
+  .route-pick {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.1rem;
+    margin-left: 0;
+  }
+
+  .route-pick .route-lead {
+    font-size: 0.7rem;
+  }
 }

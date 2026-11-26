@@ -1000,6 +1000,12 @@ export function CheckerApp() {
                       then pick one:
                     </span>
                   ) : null}
+                  <span className={tab.lead ? "route-pick" : "contents"}>
+                  {tab.lead ? (
+                    <span className="route-lead" aria-hidden="true">
+                      {tab.lead}
+                    </span>
+                  ) : null}
                   <button
                     type="button"
                     aria-pressed={frameMode === tab.mode}
@@ -1024,6 +1030,7 @@ export function CheckerApp() {
                       </span>
                     ) : null}
                   </button>
+                  </span>
                   {tab.mode === "start" ? <span className="frame-switch-divider" aria-hidden="true" /> : null}
                 </Fragment>
               );
