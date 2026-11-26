@@ -1,0 +1,16 @@
+{
+  "name": "weng/tax-final-confirmation-sorter",
+  "description": "PHP libraries for the document sorter (sorter/api.php). Installed into public/sorter/vendor so the build copies them to out/sorter/vendor.",
+  "type": "project",
+  "license": "proprietary",
+  "require": {
+    "php": ">=7.4",
+    "smalot/pdfparser": "2.13.1"
+  },
+  "config": {
+    "vendor-dir": "public/sorter/vendor",
+    "platform": { "php": "7.4.33" },
+    "optimize-autoloader": true,
+    "sort-packages": true
+  }
+}

@@ -58,6 +58,8 @@ next-env.d.ts
 !/public/sorter/api.php
 !/public/sorter/.htaccess
 !/public/sorter/app-config.php
+# vendored PHP PDF reader (composer.json at the repo root installs it here; the build copies it to out/sorter/vendor)
+!/public/sorter/vendor/
 !/public/sorter/stage/
 /public/sorter/stage/*
 !/public/sorter/stage/.gitkeep
