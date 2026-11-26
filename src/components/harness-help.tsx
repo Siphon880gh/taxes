@@ -196,7 +196,7 @@ export function HarnessHelp() {
         className="harness-help-toggle"
         aria-expanded={open}
         aria-controls="harness-help-panel"
-        aria-label="Add or edit with AI: how to use your own AI tool"
+        aria-label="Add / edit with AI: how to use your own AI tool"
         title="Add / edit with AI"
         onClick={() => {
           if (open) setOpen(false);
