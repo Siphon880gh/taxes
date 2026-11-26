@@ -85,7 +85,8 @@ export const ROUTES: Route[] = [
     lead: ROUTE_LEADS.checklist,
     label: "Checklist",
     mode: "checklist",
-    summary: "Answer the guided path on the chart and work through the Checklist of forms and lines. Open it any time, even before any documents are staged.",
+    summary:
+      "Opens the path chart with the Path library, the Checklist of forms and lines, and your answers and comments on the next question. Open it any time, even before any documents are staged.",
   },
 ];
 
@@ -95,7 +96,7 @@ export const PANEL_LEDES: Record<FrameMode, string> = {
   sorter: "Step 1 · Upload your tax documents and sort them into folders. Every route reads them from here.",
   costs: `Step 2a · ${ROUTE_LEADS.costs} give the preparer Summaries.md, then check their quote against typical fees.`,
   audit: `Step 2b · ${ROUTE_LEADS.audit} the owed-audit skill checks the return's amount owed against your documents.`,
-  checklist: `Step 2c · ${ROUTE_LEADS.checklist} the forms and lines your answers on the chart call for. Usable any time.`,
+  checklist: `Step 2c · ${ROUTE_LEADS.checklist} opens the path, Path library, Checklist and your answers and comments. Usable any time.`,
 };
 
 export type StageOverview = { staged: number; summaries: boolean };
@@ -122,4 +123,26 @@ export function stageOverviewFrom(body: unknown): StageOverview | null {
 export function stagedLabel(count: number): string {
   if (count === 0) return "Nothing staged yet";
   return `${count} ${count === 1 ? "document" : "documents"} staged`;
+}
+
+/**
+ * What "Guide me on forms:" (route 2c) opens, from every entry point (its tab, its Start here card, the next-step
+ * links, "Answer next"): the Checklist frame and, beside it, the answer / comments panel on the next open question,
+ * with the header folded so the Path library and the chart have the room. `focus` names where keyboard focus lands.
+ */
+export type GuidePlan = {
+  frameMode: "checklist";
+  checklistOpen: true;
+  dockCollapsed: false;
+  topCollapsed: true;
+  selectId: string;
+  focus: "question";
+};
+
+export function guidePlan(openIds: readonly string[], selectedId: string, revealed: readonly string[], prefer?: string): GuidePlan {
+  const selectId =
+    prefer && revealed.includes(prefer)
+      ? prefer
+      : (openIds[0] ?? (revealed.includes(selectedId) ? selectedId : (revealed[0] ?? selectedId)));
+  return { frameMode: "checklist", checklistOpen: true, dockCollapsed: false, topCollapsed: true, selectId, focus: "question" };
 }

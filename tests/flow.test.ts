@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { FLOW_TABS, flowSegments, PANEL_LEDES, ROUTE_LEADS, ROUTES, routeName, spokenPrefix, stagedLabel, stageOverviewFrom, type FlowTab } from "../src/lib/flow";
+import { FLOW_TABS, flowSegments, guidePlan, PANEL_LEDES, ROUTE_LEADS, ROUTES, routeName, spokenPrefix, stagedLabel, stageOverviewFrom, type FlowTab } from "../src/lib/flow";
 
 test("the tabs follow the flow: start, step 1, then the three routes", () => {
   assert.deepEqual(
@@ -63,6 +63,18 @@ test("the bar's columns: lone tabs, then the routes under one group label", () =
     flowSegments(more).map((segment) => segment.tabs.length),
     [1, 1, 4, 1],
   );
+});
+
+test("Guide me on forms opens the checklist and the answer panel together, on the next open question", () => {
+  const plan = guidePlan(["filing_status", "dependents"], "year", ["year", "filing_status", "dependents"]);
+  assert.deepEqual(plan, { frameMode: "checklist", checklistOpen: true, dockCollapsed: false, topCollapsed: true, selectId: "filing_status", focus: "question" });
+  // Nothing open: stay on the selected box if it is on the chart, else the first box.
+  assert.equal(guidePlan([], "dependents", ["year", "dependents"]).selectId, "dependents");
+  assert.equal(guidePlan([], "gone", ["year", "dependents"]).selectId, "year");
+  // "Answer next: X" names its box.
+  assert.equal(guidePlan(["filing_status", "dependents"], "year", ["year", "filing_status", "dependents"], "dependents").selectId, "dependents");
+  assert.equal(guidePlan(["filing_status"], "year", ["year", "filing_status"], "not_on_chart").selectId, "filing_status");
+  assert.ok(/path, Path library, Checklist and your answers and comments/.test(PANEL_LEDES.checklist));
 });
 
 test("the stage overview counts documents, not the app's own notes, and finds Summaries.md anywhere", () => {
