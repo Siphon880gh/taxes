@@ -68,7 +68,7 @@ There is no deploy script in this repo. After `npm run build`, upload into `<hos
 
 Do not upload `sorter/.app-secret.php` (the server makes its own on first use), `sorter/stage/` documents you do not want on the host, `public/`, `src/`, `node_modules/`, `composer.json`, or `composer.lock`. On nginx, `.htaccess` does nothing; use [docs/NGINX.md](docs/NGINX.md) instead.
 
-**Direct access is blocked, api.php stays open.** The `.htaccess` files deny direct HTTP fetches of everything except `out/` and `api.php`: `sorter/stage/` and any other folder under `sorter/` (documents, `Summaries.md`, `Owed Audit.md`), the same under `out/sorter/`, dotfiles such as `.env*` and `.git/`, and `context/`, `.agents/`, `scripts/`, `src/`, `tests/`, `docs/`, `node_modules/`. They use Apache 2.4 syntax with a 2.2 fallback:
+**Direct access is blocked, api.php stays open.** The `.htaccess` files deny direct HTTP fetches of everything except `out/` and `api.php`: `sorter/stage/` and any other folder under `sorter/` (documents, `Summaries.md`, `Owed Audit.md`, `Owe Audit Breakdown - Rent.md`), the same under `out/sorter/`, dotfiles such as `.env*` and `.git/`, and `context/`, `.agents/`, `scripts/`, `src/`, `tests/`, `docs/`, `node_modules/`. They use Apache 2.4 syntax with a 2.2 fallback:
 
 - [`.htaccess`](.htaccess) at the app root
 - [`sorter/.htaccess`](sorter/.htaccess), copied to `out/sorter/.htaccess` from [`public/sorter/.htaccess`](public/sorter/.htaccess)
@@ -116,6 +116,12 @@ The tab's **Ask AI to reorganize** button asks `sorter/api.php` whether an AI ke
 
 - **No key (the default).** The dialog warns that AI or billing is not set up in this app and names the uploads folder, for example `/Users/you/…/taxes/sorter/stage`. Open that folder in your own AI harness (Cursor, Claude Code, …), ask it to reorganize the tax documents, then press Refresh. The dialog has Copy buttons for the folder path, a `cd` command and an example prompt, and this browser can remember your own copy of the folder's path. [`sorter/stage/AGENTS.md`](sorter/stage/AGENTS.md) tells the harness which category folders the app expects; the app leaves it out of the document list.
 - **With a key.** Put `OPENAI_API_KEY` (ChatGPT) or `ANTHROPIC_API_KEY` (Claude) in `.env`, optionally with `AI_PROVIDER` and `AI_MODEL` (see [`.example.env`](.example.env)). `api.php` reads `.env` beside it, in the app folder above it, or above `out/` for the deployed copy; the key stays on the server. `ai-plan` sends the file paths and folders (not the file contents) to the provider and returns a move plan limited to listed files and folders under `sorter/stage/`. You uncheck any move you don't want, and `ai-apply` moves the rest with the same code as a manual category change. Each plan carries a signed token that works once, for 30 minutes.
+
+### Return & Owe Audit
+
+The **I have my return - audit owed** skill ([`.agents/skills/tax-return-owed-audit/SKILL.md`](.agents/skills/tax-return-owed-audit/SKILL.md)) reads the federal and state returns in `sorter/stage` and writes `Owed Audit.md` next to the source documents. When the return has rental income it also writes `Owe Audit Breakdown - Rent.md` in the same folder: how many dollars of the federal tax come from the rent, from recomputing the return with and without the Schedule E income.
+
+The **Return & Owe Audit** tab is grayed out until one of those files exists, with the hint "No Owed Audit.md yet; run the I have my return - audit owed skill on sorter/stage, then refresh." The app checks again on load, when you come back to the window, when the Document Sorter refreshes, and when you press the grayed-out tab. Once a report is there, the tab opens `Owed Audit.md` in a reader and shows `Owe Audit Breakdown - Rent.md`, table included, right in the panel. `api.php` opens only files with those two exact names, and the Document Sorter, Ask AI to reorganize, and the sorting and summary skills leave both where the skill wrote them.
 
 ## Fill FreeTaxUSA from those files
 
