@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { MermaidView } from "@/components/mermaid-view";
 import { DocumentSorter, SUMMARIES_SKILL_NOTE } from "@/components/document-sorter";
 import { OwedAuditPanel } from "@/components/owed-audit-panel";
@@ -14,7 +14,7 @@ import { readStoredQuote, writeStoredQuote } from "@/lib/quote-storage";
 import { clearStoredSession, readStoredSession, writeStoredSession } from "@/lib/session-storage";
 import { documentCoverage } from "@/lib/document-coverage";
 import { auditTab } from "@/lib/owed-reports";
-import type { FrameMode } from "@/lib/flow";
+import { FLOW_TABS, type FrameMode } from "@/lib/flow";
 import { useOwedReports } from "@/lib/use-owed-reports";
 import type { PdfHints } from "@/lib/pdf-hints";
 import {
@@ -984,36 +984,57 @@ export function CheckerApp() {
           className={checklistOpen ? "checklist-frame" : "checklist-frame is-collapsed"}
           aria-labelledby="check-heading"
         >
-          <div className="frame-switch" role="group" aria-label="Which panel this frame shows">
-            <button type="button" aria-pressed={frameMode === "start"} onClick={() => showFrame("start")}>
-              Start here
-            </button>
-            <button type="button" aria-pressed={frameMode === "checklist"} onClick={() => showFrame("checklist")}>
-              Checklist
-            </button>
-            <button type="button" aria-pressed={frameMode === "costs"} onClick={() => showFrame("costs")}>
-              Tax Pro Costs
-            </button>
-            <span className="frame-switch-divider" aria-hidden="true" />
-            <button type="button" aria-pressed={frameMode === "sorter"} onClick={() => showFrame("sorter")}>
-              Document Sorter
-            </button>
-            <button
-              type="button"
-              aria-pressed={frameMode === "audit"}
-              aria-disabled={auditState.disabled || undefined}
-              aria-describedby={auditState.disabled ? "audit-tab-hint" : undefined}
-              title={auditState.hint ?? undefined}
-              onClick={() => void openAuditTab()}
-            >
-              Return & Owe Audit
-            </button>
+          <div className="frame-switch" role="group" aria-label="Which panel this frame shows: start, step 1, then one of routes 2a, 2b or 2c">
+            {FLOW_TABS.map((tab) => {
+              const isAudit = tab.mode === "audit";
+              const count =
+                tab.mode === "sorter" && owedReports.overview
+                  ? { shown: String(owedReports.overview.staged), spoken: `${owedReports.overview.staged} staged` }
+                  : tab.mode === "checklist" && checklistStats.total > 0
+                    ? { shown: `${checklistStats.done}/${checklistStats.total}`, spoken: `${checklistStats.done} of ${checklistStats.total} confirmed` }
+                    : null;
+              return (
+                <Fragment key={tab.mode}>
+                  {tab.mode === "costs" ? (
+                    <span className="frame-switch-label" aria-hidden="true">
+                      then pick one:
+                    </span>
+                  ) : null}
+                  <button
+                    type="button"
+                    aria-pressed={frameMode === tab.mode}
+                    aria-disabled={isAudit ? auditState.disabled || undefined : undefined}
+                    aria-describedby={isAudit && auditState.disabled ? "audit-tab-hint" : undefined}
+                    title={isAudit ? (auditState.hint ?? undefined) : undefined}
+                    onClick={() => (isAudit ? void openAuditTab() : showFrame(tab.mode))}
+                  >
+                    {tab.step ? (
+                      <>
+                        <span className="tab-step" aria-hidden="true">
+                          {tab.step}
+                        </span>
+                        <span className="sr-only">{tab.stepLabel}: </span>
+                      </>
+                    ) : null}
+                    {tab.label}
+                    {count ? (
+                      <span className="tab-count">
+                        <span aria-hidden="true">{count.shown}</span>
+                        <span className="sr-only">, {count.spoken}</span>
+                      </span>
+                    ) : null}
+                  </button>
+                  {tab.mode === "start" ? <span className="frame-switch-divider" aria-hidden="true" /> : null}
+                </Fragment>
+              );
+            })}
             {auditState.disabled ? (
               <span id="audit-tab-hint" className="sr-only">
                 {auditState.hint}
               </span>
             ) : null}
-            <span className="frame-switch-divider" aria-hidden="true" />
+          </div>
+          <div className="frame-tools" role="group" aria-label="Tools">
             <HarnessHelp />
           </div>
           <button
