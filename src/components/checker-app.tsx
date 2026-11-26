@@ -10,6 +10,7 @@ import { pickShortcutLetter, ShortcutLayer, ShortcutText, ShortcutTip, useShortc
 import { decodeNumbers, encodeNumbers, numberEntryError, suggestionText } from "@/lib/graph/allocate";
 import { DISCLAIMER } from "@/lib/disclaimer";
 import { readStoredQuote, writeStoredQuote } from "@/lib/quote-storage";
+import { readStoredSession, writeStoredSession } from "@/lib/session-storage";
 import {
   applyAnswer,
   applyCase,
@@ -444,9 +445,22 @@ export function CheckerApp() {
     setSession((current) => setQuote(current, amount, preparer));
   }
 
+  // Autosave: the restore effect below flips this on, so the blank first render never overwrites a saved session.
+  const sessionRestored = useRef(false);
   useEffect(() => {
+    if (sessionRestored.current) writeStoredSession(session);
+  }, [session]);
+
+  useEffect(() => {
+    sessionRestored.current = true;
+    const saved = readStoredSession();
+    if (saved) {
+      adoptSession(saved);
+      return;
+    }
     const stored = readStoredQuote();
     if (stored) setSession((current) => (current.caseStudyId ? current : setQuote(current, stored.amount, stored.preparer)));
+    // Runs once on load; adoptSession only sets state.
   }, []);
 
   function loadBlank() {
