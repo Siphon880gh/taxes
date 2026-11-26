@@ -18,7 +18,8 @@ import {
   checklistProgress,
   confirmedFromExport,
   readConfirmed,
-  toggleConfirmed,
+  confirmedForYear,
+  toggleConfirmedForYear,
   writeConfirmed,
 } from "@/lib/checklist-progress";
 import {
@@ -355,7 +356,9 @@ export function CheckerApp() {
     [session.activeInstance, session.instances, view.ids],
   );
   const checklist = useMemo(() => buildChecklist(session), [session]);
-  const checklistStats = checklistProgress(checklist, confirmed);
+  /** Ticks for the selected tax year only; every year's ticks stay saved and in Export. */
+  const confirmedHere = useMemo(() => confirmedForYear(confirmed, answerOf(session, "year")), [confirmed, session]);
+  const checklistStats = checklistProgress(checklist, confirmedHere);
   const coverage = useMemo(() => documentCoverage(session, stagedPaths ?? [], pdfHints), [session, stagedPaths, pdfHints]);
   const cost = useMemo(() => costReport(session), [session]);
   const deduction = useMemo(() => deductionNarrative(session), [session]);
@@ -510,7 +513,7 @@ export function CheckerApp() {
       title: checklistTitle(session),
       returnYear,
       items: checklist,
-      confirmed,
+      confirmed: confirmedHere,
       openQuestions: open.length,
       disclaimer: DISCLAIMER,
     });
@@ -753,7 +756,7 @@ export function CheckerApp() {
             <li key={item.id}>
               <p>
                 <strong>
-                  {confirmed.includes(item.id) ? "☑" : "☐"} {item.form}
+                  {confirmedHere.includes(item.id) ? "☑" : "☐"} {item.form}
                   {item.line ? ` · ${item.line}` : ""}
                 </strong>
               </p>
@@ -1020,12 +1023,12 @@ export function CheckerApp() {
                     ) : null}
                     <ul className="mt-3 flex flex-col gap-3">
                       {checklist.map((item) => (
-                        <li key={item.id} className={`rounded-md border px-3 py-2 ${confirmed.includes(item.id) ? "checklist-item-done" : "border-stone-200 bg-[#fffdf8]"}`}>
+                        <li key={item.id} className={`rounded-md border px-3 py-2 ${confirmedHere.includes(item.id) ? "checklist-item-done" : "border-stone-200 bg-[#fffdf8]"}`}>
                           <label className="checklist-confirm">
                             <input
                               type="checkbox"
-                              checked={confirmed.includes(item.id)}
-                              onChange={() => changeConfirmed(toggleConfirmed(confirmed, item.id))}
+                              checked={confirmedHere.includes(item.id)}
+                              onChange={() => changeConfirmed(toggleConfirmedForYear(confirmed, item.id, yearAnswer))}
                             />
                             Confirmed on the return
                           </label>
