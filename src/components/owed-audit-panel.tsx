@@ -1,28 +1,121 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useDialogFocus } from "@/lib/use-dialog-focus";
 import { createPortal } from "react-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { sorterFetch } from "@/lib/sorter-client";
 import { sorterEndpoint, unreachableMessage } from "@/lib/sorter-endpoint";
+import { RENT_BREAKDOWN_NAME, reportFolder as folderOf, type OwedReportsState } from "@/lib/owed-reports";
 
 type Status = {
   ok?: boolean;
-  owedAudits?: string[];
   error?: string;
 };
 
-function folderOf(path: string) {
-  const slash = path.lastIndexOf("/");
-  return slash === -1 ? "sorter/stage" : path.slice(0, slash);
+/** Markdown from a skill report: tables via GFM, and only web links stay links. */
+function ReportMarkdown({ children }: { children: string }) {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        a: ({ href, children: label }: { href?: string; children?: ReactNode }) =>
+          href && /^https?:/i.test(href) ? (
+            <a href={href} target="_blank" rel="noreferrer">
+              {label}
+            </a>
+          ) : (
+            <span>{label}</span>
+          ),
+      }}
+    >
+      {children}
+    </ReactMarkdown>
+  );
 }
 
-export function OwedAuditPanel({ onDialog }: { onDialog?: (open: boolean) => void }) {
-  const [paths, setPaths] = useState<string[]>([]);
-  const [checked, setChecked] = useState(false);
+async function fetchReport(path: string): Promise<{ path: string; markdown: string }> {
+  const endpoint = sorterEndpoint();
+  if (!endpoint.ok) throw new Error(endpoint.message);
+  const response = await sorterFetch(`${endpoint.url}?owed=${encodeURIComponent(path)}`);
+  const body = (await response.json()) as Status & { markdown?: string; path?: string };
+  if (!response.ok || !body.ok || typeof body.markdown !== "string") throw new Error(body.error || `Could not open ${path.slice(path.lastIndexOf("/") + 1)}.`);
+  return { path: body.path || path, markdown: body.markdown };
+}
+
+/** "Owe Audit Breakdown - Rent", shown in the panel itself whenever the skill wrote one. */
+function RentBreakdowns({ paths }: { paths: string[] }) {
+  const [reports, setReports] = useState<Record<string, { markdown?: string; error?: string }>>({});
+  const key = paths.join("\n");
+
+  useEffect(() => {
+    let live = true;
+    const list = key ? key.split("\n") : [];
+    void Promise.all(
+      list.map((path) =>
+        fetchReport(path).then(
+          (report) => [path, { markdown: report.markdown }] as const,
+          (err: unknown) => [path, { error: err instanceof TypeError ? unreachableMessage(err) : err instanceof Error ? err.message : "Could not open it." }] as const,
+        ),
+      ),
+    ).then((entries) => {
+      if (live) setReports(Object.fromEntries(entries));
+    });
+    return () => {
+      live = false;
+    };
+  }, [key]);
+
+  if (paths.length === 0) return null;
+  return (
+    <>
+      {paths.map((path, index) => {
+        const report = reports[path];
+        const headingId = `rent-breakdown-heading-${index}`;
+        return (
+          <section key={path} className="rent-breakdown" aria-labelledby={headingId}>
+            <h3 id={headingId} className="font-display text-xl text-stone-900">
+              Owe Audit Breakdown - Rent
+            </h3>
+            <p className="text-xs text-stone-500">
+              {RENT_BREAKDOWN_NAME} · {folderOf(path)}
+            </p>
+            {report?.markdown != null ? (
+              <div className="owed-audit-md rent-breakdown-md" tabIndex={0} role="region" aria-label="Owe Audit Breakdown - Rent table">
+                <ReportMarkdown>{report.markdown}</ReportMarkdown>
+              </div>
+            ) : report?.error ? (
+              <p className="mt-2 text-sm text-rust" role="alert">
+                {report.error}
+              </p>
+            ) : (
+              <p className="mt-2 text-sm text-stone-600" role="status">
+                Opening {RENT_BREAKDOWN_NAME}…
+              </p>
+            )}
+          </section>
+        );
+      })}
+    </>
+  );
+}
+
+export function OwedAuditPanel({
+  state,
+  onRefresh,
+  onDialog,
+}: {
+  /** What api.php last said about the skill's reports (see use-owed-reports.ts). */
+  state: OwedReportsState;
+  onRefresh: () => void;
+  onDialog?: (open: boolean) => void;
+}) {
+  const checked = state.status !== "loading";
+  const paths = state.status === "ready" ? state.reports.audits : [];
+  const rentPaths = state.status === "ready" ? state.reports.rentBreakdowns : [];
   const [error, setError] = useState<string | null>(null);
+  const shownError = error ?? (state.status === "error" ? state.message : null);
   const [opening, setOpening] = useState<string | null>(null);
   const [reading, setReading] = useState<{ path: string; markdown: string } | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -32,33 +125,6 @@ export function OwedAuditPanel({ onDialog }: { onDialog?: (open: boolean) => voi
     setReading(null);
     onDialog?.(false);
   }, [onDialog]);
-
-  const refresh = useCallback(async () => {
-    const endpoint = sorterEndpoint();
-    if (!endpoint.ok) {
-      setError(endpoint.message);
-      setChecked(true);
-      return;
-    }
-    setError(null);
-    try {
-      const response = await sorterFetch(endpoint.url);
-      const body = (await response.json()) as Status;
-      if (!response.ok || !body.ok) {
-        setError(body.error || "Could not check for Owed Audit.md.");
-        return;
-      }
-      setPaths(body.owedAudits ?? []);
-    } catch (err) {
-      setError(unreachableMessage(err));
-    } finally {
-      setChecked(true);
-    }
-  }, []);
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
 
   useEffect(() => {
     if (!reading) return;
@@ -70,21 +136,13 @@ export function OwedAuditPanel({ onDialog }: { onDialog?: (open: boolean) => voi
   }, [reading, close]);
 
   async function openAudit(path: string) {
-    const endpoint = sorterEndpoint();
-    if (!endpoint.ok) return;
     setOpening(path);
     setError(null);
     try {
-      const response = await sorterFetch(`${endpoint.url}?owed=${encodeURIComponent(path)}`);
-      const body = (await response.json()) as Status & { markdown?: string; path?: string };
-      if (!response.ok || !body.ok || typeof body.markdown !== "string") {
-        setError(body.error || "Could not open Owed Audit.md.");
-        return;
-      }
-      setReading({ path: body.path || path, markdown: body.markdown });
+      setReading(await fetchReport(path));
       onDialog?.(true);
     } catch (err) {
-      setError(unreachableMessage(err));
+      setError(err instanceof TypeError ? unreachableMessage(err) : err instanceof Error ? err.message : "Could not open Owed Audit.md.");
     } finally {
       setOpening(null);
     }
@@ -100,6 +158,7 @@ export function OwedAuditPanel({ onDialog }: { onDialog?: (open: boolean) => voi
       </p>
       <p className="mt-2 text-sm text-stone-800">
         The skill writes Owed Audit.md in the folder that holds those documents. Federal and state stay separate. Next year&apos;s estimated-tax vouchers are not this year&apos;s balance.
+        When the return has rental income it also writes Owe Audit Breakdown - Rent.md, shown below: how much of the federal tax comes from the rent.
       </p>
       {checked && paths.length > 0 ? (
         <ul className="mt-4 flex flex-col gap-2">
@@ -122,15 +181,23 @@ export function OwedAuditPanel({ onDialog }: { onDialog?: (open: boolean) => voi
           ))}
         </ul>
       ) : null}
-      {checked && paths.length === 0 && !error ? (
+      <RentBreakdowns paths={rentPaths} />
+      {checked && paths.length === 0 && !shownError ? (
         <p className="mt-4 text-sm text-stone-600">No Owed Audit.md is in sorter/stage yet.</p>
       ) : null}
-      {error ? (
+      {shownError ? (
         <p className="mt-3 text-sm text-rust" role="alert">
-          {error}
+          {shownError}
         </p>
       ) : null}
-      <button type="button" className="btn-secondary mt-3" onClick={() => void refresh()}>
+      <button
+        type="button"
+        className="btn-secondary mt-3"
+        onClick={() => {
+          setError(null);
+          onRefresh();
+        }}
+      >
         Refresh
       </button>
       {reading && typeof document !== "undefined"
@@ -157,21 +224,7 @@ export function OwedAuditPanel({ onDialog }: { onDialog?: (open: boolean) => voi
                   </button>
                 </div>
                 <div className="owed-audit-md">
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
-                    components={{
-                      a: ({ href, children }) =>
-                        href && /^https?:/i.test(href) ? (
-                          <a href={href} target="_blank" rel="noreferrer">
-                            {children}
-                          </a>
-                        ) : (
-                          <span>{children}</span>
-                        ),
-                    }}
-                  >
-                    {reading.markdown}
-                  </ReactMarkdown>
+                  <ReportMarkdown>{reading.markdown}</ReportMarkdown>
                 </div>
               </div>
             </div>,
