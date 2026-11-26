@@ -15,11 +15,10 @@ import {
  * "Add / edit with AI" helper in the bottom frame's tab strip.
  * This app has no built-in AI (it keeps the app free). The panel points people at this app's folder so they can open it
  * in Cursor, Claude Code or another AI harness and run the local skills with their own tokens. Purely informational.
- * The folder name is fixed here because the static build cannot read its own folder name.
+ * The app never names its own folder or where it lives on disk; it describes the folder by what it contains.
  * Two accordion tiles (one open at a time): how it works, and a folder path this browser remembers, shown as the path
  * or a cd command. Path, mode and last-opened tile persist in localStorage under harnessAi:app/taxes:*.
  */
-export const APP_FOLDER = "taxes";
 
 /**
  * Tile 1 says plainly what this panel feeds the app: primary input (its main content), complete (main content already
@@ -81,11 +80,10 @@ export function HarnessHelp() {
   const [open, setOpen] = useState(false);
   const [bottom, setBottom] = useState(0);
   const [status, setStatus] = useState("");
-  const [copied, setCopied] = useState<"folder" | "out" | null>(null);
+  const [copied, setCopied] = useState<"out" | null>(null);
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLElement>(null);
-  const copyRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const firstTileRef = useRef<HTMLButtonElement>(null);
   const focusTileRef = useRef<HarnessTile | null>("about");
@@ -101,7 +99,7 @@ export function HarnessHelp() {
     };
     place();
     const focusTarget =
-      focusTileRef.current === "path" ? inputRef : focusTileRef.current === "about" ? copyRef : firstTileRef;
+      focusTileRef.current === "path" ? inputRef : firstTileRef;
     focusTarget.current?.focus({ preventScroll: true });
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
@@ -131,20 +129,10 @@ export function HarnessHelp() {
     [],
   );
 
-  const flashCopied = (which: "folder" | "out") => {
+  const flashCopied = (which: "out") => {
     setCopied(which);
     if (copiedTimer.current) clearTimeout(copiedTimer.current);
     copiedTimer.current = setTimeout(() => setCopied(null), 1600);
-  };
-
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(APP_FOLDER);
-      setStatus(`Copied “${APP_FOLDER}”. Paste it into system search.`);
-      flashCopied("folder");
-    } catch {
-      setStatus("Copy failed. Select the folder name and copy it.");
-    }
   };
 
   const clean = cleanPath(path);
@@ -270,15 +258,8 @@ export function HarnessHelp() {
                   <p>This app has no built-in AI, which keeps it free. Use the AI tool you already have, with your own tokens:</p>
                   <ol>
                     <li>
-                      Open system search (<kbd>⌘</kbd> <kbd>Space</kbd> for Spotlight on a Mac, or the Windows search box) and find the
-                      folder named:
-                      <span className="harness-help-copyrow">
-                        <code>{APP_FOLDER}</code>
-                        <button ref={copyRef} type="button" onClick={copy} aria-label={`Copy folder name ${APP_FOLDER}`}>
-                          <Icon name={copied === "folder" ? "check" : "copy"} />
-                          <span>Copy</span>
-                        </button>
-                      </span>
+                      Find this app&apos;s folder on your computer: the one you downloaded or cloned, which holds{" "}
+                      <code>sorter/</code> and <code>.agents/</code>.
                     </li>
                     <li>
                       Open that folder in <strong>Cursor</strong>, <strong>Claude Code</strong>, or your favorite AI harness.
@@ -296,7 +277,7 @@ export function HarnessHelp() {
                     </li>
                   </ol>
                   <p className="harness-help-hint">
-                    Tip: save the folder path under <strong>Your folder path</strong> so you can skip the search next time.
+                    Tip: save the folder path under <strong>Your folder path</strong> so you can skip finding it next time.
                   </p>
                 </div>
                 <h3>
@@ -324,7 +305,7 @@ export function HarnessHelp() {
                     <code>cd</code> command, without searching. It stays in this browser only.
                   </p>
                   <label className="harness-help-field-label" htmlFor="harness-help-path">
-                    Full path to your <code>{APP_FOLDER}</code> folder
+                    Full path to this app&apos;s folder
                   </label>
                   <span className="harness-help-copyrow">
                     <input
@@ -335,7 +316,7 @@ export function HarnessHelp() {
                       autoComplete="off"
                       autoCapitalize="off"
                       spellCheck={false}
-                      placeholder={`/Users/you/…/${APP_FOLDER}`}
+                      placeholder="/Users/you/…/app-folder"
                       value={path}
                       onChange={(event) => changePath(event.target.value)}
                     />
