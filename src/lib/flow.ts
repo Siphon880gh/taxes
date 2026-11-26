@@ -14,21 +14,44 @@ export const ROUTE_LEADS = {
   checklist: "Guide me on forms:",
 } as const;
 
-export type FlowTab = { mode: FrameMode; label: string; step: string | null; lead: string | null };
+/** Groups of tabs that share a label over their own labels, such as the three routes under "then pick one:". */
+export const FLOW_GROUPS = {
+  routes: { label: "then pick one:" },
+} as const;
 
-/** The tabs in flow order, with the step chip each one shows and, for the routes, the lead before it. */
+export type FlowGroupId = keyof typeof FLOW_GROUPS;
+
+/**
+ * One tab in the bottom bar. `lead` is the label drawn on the bar's first row, over the tab's button on the
+ * second row; `group` puts consecutive tabs under one group label. Adding a tab or a label is adding an entry here.
+ */
+export type FlowTab = { mode: FrameMode; label: string; step: string | null; lead: string | null; group?: FlowGroupId };
+
+/** The tabs in flow order, with the step chip each one shows and the label over it. */
 export const FLOW_TABS: FlowTab[] = [
-  { mode: "start", label: "Start here", step: null, lead: null },
-  { mode: "sorter", label: "Document Sorter", step: "1", lead: null },
-  { mode: "costs", label: "Tax Pro Costs", step: "2a", lead: ROUTE_LEADS.costs },
-  { mode: "audit", label: "Return & Owe Audit", step: "2b", lead: ROUTE_LEADS.audit },
-  { mode: "checklist", label: "Checklist", step: "2c", lead: ROUTE_LEADS.checklist },
+  { mode: "start", label: "Start here", step: null, lead: "Begin:" },
+  { mode: "sorter", label: "Document Sorter", step: "1", lead: "Gather docs:" },
+  { mode: "costs", label: "Tax Pro Costs", step: "2a", lead: ROUTE_LEADS.costs, group: "routes" },
+  { mode: "audit", label: "Return & Owe Audit", step: "2b", lead: ROUTE_LEADS.audit, group: "routes" },
+  { mode: "checklist", label: "Checklist", step: "2c", lead: ROUTE_LEADS.checklist, group: "routes" },
 ];
+
+export type FlowSegment = { group: FlowGroupId | null; label: string | null; tabs: FlowTab[] };
+
+/** The bar's columns in order: a lone tab is its own segment; consecutive tabs of one group share a segment. */
+export function flowSegments(tabs: FlowTab[] = FLOW_TABS): FlowSegment[] {
+  const segments: FlowSegment[] = [];
+  for (const tab of tabs) {
+    const last = segments[segments.length - 1];
+    if (tab.group && last?.group === tab.group) last.tabs.push(tab);
+    else segments.push({ group: tab.group ?? null, label: tab.group ? FLOW_GROUPS[tab.group].label : null, tabs: [tab] });
+  }
+  return segments;
+}
 
 /** What a screen reader hears before the label: "Step 2a, Hand it to a pro: " (the chip and lead are drawn apart). */
 export function spokenPrefix(tab: { step: string | null; lead: string | null }): string {
-  if (!tab.step) return "";
-  return `Step ${tab.step}, ${tab.lead ? `${tab.lead} ` : ""}`;
+  return `${tab.step ? `Step ${tab.step}, ` : ""}${tab.lead ? `${tab.lead} ` : ""}`;
 }
 
 export type Route = { id: "preparer" | "audit" | "self"; step: string; lead: string; label: string; mode: FrameMode; summary: string };

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { FLOW_TABS, PANEL_LEDES, ROUTE_LEADS, ROUTES, routeName, spokenPrefix, stagedLabel, stageOverviewFrom } from "../src/lib/flow";
+import { FLOW_TABS, flowSegments, PANEL_LEDES, ROUTE_LEADS, ROUTES, routeName, spokenPrefix, stagedLabel, stageOverviewFrom, type FlowTab } from "../src/lib/flow";
 
 test("the tabs follow the flow: start, step 1, then the three routes", () => {
   assert.deepEqual(
@@ -21,7 +21,7 @@ test("the tabs follow the flow: start, step 1, then the three routes", () => {
 test("each route has one lead, the same on its tab, card, link and panel lede", () => {
   assert.deepEqual(
     FLOW_TABS.map((tab) => tab.lead),
-    [null, null, "Hand it to a pro:", "AI calculate now:", "Guide me on forms:"],
+    ["Begin:", "Gather docs:", "Hand it to a pro:", "AI calculate now:", "Guide me on forms:"],
   );
   for (const route of ROUTES) {
     const tab = FLOW_TABS.find((item) => item.mode === route.mode)!;
@@ -36,11 +36,33 @@ test("each route has one lead, the same on its tab, card, link and panel lede", 
 
 test("screen readers hear the step and the lead before the label", () => {
   const [start, sorter, costs, audit, checklist] = FLOW_TABS;
-  assert.equal(spokenPrefix(start), "");
-  assert.equal(spokenPrefix(sorter), "Step 1, ");
+  assert.equal(`${spokenPrefix(start)}${start.label}`, "Begin: Start here");
+  assert.equal(`${spokenPrefix(sorter)}${sorter.label}`, "Step 1, Gather docs: Document Sorter");
+  for (const tab of FLOW_TABS) assert.ok(tab.lead?.endsWith(":"), `${tab.mode} has a label ending in a colon`);
   assert.equal(`${spokenPrefix(costs)}${costs.label}`, "Step 2a, Hand it to a pro: Tax Pro Costs");
   assert.equal(`${spokenPrefix(audit)}${audit.label}`, "Step 2b, AI calculate now: Return & Owe Audit");
   assert.equal(`${spokenPrefix(checklist)}${checklist.label}`, "Step 2c, Guide me on forms: Checklist");
+});
+
+test("the bar's columns: lone tabs, then the routes under one group label", () => {
+  assert.deepEqual(
+    flowSegments().map((segment) => [segment.label, segment.tabs.map((tab) => tab.mode)]),
+    [
+      [null, ["start"]],
+      [null, ["sorter"]],
+      ["then pick one:", ["costs", "audit", "checklist"]],
+    ],
+  );
+  // More labels are more entries: a new grouped tab joins its group, and a lone tab after it starts a new column.
+  const more: FlowTab[] = [
+    ...FLOW_TABS,
+    { mode: "checklist", label: "Extra route", step: "2d", lead: "Something else:", group: "routes" },
+    { mode: "start", label: "After", step: "3", lead: "Then:" },
+  ];
+  assert.deepEqual(
+    flowSegments(more).map((segment) => segment.tabs.length),
+    [1, 1, 4, 1],
+  );
 });
 
 test("the stage overview counts documents, not the app's own notes, and finds Summaries.md anywhere", () => {
