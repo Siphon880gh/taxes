@@ -2507,10 +2507,6 @@ button.question-dock-tile {
 }
 
 
-.checklist-frame-inner:has(> .start-panel) {
-  width: min(62rem, 100%);
-}
-
 .frame-tools {
   display: flex;
   flex: 0 0 auto;
@@ -2577,56 +2573,49 @@ button.question-dock-tile {
 }
 
 
-/*
- * Guide me on forms: the Checklist frame and the answer / comments panel open together ("paired"), smaller,
- * so the Path library and the chart keep room above. Wide screens put them side by side.
- */
-.bottom-frames.is-paired > .checklist-frame {
-  max-height: min(34vh, 20rem);
+/* The steps bar, fixed to the bottom of the screen on every route (inside .bottom-frames, under the answer panel). */
+.flow-frame {
+  position: relative;
+  border-top: 1px solid #d6d3d1;
+  background: rgb(244 239 230 / 0.97);
+  box-shadow: 0 -8px 24px rgb(28 25 23 / 0.12);
 }
 
-.bottom-frames.is-paired > .question-dock {
-  max-height: min(34vh, 22rem) !important;
+/* Every route but Path guide: the open tab's panel is the page. */
+.route-panel {
+  width: min(48rem, 100%);
+  margin-inline: auto;
 }
 
-@media (min-width: 1100px) {
-  .bottom-frames.is-paired {
-    flex-direction: row;
-    align-items: stretch;
-  }
-
-  .bottom-frames.is-paired > .checklist-frame,
-  .bottom-frames.is-paired > .question-dock {
-    flex: 1 1 50%;
-    min-width: 0;
-    height: min(44vh, 30rem) !important;
-    max-height: min(44vh, 30rem) !important;
-  }
-
-  .bottom-frames.is-paired > .question-dock {
-    border-left: 1px solid #d6d3d1;
-  }
-
-  /* Each half is its own column, so the inner text takes the half's width, not the full-width gutters. */
-  .bottom-frames.is-paired .question-dock-inner,
-  .bottom-frames.is-paired .checklist-frame-inner {
-    width: min(40rem, 100%);
-  }
+.route-panel:has(> .start-panel) {
+  width: min(62rem, 100%);
 }
 
-/* On a phone the tab bar alone is two rows deep, so both halves stay short and leave a strip of chart in view. */
-@media (max-width: 719px) {
-  body:has(.bottom-frames.is-paired) .library-stack {
-    position: static;
-  }
+/* Route changes move focus to these programmatically; they are not controls, so no focus ring. */
+.route-panel:focus,
+#guide-heading:focus,
+#question-heading:focus {
+  outline: none;
+}
 
-  .bottom-frames.is-paired > .checklist-frame {
-    max-height: 34vh;
-  }
+/* Path guide's own heading over the Path library and the chart. */
+.guide-intro {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
 
-  .bottom-frames.is-paired > .question-dock {
-    max-height: 26vh !important;
-  }
+.guide-intro h2 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.guide-intro .route-lead {
+  color: #7c2d12;
+  font-size: 1rem;
+  font-weight: 600;
 }
 
 /*
