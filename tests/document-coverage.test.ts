@@ -96,6 +96,8 @@ test("pdf-hints answers are validated, labelled, and fail soft", async () => {
   assert.equal(hintBadge({ path: "a.pdf", forms: ["1098-T"], text: "read" }), "Reads as Form 1098-T");
   assert.equal(hintBadge({ path: "a.pdf", forms: [], text: "none" }), "No text layer; matched by name");
   assert.equal(hintBadge(undefined), null);
+  assert.equal(hintBadge({ path: "big.pdf", forms: [], text: "skipped" }), "Empty or over 25 MB, not read; matched by name");
+  assert.equal(hintBadge({ path: "bad.pdf", forms: [], text: "error" }), "Could not read this PDF; matched by name");
 
   resetSorterSessions();
   const calls: { url: string; init?: RequestInit }[] = [];

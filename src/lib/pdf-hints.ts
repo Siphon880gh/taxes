@@ -57,5 +57,6 @@ export function hintBadge(hint: PdfHint | undefined): string | null {
   if (!hint) return null;
   if (hint.text === "read") return hint.forms.length ? `Reads as ${formsLabel(hint.forms)}` : "Text read, no tax form found";
   if (hint.text === "none") return "No text layer; matched by name";
-  return null;
+  if (hint.text === "skipped") return "Empty or over 25 MB, not read; matched by name";
+  return "Could not read this PDF; matched by name";
 }
