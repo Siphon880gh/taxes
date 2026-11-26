@@ -8,7 +8,7 @@ The rules match the `.htaccess` files:
 |---|---|
 | `out/`, `index.html` | served |
 | `sorter/api.php`, `out/sorter/api.php` | passed to PHP-FPM |
-| anything else under `sorter/` or `out/sorter/` (`stage/`, `sorted/`, uploads, `Summaries.md`, `Owed Audit.md`, `app-config.php`, `.app-secret.php`) | denied |
+| anything else under `sorter/` or `out/sorter/` (`stage/`, `sorted/`, `vendor/` (the PDF reader), uploads, `Summaries.md`, `Owed Audit.md`, `app-config.php`, `.app-secret.php`) | denied |
 | dotfiles and dot-folders (`.env*`, `.git/`, `.agents/`, `.htaccess`) | denied |
 | `context/`, `scripts/`, `src/`, `tests/`, `docs/`, `node_modules/` | denied |
 

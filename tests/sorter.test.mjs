@@ -6,6 +6,7 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 const hasPhp = spawnSync("php", ["-v"], { stdio: "ignore" }).status === 0;
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "sorter-php-"));
@@ -14,6 +15,8 @@ fs.mkdirSync(sorterDir);
 fs.copyFileSync(new URL("../sorter/api.php", import.meta.url), path.join(sorterDir, "api.php"));
 // The allowlist comes from app-config.php beside api.php; this one replaces the defaults.
 const APP_ORIGIN = "http://localhost:8888";
+// The vendored PDF reader, where the build puts it beside out/sorter/api.php.
+fs.symlinkSync(fileURLToPath(new URL("../public/sorter/vendor", import.meta.url)), path.join(sorterDir, "vendor"));
 fs.writeFileSync(path.join(sorterDir, "app-config.php"), `<?php return ["origins" => ["${APP_ORIGIN}", "https://app.test"]];\n`);
 
 function freePort() {
@@ -40,6 +43,31 @@ with zipfile.ZipFile(sys.argv[2], "w") as zf:
   const run = spawnSync("python3", ["-c", script, JSON.stringify(entries), dest], { encoding: "utf8" });
   if (run.status !== 0) throw new Error(run.stderr);
   return dest;
+}
+
+/** A one-page PDF with a real text layer (Helvetica text objects); no lines gives a page with no text, like a scan. */
+function makePdf(lines) {
+  const escape = (text) => text.replace(/[()\\]/g, "\\$&");
+  const content = lines.length
+    ? `BT /F1 11 Tf 72 720 Td ${lines.map((line, i) => `${i ? "0 -16 Td " : ""}(${escape(line)}) Tj`).join(" ")} ET`
+    : "0 0 1 rg 72 72 200 200 re f";
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>",
+    `<< /Length ${Buffer.byteLength(content)} >>\nstream\n${content}\nendstream`,
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
+  ];
+  let out = "%PDF-1.4\n";
+  const offsets = [];
+  objects.forEach((object, i) => {
+    offsets.push(Buffer.byteLength(out));
+    out += `${i + 1} 0 obj\n${object}\nendobj\n`;
+  });
+  const xref = Buffer.byteLength(out);
+  out += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets.map((o) => `${String(o).padStart(10, "0")} 00000 n \n`).join("")}`;
+  out += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  return out;
 }
 
 const port = await freePort();
@@ -287,6 +315,69 @@ with tarfile.open(sys.argv[1], "w:gz") as tf:
   assert.equal(hiddenWork.folders, false);
 });
 
+test("api.php pdf-hints reads form names inside staged PDFs without touching them", { skip: hasPhp ? false : "php is not installed" }, async () => {
+  await ready();
+  assert.equal(
+    fs.readFileSync(new URL("../sorter/api.php", import.meta.url), "utf8"),
+    fs.readFileSync(new URL("../public/sorter/api.php", import.meta.url), "utf8"),
+    "sorter/api.php and public/sorter/api.php stay identical",
+  );
+  const stageDir = path.join(sorterDir, "stage");
+  fs.rmSync(stageDir, { recursive: true, force: true });
+  fs.mkdirSync(path.join(stageDir, "inbox"), { recursive: true });
+  const fixtures = {
+    "inbox/scan-0001.pdf": makePdf(["Form W-2 Wage and Tax Statement 2026", "Copy B To Be Filed With Employee's FEDERAL Tax Return"]),
+    "inbox/brokerage.pdf": makePdf(["2026 Form 1099-DIV Dividends and Distributions", "Form 1099-B Proceeds From Broker and Barter Exchange Transactions", "Form 1099-INT"]),
+    "inbox/statement.pdf": makePdf(["Form 1098 Mortgage Interest Statement"]),
+    "inbox/tuition.pdf": makePdf(["Form 1098-T Tuition Statement"]),
+    "inbox/marketplace.pdf": makePdf(["Form 1095-A Health Insurance Marketplace Statement"]),
+    "inbox/contractor.pdf": makePdf(["Form 1099-NEC Nonemployee Compensation"]),
+    "inbox/last-year.pdf": makePdf(["Form 1040 U.S. Individual Income Tax Return 2025", "Attach Form(s) W-2 here. Also attach Forms W-2G and 1099-R if tax was withheld.", "Child and dependent care expenses"]),
+    "inbox/phone-photo.pdf": makePdf([]),
+    "inbox/broken.pdf": "not a pdf at all",
+    "inbox/notes.txt": "Form W-2",
+  };
+  for (const [rel, body] of Object.entries(fixtures)) fs.writeFileSync(path.join(stageDir, rel), body);
+  const before = Object.keys(fixtures).map((rel) => {
+    const stat = fs.statSync(path.join(stageDir, rel));
+    return [rel, stat.size, stat.mtimeMs, fs.readFileSync(path.join(stageDir, rel), "utf8")];
+  });
+
+  const forbidden = await fetch(base, { method: "POST", headers: { Origin: APP_ORIGIN, "X-Taxes-App": "1" }, body: form("pdf-hints", {}) });
+  assert.equal(forbidden.status, 403, "pdf-hints keeps the app-only gate");
+
+  const response = await app(base, { method: "POST", body: form("pdf-hints", {}) });
+  const text = await response.text();
+  const payload = JSON.parse(text);
+  assert.equal(payload.ok, true, payload.error);
+  assert.equal(payload.available, true);
+  assert.equal(payload.library, "smalot/pdfparser");
+  const byPath = Object.fromEntries(payload.files.map((f) => [f.path, f]));
+  assert.deepEqual(Object.keys(byPath).sort(), Object.keys(fixtures).filter((rel) => rel.endsWith(".pdf")).sort(), "only PDFs");
+  assert.deepEqual(byPath["inbox/scan-0001.pdf"], { path: "inbox/scan-0001.pdf", forms: ["W-2"], text: "read" });
+  assert.deepEqual(byPath["inbox/brokerage.pdf"].forms, ["1099-INT", "1099-DIV", "1099-B"]);
+  assert.deepEqual(byPath["inbox/statement.pdf"].forms, ["1098"]);
+  assert.deepEqual(byPath["inbox/tuition.pdf"].forms, ["1098-T"], "1098-T is not also a 1098");
+  assert.deepEqual(byPath["inbox/marketplace.pdf"].forms, ["1095-A"]);
+  assert.deepEqual(byPath["inbox/contractor.pdf"].forms, ["1099-NEC"]);
+  assert.deepEqual(byPath["inbox/last-year.pdf"].forms, ["1040"], "forms a return mentions are not counted");
+  assert.deepEqual(byPath["inbox/phone-photo.pdf"], { path: "inbox/phone-photo.pdf", forms: [], text: "none" });
+  assert.equal(byPath["inbox/broken.pdf"].text, "error");
+  assert.doesNotMatch(text, /Wage and Tax Statement|Nonemployee/, "the extracted text never leaves the server");
+  assert.doesNotMatch(text, new RegExp(tmp.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), "no server paths");
+
+  // Cached answers match, and nothing in stage/ moved or changed.
+  const again = await (await app(base, { method: "POST", body: form("pdf-hints", {}) })).json();
+  assert.deepEqual(again.files, payload.files);
+  for (const [rel, size, mtime, body] of before) {
+    const stat = fs.statSync(path.join(stageDir, rel));
+    assert.equal(stat.size, size, rel);
+    assert.equal(stat.mtimeMs, mtime, rel);
+    assert.equal(fs.readFileSync(path.join(stageDir, rel), "utf8"), body, rel);
+  }
+  assert.deepEqual(fs.readdirSync(path.join(stageDir, "inbox")).sort(), Object.keys(fixtures).map((rel) => rel.slice(6)).sort());
+});
+
 test("api.php AI reorganize: .env parsing, no-key warning, validated plan, one-time apply", { skip: hasPhp ? false : "php is not installed" }, async () => {
   await ready();
   const http = await import("node:http");
@@ -294,7 +385,7 @@ test("api.php AI reorganize: .env parsing, no-key warning, validated plan, one-t
   const stageDir = path.join(sorterDir, "stage");
   fs.rmSync(stageDir, { recursive: true, force: true });
   fs.mkdirSync(path.join(stageDir, "inbox"), { recursive: true });
-  fs.writeFileSync(path.join(stageDir, "inbox", "w2.pdf"), "w2");
+  fs.writeFileSync(path.join(stageDir, "inbox", "w2.pdf"), makePdf(["Form W-2 Wage and Tax Statement 2026"]));
   fs.writeFileSync(path.join(stageDir, "1099.pdf"), "1099");
   fs.writeFileSync(path.join(stageDir, "Summaries.md"), "# notes");
   fs.writeFileSync(path.join(stageDir, "AGENTS.md"), "# guide");
@@ -382,7 +473,9 @@ test("api.php AI reorganize: .env parsing, no-key warning, validated plan, one-t
     assert.equal(seen[0].headers.authorization, "Bearer sk-test-openai");
     assert.equal(seen[0].body.model, "test-model # kept");
     const prompt = JSON.stringify(seen[0].body.messages);
-    assert.match(prompt, /inbox\/w2\.pdf/);
+    assert.match(prompt, /inbox\/w2\.pdf  \(\d+ bytes\)  reads as: W-2/, "the plan input carries the form read inside the PDF");
+    assert.doesNotMatch(prompt, /Wage and Tax Statement 2026/, "only the hint goes out, not the PDF text");
+    assert.match(prompt, /1099\.pdf  \(4 bytes\)\\n|1099\.pdf  \(4 bytes\)"/, "a file that is not a readable PDF gets no hint");
     assert.doesNotMatch(prompt, /Summaries\.md/);
     assert.doesNotMatch(prompt, /\.DS_Store/);
 

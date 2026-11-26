@@ -10,6 +10,7 @@
 //   4. POSTs also need the CSRF token the handshake returned, in X-Taxes-Csrf.
 // Anything else gets 403 {"ok":false,"error":"forbidden"}. Responses are never cached.
 // Optional AI reorganize (ai-status, ai-plan, ai-apply): keys from the app's .env, see .example.env.
+// POST pdf-hints reads the text inside staged PDFs (read-only) and returns form hints such as "W-2" per file.
 declare(strict_types=1);
 
 // PHP notices and warnings carry absolute file paths; keep them out of the JSON the browser reads.
@@ -797,6 +798,161 @@ function uploads_of(array $files): array
 }
 
 // ---------------------------------------------------------------------------------------------------------------
+// Reading inside PDFs (read-only). The text is extracted with smalot/pdfparser (LGPL-3.0), installed with Composer
+// into public/sorter/vendor; the build copies it to out/sorter/vendor. Only short form hints such as "W-2" or
+// "1099-NEC" leave this script, never the extracted text. Files in stage/ are opened for reading only; they are
+// never moved, renamed, or changed. Results are cached by path, size, and modified time in the system temp folder.
+
+const PDF_HINT_VERSION = 1;
+const PDF_HINT_MAX_FILES = 300;
+const PDF_HINT_MAX_BYTES = 25 * 1024 * 1024;
+const PDF_HINT_PAGES = 4;
+const PDF_HINT_TEXT_CHARS = 200000;
+
+/** Form tag => pattern run on the lower-cased text with whitespace collapsed. Information returns first. */
+const PDF_FORM_PATTERNS = [
+    "W-2" => '/\bform\s+w-?2\b|wage and tax statement/',
+    "1099-NEC" => '/\b1099-?nec\b|nonemployee compensation/',
+    "1099-MISC" => '/\b1099-?misc\b|miscellaneous (information|income)/',
+    "1099-K" => '/\b1099-?k\b|payment card and third party network/',
+    "1099-INT" => '/\b1099-?int\b/',
+    "1099-DIV" => '/\b1099-?div\b|dividends and distributions/',
+    "1099-OID" => '/\b1099-?oid\b|original issue discount/',
+    "1099-B" => '/\b1099-?b\b|proceeds from broker and barter exchange/',
+    "1099-DA" => '/\b1099-?da\b|digital asset proceeds/',
+    "1099-R" => '/\b1099-?r\b|distributions from pensions/',
+    "1099-SA" => '/\b1099-?sa\b/',
+    "5498-SA" => '/\b5498-?sa\b/',
+    "1099-G" => '/\b1099-?g\b|certain government payments/',
+    "SSA-1099" => '/\bssa-?1099\b|social security benefit statement/',
+    "1095-A" => '/\b1095-?a\b|health insurance marketplace statement/',
+    "1098" => '/\b1098\b(?!-)|mortgage interest statement/',
+    "1098-T" => '/\b1098-?t\b|tuition statement/',
+    "1098-E" => '/\b1098-?e\b|student loan interest statement/',
+    "1040-ES" => '/\b1040-?es\b|estimated tax for individuals/',
+    "K-1" => '/\bschedule k-?1\b/',
+    "1040" => '/u\.?\s?s\.? individual income tax return/',
+    "Schedule E" => '/supplemental income and loss/',
+    "4562" => '/\bform\s+4562\b|depreciation and amortization/',
+    "8938" => '/\bform\s+8938\b|statement of specified foreign financial assets/',
+    "FBAR" => '/fincen\s+(form\s+)?114\b|report of foreign bank and financial accounts/',
+    "2441" => '/\bform\s+2441\b|child and dependent care expenses/',
+    "CP01A" => '/\bcp\s?01a\b|identity protection pin/',
+];
+
+/** A full return names other forms in its text ("attach Forms W-2G and 1099-R", "child and dependent care
+ * expenses"); only these tags apply to one. */
+const PDF_RETURN_TAGS = ["1040", "Schedule E", "K-1"];
+
+/** Loads the vendored parser: beside this script (out/sorter), or the repo's public/sorter or out/sorter copy. */
+function pdf_parser_ready(): bool
+{
+    static $ready = null;
+    if ($ready !== null) {
+        return $ready;
+    }
+    foreach ([__DIR__ . "/vendor/autoload.php", __DIR__ . "/../public/sorter/vendor/autoload.php", __DIR__ . "/../out/sorter/vendor/autoload.php"] as $autoload) {
+        if (is_file($autoload)) {
+            require_once $autoload;
+            break;
+        }
+    }
+    $ready = class_exists("Smalot\\PdfParser\\Parser");
+    return $ready;
+}
+
+/** Form tags found in extracted text. A full return only gets return-type tags. */
+function pdf_form_tags(string $text): array
+{
+    $text = strtolower((string) preg_replace('/\s+/u', " ", $text));
+    $tags = [];
+    foreach (PDF_FORM_PATTERNS as $tag => $pattern) {
+        if (preg_match($pattern, $text) === 1) {
+            $tags[] = (string) $tag; // PHP turns keys such as "1098" into integers
+        }
+    }
+    if (in_array("1040", $tags, true)) {
+        $tags = array_values(array_filter($tags, static fn(string $tag): bool => in_array($tag, PDF_RETURN_TAGS, true)));
+    }
+    return $tags;
+}
+
+/** Text from the first pages of one PDF, or null when it has no text layer (a scan) or cannot be read. */
+function pdf_first_pages_text(string $abs): ?string
+{
+    $config = new \Smalot\PdfParser\Config();
+    $config->setRetainImageContent(false);
+    $parser = new \Smalot\PdfParser\Parser([], $config);
+    $text = $parser->parseFile($abs)->getText(PDF_HINT_PAGES);
+    $text = trim(substr($text, 0, PDF_HINT_TEXT_CHARS));
+    return preg_match('/[A-Za-z0-9]{2}/', $text) === 1 ? $text : null;
+}
+
+/** ["forms" => [...], "text" => "read" | "none" | "skipped" | "error"] for one staged file, cached on disk. */
+function pdf_hint_for(string $rel, string $stage): array
+{
+    $abs = stage_file($rel, $stage);
+    $size = (int) (filesize($abs) ?: 0);
+    if ($size === 0 || $size > PDF_HINT_MAX_BYTES) {
+        return ["forms" => [], "text" => "skipped"];
+    }
+    $cacheDir = rtrim(sys_get_temp_dir(), "/\\") . "/taxes-pdf-hints";
+    $cacheFile = $cacheDir . "/" . sha1(PDF_HINT_VERSION . "|" . $abs . "|" . $size . "|" . (int) filemtime($abs)) . ".json";
+    if (is_file($cacheFile)) {
+        $cached = json_decode((string) file_get_contents($cacheFile), true);
+        if (is_array($cached) && isset($cached["forms"], $cached["text"]) && is_array($cached["forms"])) {
+            return ["forms" => array_map("strval", $cached["forms"]), "text" => (string) $cached["text"]];
+        }
+    }
+    $head = (string) file_get_contents($abs, false, null, 0, 1024);
+    if (strpos($head, "%PDF") === false) {
+        $result = ["forms" => [], "text" => "error"];
+    } else {
+        try {
+            $text = pdf_first_pages_text($abs);
+            $result = $text === null ? ["forms" => [], "text" => "none"] : ["forms" => pdf_form_tags($text), "text" => "read"];
+        } catch (Throwable $error) {
+            $result = ["forms" => [], "text" => "error"];
+        }
+    }
+    if (is_dir($cacheDir) || @mkdir($cacheDir, 0700, true)) {
+        @file_put_contents($cacheFile, json_encode($result));
+    }
+    return $result;
+}
+
+/** Form hints for the staged PDFs in $files (as list_stage() returns them), keyed by path. */
+function pdf_hints(array $files, string $stage): array
+{
+    if (!pdf_parser_ready()) {
+        return [];
+    }
+    @set_time_limit(120);
+    $hints = [];
+    foreach ($files as $file) {
+        $path = (string) $file["path"];
+        if (strtolower(pathinfo($path, PATHINFO_EXTENSION)) !== "pdf" || basename($path)[0] === ".") {
+            continue;
+        }
+        if (count($hints) >= PDF_HINT_MAX_FILES) {
+            break;
+        }
+        $hints[$path] = pdf_hint_for($path, $stage);
+    }
+    return $hints;
+}
+
+function pdf_hints_payload(string $stage): array
+{
+    $available = pdf_parser_ready();
+    $files = [];
+    foreach (pdf_hints(list_stage($stage), $stage) as $path => $hint) {
+        $files[] = ["path" => $path] + $hint;
+    }
+    return ["available" => $available, "library" => $available ? "smalot/pdfparser" : null, "files" => $files];
+}
+
+// ---------------------------------------------------------------------------------------------------------------
 // "Ask AI to reorganize": optional. Keys come from the app's .env (see .example.env) and stay on this server.
 // GET ?action=ai-status says whether a key is set and names the uploads folder. POST ai-plan asks the provider for a
 // move plan built from file names only and returns it with a signed, one-time token. POST ai-apply checks the token
@@ -987,7 +1143,8 @@ function ai_validate_plan($raw, array $files): array
     return ["moves" => $moves, "skipped" => $skipped, "summary" => $summary];
 }
 
-function ai_prompt(array $files, array $categories): array
+/** $hints: path => ["forms" => [...]] from pdf_hints(); a file with forms gets "reads as: ..." in the list. */
+function ai_prompt(array $files, array $categories, array $hints = []): array
 {
     $system = "You reorganize a folder of tax documents into category folders. You only see file paths and sizes.\n"
         . "Reply with JSON only, no prose, in this shape: {\"summary\": string, \"moves\": [{\"path\": string, \"category\": string, \"reason\": string}]}.\n"
@@ -996,8 +1153,12 @@ function ai_prompt(array $files, array $categories): array
         . "- Prefer existing folders, then these standard folders: " . implode("; ", AI_FOLDERS) . ".\n"
         . "- Keep a top-level tax-year folder (for example \"Tax Year 2025 - ...\") as the parent when files already sit under one.\n"
         . "- Use _Needs Human Review when the name gives no clue. Leave out files that are already in the right folder.\n"
-        . "- Only move files. Do not rename them.";
-    $list = array_map(static fn(array $f): string => $f["path"] . "  (" . (int) $f["bytes"] . " bytes)", array_slice($files, 0, AI_MAX_FILES));
+        . "- Only move files. Do not rename them.\n"
+        . "- \"reads as\" after a file is the form found in the text inside that PDF. Trust it over the file name.";
+    $list = array_map(static function (array $f) use ($hints): string {
+        $forms = $hints[$f["path"]]["forms"] ?? [];
+        return $f["path"] . "  (" . (int) $f["bytes"] . " bytes)" . ($forms === [] ? "" : "  reads as: " . implode(", ", array_slice($forms, 0, 6)));
+    }, array_slice($files, 0, AI_MAX_FILES));
     $user = "Existing folders:\n" . ($categories === [] ? "(none)" : implode("\n", $categories))
         . "\n\nFiles:\n" . implode("\n", $list);
     return [$system, $user];
@@ -1061,9 +1222,9 @@ function ai_json_from_text(string $text): ?array
     return is_array($decoded) ? $decoded : null;
 }
 
-function ai_request_plan(array $settings, array $files, array $categories): array
+function ai_request_plan(array $settings, array $files, array $categories, array $hints = []): array
 {
-    [$system, $user] = ai_prompt($files, $categories);
+    [$system, $user] = ai_prompt($files, $categories, $hints);
     if ($settings["provider"] === "openai") {
         $reply = ai_http_post($settings["base"] . "/chat/completions", ["Authorization: Bearer " . $settings["key"]], [
             "model" => $settings["model"],
@@ -1148,7 +1309,7 @@ function ai_plan(string $session, string $stage): array
     if ($files === []) {
         fail("Nothing is staged to reorganize.");
     }
-    $plan = ai_validate_plan(ai_request_plan($settings, $files, list_categories($stage)), $files);
+    $plan = ai_validate_plan(ai_request_plan($settings, $files, list_categories($stage), pdf_hints($files, $stage)), $files);
     return $plan + [
         "token" => ai_plan_token($session, $plan["moves"]),
         "provider" => $settings["provider"],
@@ -1240,6 +1401,9 @@ try {
     if ($action === "place") {
         $result = place_file((string) ($_POST["path"] ?? ""), (string) ($_POST["category"] ?? ""), $stage);
         respond(200, ["ok" => true] + $result);
+    }
+    if ($action === "pdf-hints") {
+        respond(200, ["ok" => true] + pdf_hints_payload($stage));
     }
     if ($action === "ai-plan") {
         respond(200, ["ok" => true] + ai_plan($session, $stage));
