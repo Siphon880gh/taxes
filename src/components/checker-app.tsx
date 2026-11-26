@@ -10,7 +10,7 @@ import { pickShortcutLetter, ShortcutLayer, ShortcutText, ShortcutTip, useShortc
 import { decodeNumbers, encodeNumbers, numberEntryError, suggestionText } from "@/lib/graph/allocate";
 import { DISCLAIMER } from "@/lib/disclaimer";
 import { readStoredQuote, writeStoredQuote } from "@/lib/quote-storage";
-import { readStoredSession, writeStoredSession } from "@/lib/session-storage";
+import { clearStoredSession, readStoredSession, writeStoredSession } from "@/lib/session-storage";
 import {
   applyAnswer,
   applyCase,
@@ -477,6 +477,18 @@ export function CheckerApp() {
     setDraft("");
   }
 
+  /** Clear what this browser saved (answers, comments, quote) and open a blank chart. Export keeps a copy first. */
+  function startOver() {
+    const ok = window.confirm(
+      "Start over? This clears the answers, comments, and quote saved in this browser. Use Export first if you want a copy.",
+    );
+    if (!ok) return;
+    clearStoredSession();
+    writeStoredQuote({ amount: null, preparer: null });
+    setQuoteDraft(null);
+    loadBlank();
+  }
+
   function loadCase(id: string) {
     const next = applyCase(id);
     setSession(next);
@@ -758,6 +770,9 @@ export function CheckerApp() {
             <button type="button" className="btn-secondary" onClick={() => importInput.current?.click()}>
               <ShortcutText text="Import" index={0} />
             </button>
+            <button type="button" className="btn-secondary" onClick={startOver}>
+              Start over
+            </button>
             <input
               ref={importInput}
               type="file"
@@ -771,6 +786,7 @@ export function CheckerApp() {
               }}
             />
           </div>
+          <p className="mt-1 px-1 text-xs text-stone-600">Answers, comments, and the quote save in this browser as you go. Export downloads a copy you can import elsewhere.</p>
           {importError ? (
             <p className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950" role="status">
               {importError}
