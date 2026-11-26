@@ -277,7 +277,7 @@ export function CheckerApp() {
   const checklistPanelRef = useRef<HTMLDivElement>(null);
   useDialogFocus(checklistPanelOpen, checklistPanelRef);
   /** After a route change: the page goes back to the top and focus moves to the new route's heading or panel. */
-  const [routeFocus, setRouteFocus] = useState<{ key: number; target: "guide" | "panel" | "question" } | null>(null);
+  const [routeFocus, setRouteFocus] = useState<{ key: number; target: "guide" | "panel" | "question" | "node" } | null>(null);
   const routePanelRef = useRef<HTMLElement>(null);
   const [fitFocus, setFitFocus] = useState<{ key: number; ids: string[]; answeredId: string } | null>(null);
   const fitFocusKey = useRef(0);
@@ -302,7 +302,7 @@ export function CheckerApp() {
     if (dockHeightBeforeCollapse.current != null) setDockHeight(dockHeightBeforeCollapse.current);
   }
 
-  function focusRoute(target: "guide" | "panel" | "question") {
+  function focusRoute(target: "guide" | "panel" | "question" | "node") {
     setRouteFocus((current) => ({ key: (current?.key ?? 0) + 1, target }));
   }
 
@@ -461,17 +461,36 @@ export function CheckerApp() {
     setDraft(readAnswer(session, selectedId)?.text ?? "");
   }, [selectedId, session]);
 
-  // After a route change: back to the top of the page, with focus on the new route's heading (or the picked question).
+  // After a route change: scroll to the new route and move focus to its heading (or the picked question).
   useEffect(() => {
     if (!routeFocus) return;
     const frame = requestAnimationFrame(() => {
+      if (routeFocus.target === "node") {
+        // The answer panel just opened over the bottom of the page: keep the picked box in the strip of chart left
+        // between the sticky Path library and the panel. Focus stays where the click left it.
+        // Waits a beat for the page's bottom padding to grow with the panel, or there is no room to scroll into.
+        window.setTimeout(() => {
+          const node = document.querySelector("svg g.node.is-selected");
+          const frames = document.querySelector(".bottom-frames");
+          const stack = document.querySelector(".library-stack");
+          if (!node || !frames) return;
+          const box = node.getBoundingClientRect();
+          const top = stack && getComputedStyle(stack).position === "sticky" ? stack.getBoundingClientRect().bottom : 0;
+          const bottom = frames.getBoundingClientRect().top;
+          if (box.top < top || box.bottom > bottom) window.scrollBy({ top: box.top - (top + bottom - box.height) / 2 });
+        }, 80);
+        return;
+      }
       if (routeFocus.target === "question") {
         document.getElementById("question-heading")?.focus({ preventScroll: true });
         return;
       }
-      window.scrollTo({ top: 0 });
-      const target = routeFocus.target === "guide" ? document.getElementById("guide-heading") : routePanelRef.current;
-      target?.focus({ preventScroll: true });
+      // Path guide starts at its own heading, so the Path library and the chart come right after it (on a phone the
+      // header alone is a screen tall); the other routes start at the top of the page.
+      const guide = routeFocus.target === "guide" ? document.getElementById("guide-heading") : null;
+      if (guide) guide.scrollIntoView({ block: "start" });
+      else window.scrollTo({ top: 0 });
+      (guide ?? routePanelRef.current)?.focus({ preventScroll: true });
     });
     return () => cancelAnimationFrame(frame);
   }, [routeFocus]);
@@ -757,6 +776,7 @@ export function CheckerApp() {
     setDockTab(firstDockTab(getNode(id)));
     setTopCollapsed(true);
     expandDock();
+    focusRoute("node");
   }
 
   function addAnotherInstance() {
