@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { stageOverviewFrom, type StageOverview } from "./flow";
 import { owedReportsFrom, type OwedReportsState } from "./owed-reports";
 import { sorterFetch } from "./sorter-client";
 import { sorterEndpoint, unreachableMessage } from "./sorter-endpoint";
@@ -14,6 +15,8 @@ const FOCUS_RECHECK_MS = 5000;
  */
 export function useOwedReports() {
   const [state, setState] = useState<OwedReportsState>({ status: "loading" });
+  /** Staged document count and whether Summaries.md exists, for the Start here progress cues; null until known. */
+  const [overview, setOverview] = useState<StageOverview | null>(null);
   const lastCheck = useRef(0);
 
   const refresh = useCallback(async (): Promise<OwedReportsState> => {
@@ -27,6 +30,7 @@ export function useOwedReports() {
         const response = await sorterFetch(endpoint.url);
         const body = (await response.json().catch(() => ({}))) as { error?: string };
         const reports = response.ok ? owedReportsFrom(body) : null;
+        if (response.ok) setOverview(stageOverviewFrom(body));
         next = reports ? { status: "ready", reports } : { status: "error", message: body.error || "The document sorter did not answer." };
       } catch (err) {
         next = { status: "error", message: unreachableMessage(err) };
@@ -40,6 +44,7 @@ export function useOwedReports() {
   const accept = useCallback((body: unknown) => {
     const reports = owedReportsFrom(body);
     if (!reports) return;
+    setOverview(stageOverviewFrom(body));
     lastCheck.current = Date.now();
     setState({ status: "ready", reports });
   }, []);
@@ -57,5 +62,5 @@ export function useOwedReports() {
     };
   }, [refresh]);
 
-  return { state, refresh, accept };
+  return { state, overview, refresh, accept };
 }
