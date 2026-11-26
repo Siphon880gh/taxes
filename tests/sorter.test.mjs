@@ -335,6 +335,7 @@ test("api.php pdf-hints reads form names inside staged PDFs without touching the
     "inbox/last-year.pdf": makePdf(["Form 1040 U.S. Individual Income Tax Return 2025", "Attach Form(s) W-2 here. Also attach Forms W-2G and 1099-R if tax was withheld.", "Child and dependent care expenses"]),
     "inbox/phone-photo.pdf": makePdf([]),
     "inbox/broken.pdf": "not a pdf at all",
+    "inbox/truncated.pdf": "%PDF-1.4\n1 0 obj\n<< /Type /Catalog",
     "inbox/notes.txt": "Form W-2",
   };
   for (const [rel, body] of Object.entries(fixtures)) fs.writeFileSync(path.join(stageDir, rel), body);
@@ -363,6 +364,7 @@ test("api.php pdf-hints reads form names inside staged PDFs without touching the
   assert.deepEqual(byPath["inbox/last-year.pdf"].forms, ["1040"], "forms a return mentions are not counted");
   assert.deepEqual(byPath["inbox/phone-photo.pdf"], { path: "inbox/phone-photo.pdf", forms: [], text: "none" });
   assert.equal(byPath["inbox/broken.pdf"].text, "error");
+  assert.deepEqual(byPath["inbox/truncated.pdf"], { path: "inbox/truncated.pdf", forms: [], text: "error" }, "a damaged PDF is reported, not fatal");
   assert.doesNotMatch(text, /Wage and Tax Statement|Nonemployee/, "the extracted text never leaves the server");
   assert.doesNotMatch(text, new RegExp(tmp.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), "no server paths");
 

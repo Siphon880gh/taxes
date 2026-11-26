@@ -904,10 +904,16 @@ function pdf_hint_for(string $rel, string $stage): array
             return ["forms" => array_map("strval", $cached["forms"]), "text" => (string) $cached["text"]];
         }
     }
+    $cacheReady = is_dir($cacheDir) || @mkdir($cacheDir, 0700, true);
     $head = (string) file_get_contents($abs, false, null, 0, 1024);
     if (strpos($head, "%PDF") === false) {
         $result = ["forms" => [], "text" => "error"];
     } else {
+        // Mark the file unreadable first: if parsing it runs out of memory or time and ends this request, the next
+        // request skips it instead of failing again, and the other PDFs still get read.
+        if ($cacheReady) {
+            @file_put_contents($cacheFile, json_encode(["forms" => [], "text" => "error"]));
+        }
         try {
             $text = pdf_first_pages_text($abs);
             $result = $text === null ? ["forms" => [], "text" => "none"] : ["forms" => pdf_form_tags($text), "text" => "read"];
@@ -915,7 +921,7 @@ function pdf_hint_for(string $rel, string $stage): array
             $result = ["forms" => [], "text" => "error"];
         }
     }
-    if (is_dir($cacheDir) || @mkdir($cacheDir, 0700, true)) {
+    if ($cacheReady) {
         @file_put_contents($cacheFile, json_encode($result));
     }
     return $result;
