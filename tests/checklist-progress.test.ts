@@ -11,6 +11,9 @@ import {
   confirmedFromExport,
   readConfirmed,
   toggleConfirmed,
+  confirmKey,
+  confirmedForYear,
+  toggleConfirmedForYear,
   writeConfirmed,
 } from "../src/lib/checklist-progress";
 
@@ -65,9 +68,27 @@ test("the Markdown checklist ticks confirmed items and keeps sources and the dis
     disclaimer: "Not tax advice.",
   });
   assert.match(markdown, /^# Confirmation checklist/);
+  assert.match(markdown, /^Tax year: 2025$/m);
   assert.match(markdown, new RegExp(`Confirmed: 1 of ${items.length}`));
   assert.match(markdown, /Open questions on the chart: 3/);
   assert.equal((markdown.match(/- \[x\]/g) ?? []).length, 1);
   assert.equal((markdown.match(/- \[ \]/g) ?? []).length, items.length - 1);
   assert.match(markdown, /> Not tax advice\./);
+});
+
+test("ticks are kept per tax year, and a tick saved without a year counts for every year", () => {
+  assert.equal(confirmKey("w2", "y2025"), "y2025|w2");
+  assert.equal(confirmKey("w2", null), "w2");
+  let keys = toggleConfirmedForYear([], "w2", "y2025");
+  assert.deepEqual(keys, ["y2025|w2"]);
+  assert.deepEqual(confirmedForYear(keys, "y2025"), ["w2"]);
+  assert.deepEqual(confirmedForYear(keys, "y2026"), [], "a 2025 tick does not show on the 2026 checklist");
+  keys = toggleConfirmedForYear(keys, "sch-c", "y2026");
+  assert.deepEqual(confirmedForYear(keys, "y2026"), ["sch-c"]);
+  assert.deepEqual(confirmedForYear(keys, "y2025"), ["w2"]);
+  const legacy = ["est", ...keys];
+  assert.deepEqual(confirmedForYear(legacy, "y2026"), ["est", "sch-c"]);
+  assert.deepEqual(confirmedForYear(legacy, "y2025"), ["est", "w2"]);
+  assert.deepEqual(toggleConfirmedForYear(legacy, "est", "y2026"), keys, "unticking drops the old plain tick");
+  assert.deepEqual(toggleConfirmedForYear(keys, "w2", "y2025"), ["y2026|sch-c"]);
 });

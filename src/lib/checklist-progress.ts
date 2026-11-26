@@ -37,6 +37,27 @@ export function toggleConfirmed(ids: string[], id: string): string[] {
   return ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id];
 }
 
+/**
+ * Ticks are saved per tax year ("y2026|w2"), since confirming a line on the 2025 return says nothing about 2026.
+ * A tick saved before ticks had a year (a plain "w2") counts for every year until it is unticked.
+ */
+export function confirmKey(itemId: string, yearId?: string | null): string {
+  return yearId ? `${yearId}|${itemId}` : itemId;
+}
+
+/** The item ids ticked for one tax year, out of every saved tick. */
+export function confirmedForYear(keys: string[], yearId?: string | null): string[] {
+  const prefix = yearId ? `${yearId}|` : null;
+  const ids = keys.flatMap((key) => (!key.includes("|") ? [key] : prefix && key.startsWith(prefix) ? [key.slice(prefix.length)] : []));
+  return [...new Set(ids)];
+}
+
+/** Tick or untick one item for one tax year; unticking also drops an old tick saved without a year. */
+export function toggleConfirmedForYear(keys: string[], itemId: string, yearId?: string | null): string[] {
+  const key = confirmKey(itemId, yearId);
+  return confirmedForYear(keys, yearId).includes(itemId) ? keys.filter((k) => k !== key && k !== itemId) : [...keys, key];
+}
+
 /** How many of the items on the checklist now are confirmed. Marks for items no longer listed are not counted. */
 export function checklistProgress(items: ChecklistItem[], confirmed: string[]): { done: number; total: number } {
   const marked = new Set(confirmed);
@@ -65,7 +86,7 @@ export function checklistMarkdown(options: {
   const { title, returnYear, items, confirmed, openQuestions, disclaimer } = options;
   const marked = new Set(confirmed);
   const progress = checklistProgress(items, confirmed);
-  const lines = [`# ${title}`, "", `Return year: ${returnYear}`, `Confirmed: ${progress.done} of ${progress.total}`];
+  const lines = [`# ${title}`, "", `Tax year: ${returnYear}`, `Confirmed: ${progress.done} of ${progress.total}`];
   if (openQuestions > 0) lines.push(`Open questions on the chart: ${openQuestions}`);
   lines.push("");
   if (items.length === 0) lines.push("Nothing is listed yet. Answer a question on the chart to list forms and lines.");
