@@ -90,7 +90,7 @@ export const nodes: GraphNode[] = [
     title: "Tax year",
     chart: "Tax year being final-checked",
     prompt: "Which tax year is on the return you are final-checking?",
-    help: "A 2025 return was due October 15, 2026 with an extension; a 2026 return is filed in 2027. 2026 figures are included only where a published source was found. Tax year 2024 is not offered because no 2024 figures are loaded. This is the year on the return, not a suggestion to file a new one.",
+    help: "A new chart starts on 2026, the return filed in 2027. Pick 2025 for the return that was due October 15, 2026 with an extension. Switch it any time with the Tax year control at the top or in the Path library; your other answers stay. 2026 figures are included only where a published source was found, and 2026 line numbers come from the IRS early-release drafts until the final forms are out. Tax year 2024 is not offered because no 2024 figures are loaded. This is the year on the return, not a suggestion to file a new one.",
     answers: [
       choice("y2025", "2025", ["filing_status"], "2025"),
       choice("y2026", "2026", ["filing_status"], "2026"),

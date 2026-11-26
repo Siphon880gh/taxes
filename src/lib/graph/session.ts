@@ -1,5 +1,6 @@
 import { freeEntry, getNode, listNodes } from "./nodes";
 import type { Session, StoredAnswer } from "./types";
+import { DEFAULT_TAX_YEAR_ID } from "./tax-years";
 
 export function instanceScope(nodeId: string): "se" | "rental" | null {
   const node = getNode(nodeId);
@@ -117,7 +118,7 @@ function adoptScopedComments(
 }
 
 export function blankSession(): Session {
-  return rebuild({ year: { answerId: "y2025" } }, null, null);
+  return rebuild({ year: { answerId: DEFAULT_TAX_YEAR_ID } }, null, null);
 }
 
 export function applyAnswer(

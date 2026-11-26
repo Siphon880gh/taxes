@@ -48,11 +48,11 @@ test("every question has an unknown path and every edge lands on a real node", (
   assert.deepEqual(assertGraphIntact(), []);
 });
 
-test("a blank start only preselects tax year 2025", () => {
+test("a blank start only preselects tax year 2026", () => {
   const session = blankSession();
   assert.equal(session.caseStudyId, null);
   assert.equal(session.quote, null);
-  assert.deepEqual(session.answers, { year: { answerId: "y2025" } });
+  assert.deepEqual(session.answers, { year: { answerId: "y2026" } });
   assert.equal(session.revealed.includes("schedule_c"), false);
   assert.equal(session.revealed.includes("filing_status"), true);
 });
@@ -520,7 +520,7 @@ test("a node prompt carries the session and a reply applies only that box", () =
   const prompt = nodePrompt(session, getNode("filing_status"));
   assert.match(prompt, /filing_status/);
   assert.match(prompt, /Current session/);
-  assert.match(prompt, /"answerId": "y2025"/);
+  assert.match(prompt, /"answerId": "y2026"/);
   assert.match(prompt, /single/);
   assert.match(prompt, /not tax advice/);
   assert.match(prompt, /summarize the financial situation/);
@@ -926,7 +926,7 @@ test("year-aware text: dependents, senior deduction, worker threshold, QBI, and 
 });
 
 test("Schedule 1-A asks about tips, overtime, car-loan interest, and seniors, with limits for the year and status", () => {
-  let session = applyAnswer(blankSession(), "filing_status", "single");
+  let session = applyAnswer(applyAnswer(blankSession(), "year", "y2025"), "filing_status", "single");
   assert.equal(session.revealed.includes("schedule_1a"), true);
   session = applyAnswer(session, "schedule_1a", "yes");
   for (const id of ["s1a_tips", "s1a_overtime", "s1a_car", "s1a_senior"]) assert.equal(session.revealed.includes(id), true);
