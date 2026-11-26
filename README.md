@@ -28,7 +28,11 @@ Then open http://127.0.0.1:43123
 
 Start blank, or open a case study. **Coder/Nurse 1099 Example** walks a single filer with two 1099-NEC activities, payment-app goods and services, and one paid-off rental. Louisiana versus Los Angeles, the payment-app amount, and whether the depreciation records are clean stay unknown. **Joint W-2 & Crypto Example** is a second, shorter path so the tool is not only that example. Case-study facts are not tax advice.
 
-`npm test` runs three suites: the decision-graph tests (paths, checklist items, and the sourced 2025 and 2026 figures), the sorter-endpoint tests (which hosts get the local-only message), and the PHP sorter test, which starts `php -S` against `sorter/api.php` and is skipped when `php` is not installed. `npm run generate-graph` rewrites the decision-graph document from the same source.
+Your answers, named businesses and rentals, comments, the preparation quote, and which checklist items you ticked as confirmed save in this browser as you go, so a reload picks up where you left off. **Export** downloads the same state as a JSON file (with the confirmations) that **Import** reads back. **Start over** clears what this browser saved, after a confirm.
+
+The **Checklist** tab shows how many items you have confirmed on the return, and can **Download .md** or **Print** a clean copy for your records or a preparer. When the path calls for source documents (a W-2, a 1099-NEC, rental records, a 1095-A, …), it also says how many of them the Document Sorter found in `sorter/stage`.
+
+`npm test` runs these suites: the decision-graph tests (paths, checklist items, and the sourced 2025 and 2026 figures), the sorter-endpoint tests (which hosts get the local-only message), the browser-storage tests (saved session, checklist confirmations), the document-coverage tests, and the PHP sorter test, which starts `php -S` against `sorter/api.php` and is skipped when `php` is not installed. `npm run generate-graph` rewrites the decision-graph document from the same source.
 
 The return year offers 2025 and 2026, the two years with figures loaded and sourced. Figures that could not be checked against an IRS or SSA page stay marked to verify.
 
@@ -86,7 +90,9 @@ Open this repo in Cursor and invoke `tax-document-classification` (optionally wi
 
 Once those folders exist and `sorter/stage/Summaries.md` is not there yet, the tab asks you to invoke `tax-document-summaries`. That skill writes `Summaries.md`: the numbers a tax professional needs at a glance (for example a rental income and deductions summary) and a first look at which forms apply. Files stay on the machine. The skill lives at [`.agents/skills/tax-document-summaries/SKILL.md`](.agents/skills/tax-document-summaries/SKILL.md).
 
-The same tab can also place files into those categories by hand after upload.
+The same tab can also place files into those categories by hand after upload. Staged files are grouped under their category folder, with a filter by name, form, or folder.
+
+**Documents this path calls for.** The tab lists the source documents the chart's answers so far call for (for example a Form W-2 once W-2 wages are on the path, Form 1099-NEC for Schedule C, rental records for Schedule E, Form 1095-A for Form 8962) and marks each one on file when a folder or file name in `sorter/stage` matches it. It goes by names only and never opens the files, so a document with a generic name shows as not found until it is renamed or sorted. The rules live in [`src/lib/document-coverage.ts`](src/lib/document-coverage.ts).
 
 ### Ask AI to reorganize
 
@@ -101,7 +107,7 @@ Tax Pro Costs starts with a **FreeTaxUSA Walkthrough** control. After the files 
 
 The same tab lists published preparation prices for the forms reached so far. FreeTaxUSA's pricing page retrieved October 16, 2026 lists federal filing at $0 and a state return at $15.99. Optional Deluxe Support, Pro Support, and Audit Defense are on that page and are not added to the estimate. H&R Block's online filing page, rendered in a browser October 21, 2026, lists Free Online $0 + $0 per state, Deluxe $65 + $49, Premium $105 + $49, and Self-Employed $130 + $49; the row picks the tier from the forms reached.
 
-The tab also shows an estimated independent-preparer fee: NSA 2023 national averages raised by CPI-U inflation. The note says which month the inflation data runs through, and hints when newer data is likely out. To update the CPI-U figure by hand, see [`docs/UPDATE_INFLATION.md`](docs/UPDATE_INFLATION.md) (`npm run update-cpi -- --month YYYY-MM --value N --dry-run`).
+With a quote entered, the tab also says how much more it is than filing yourself on FreeTaxUSA ($0 federal + $15.99 for one state). The tab also shows an estimated independent-preparer fee, with a **How this estimate adds up** table of the base and each schedule add-on before and after inflation: NSA 2023 national averages raised by CPI-U inflation. The note says which month the inflation data runs through, and hints when newer data is likely out. To update the CPI-U figure by hand, see [`docs/UPDATE_INFLATION.md`](docs/UPDATE_INFLATION.md) (`npm run update-cpi -- --month YYYY-MM --value N --dry-run`).
 
 When you ask which local skills this repo has, the answer comes from the folders under [`.agents/skills/`](.agents/skills/), as [AGENTS.md](AGENTS.md) describes.
 
