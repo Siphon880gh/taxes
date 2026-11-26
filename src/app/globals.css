@@ -2576,3 +2576,55 @@ button.question-dock-tile {
   margin-right: 0.3rem;
 }
 
+
+/*
+ * Guide me on forms: the Checklist frame and the answer / comments panel open together ("paired"), smaller,
+ * so the Path library and the chart keep room above. Wide screens put them side by side.
+ */
+.bottom-frames.is-paired > .checklist-frame {
+  max-height: min(34vh, 20rem);
+}
+
+.bottom-frames.is-paired > .question-dock {
+  max-height: min(34vh, 22rem) !important;
+}
+
+@media (min-width: 1100px) {
+  .bottom-frames.is-paired {
+    flex-direction: row;
+    align-items: stretch;
+  }
+
+  .bottom-frames.is-paired > .checklist-frame,
+  .bottom-frames.is-paired > .question-dock {
+    flex: 1 1 50%;
+    min-width: 0;
+    height: min(44vh, 30rem) !important;
+    max-height: min(44vh, 30rem) !important;
+  }
+
+  .bottom-frames.is-paired > .question-dock {
+    border-left: 1px solid #d6d3d1;
+  }
+
+  /* Each half is its own column, so the inner text takes the half's width, not the full-width gutters. */
+  .bottom-frames.is-paired .question-dock-inner,
+  .bottom-frames.is-paired .checklist-frame-inner {
+    width: min(40rem, 100%);
+  }
+}
+
+/* On a phone the tab bar alone is two rows deep, so both halves stay short and leave a strip of chart in view. */
+@media (max-width: 719px) {
+  body:has(.bottom-frames.is-paired) .library-stack {
+    position: static;
+  }
+
+  .bottom-frames.is-paired > .checklist-frame {
+    max-height: 34vh;
+  }
+
+  .bottom-frames.is-paired > .question-dock {
+    max-height: 26vh !important;
+  }
+}
