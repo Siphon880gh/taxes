@@ -951,7 +951,8 @@ test("Schedule 1-A asks about tips, overtime, car-loan interest, and seniors, wi
   );
   const overtime26 = buildChecklist(mfj26).find((item) => item.id === "s1a-overtime");
   assert.equal(overtime26?.certainty, "verify");
-  assert.match(overtime26?.summary ?? "", /For 2026.*\$25,000 on a joint return.*\$300,000.*confirm them on the form/);
+  assert.match(overtime26?.summary ?? "", /For 2026.*\$25,000 on a joint return.*\$300,000.*early-release draft; confirm them on the final form/);
+  assert.equal(overtime26?.line, "27");
   const unknown = applyAnswer(applyAnswer(blankSession(), "filing_status", "single"), "schedule_1a", "unknown");
   assert.ok(buildChecklist(unknown).some((item) => item.id === "s1a-unknown"));
   const none = applyAnswer(applyAnswer(blankSession(), "filing_status", "single"), "schedule_1a", "no");

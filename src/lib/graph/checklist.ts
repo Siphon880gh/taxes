@@ -3,16 +3,13 @@ import { citations } from "./sources";
 import { answerOf } from "./session";
 import { infoReturnThreshold, parseStatus, parseYear, qbiThreshold, saltCap, schedule1A } from "./thresholds";
 import { ten99kThreshold } from "./thresholds";
+import { formLines } from "./form-lines";
 import type { ChecklistItem, Session } from "./types";
 import { getNode } from "./nodes";
 import { readAnswer } from "./session";
 
 function has(session: Session, id: string): boolean {
   return session.revealed.includes(id);
-}
-
-function yearIs2025(session: Session): boolean {
-  return answerOf(session, "year") === "y2025";
 }
 
 function money(amount: number): string {
@@ -24,10 +21,11 @@ function schedule1AItems(session: Session): ChecklistItem[] {
   const year = parseYear(answerOf(session, "year"));
   const status = parseStatus(answerOf(session, "filing_status"));
   const items: ChecklistItem[] = [];
-  const on2025 = year === 2025;
-  const source = on2025 ? citations.schedule1a_2025 : citations.fs2025_03;
-  const certainty = on2025 ? "sourced" : "verify";
-  const lineNote = on2025 ? "" : " These line numbers are from the 2025 form; confirm them on the form for the year you selected.";
+  const lines = formLines(year);
+  const s1a = lines.schedule1A;
+  const source = year ? s1a.source : citations.fs2025_03;
+  const certainty = lines.certainty;
+  const lineNote = lines.note;
   const mfj = status === "mfj";
   const mfs = status === "mfs";
   const joint = (who: string) =>
@@ -47,7 +45,7 @@ function schedule1AItems(session: Session): ChecklistItem[] {
     items.push({
       id: "s1a-tips",
       form: "Schedule 1-A (Form 1040), Part II",
-      line: "13",
+      line: s1a.tips,
       summary: `${yearText}, the qualified tips deduction is up to ${money(t.max)}, reduced by $${t.perThousand} for each full $1,000 of modified AGI over ${money(mfj ? t.phaseOutOver.mfj : t.phaseOutOver.other)}${mfj ? "" : ` (${money(t.phaseOutOver.mfj)} if married filing jointly)`}. Verify the tips match the W-2, 1099, or Form 4137, the occupation is on the IRS list, the work is not in a specified service trade or business, and a self-employed amount does not exceed that business's net profit.${joint("the tips deduction")}${lineNote}`,
       certainty,
       source,
@@ -58,7 +56,7 @@ function schedule1AItems(session: Session): ChecklistItem[] {
     items.push({
       id: "s1a-overtime",
       form: "Schedule 1-A (Form 1040), Part III",
-      line: "21",
+      line: s1a.overtime,
       summary: `${yearText}, the qualified overtime deduction is only the FLSA premium portion, up to ${money(mfj ? o.max.mfj : o.max.other)}${mfj ? " on a joint return" : ` (${money(o.max.mfj)} if married filing jointly)`}, reduced by $${o.perThousand} for each full $1,000 of modified AGI over ${money(mfj ? o.phaseOutOver.mfj : o.phaseOutOver.other)}. Verify it against the overtime amount the employer reported, not total overtime pay.${joint("the overtime deduction")}${lineNote}`,
       certainty,
       source,
@@ -69,7 +67,7 @@ function schedule1AItems(session: Session): ChecklistItem[] {
     items.push({
       id: "s1a-car",
       form: "Schedule 1-A (Form 1040), Part IV",
-      line: "22 (VIN) and 30",
+      line: `${s1a.carVin} (VIN) and ${s1a.car}`,
       summary: `${yearText}, car-loan interest is deductible up to ${money(c.max)}, reduced by $${c.perThousand} for each $1,000 or part of $1,000 of modified AGI over ${money(mfj ? c.phaseOutOver.mfj : c.phaseOutOver.other)}${mfj ? "" : ` (${money(c.phaseOutOver.mfj)} if married filing jointly)`}. Verify the VIN is on the return, the loan was originated after December 31, 2024 for a new personal-use vehicle with US final assembly, it is not a lease, and interest already deducted on Schedule C, E, or F is not counted again.${lineNote}`,
       certainty,
       source,
@@ -80,8 +78,8 @@ function schedule1AItems(session: Session): ChecklistItem[] {
     items.push({
       id: "s1a-senior",
       form: "Schedule 1-A (Form 1040), Part V",
-      line: "37",
-      summary: `${yearText}, the enhanced senior deduction is ${money(sr.perPerson)} per person 65 or older by year end${mfj ? " (up to $12,000 if both spouses qualify)" : ""}, reduced by 6% of modified AGI over ${money(mfj ? sr.phaseOutOver.mfj : sr.phaseOutOver.other)}. Verify each person claimed has a valid SSN and was 65 or older by the end of the year.${joint("the senior deduction")}${lineNote}`,
+      line: s1a.senior,
+      summary: `${yearText}, the enhanced senior deduction is ${money(sr.perPerson)} per person 65 or older by year end (born before ${s1a.seniorBornBefore})${mfj ? " (up to $12,000 if both spouses qualify)" : ""}, reduced by 6% of modified AGI over ${money(mfj ? sr.phaseOutOver.mfj : sr.phaseOutOver.other)}. Verify each person claimed has a valid SSN and was 65 or older by the end of the year.${joint("the senior deduction")}${lineNote}`,
       certainty,
       source,
     });
@@ -99,8 +97,8 @@ function schedule1AItems(session: Session): ChecklistItem[] {
     items.push({
       id: "s1a-total",
       form: "Schedule 1-A (Form 1040) and Form 1040",
-      line: "38 → Form 1040 line 13b",
-      summary: `Verify the Schedule 1-A total on line 38 carries to Form 1040 line 13b. It is taken in addition to the standard deduction or itemized deductions.${lineNote}`,
+      line: `${s1a.total} → Form 1040 line ${lines.form1040.schedule1A}`,
+      summary: `Verify the Schedule 1-A total on line ${s1a.total} carries to Form 1040 line ${lines.form1040.schedule1A}. It is taken in addition to the standard deduction or itemized deductions.${lineNote}`,
       certainty,
       source,
     });
@@ -113,27 +111,27 @@ export function buildChecklist(session: Session): ChecklistItem[] {
   const taxYear = parseYear(answerOf(session, "year"));
   const status = parseStatus(answerOf(session, "filing_status"));
   const qbiNote = qbiThreshold(taxYear, status).note;
-  const lineCertainty = yearIs2025(session) ? "sourced" : "verify";
-  const yearNote = yearIs2025(session)
-    ? ""
-    : " The line number was confirmed on the 2025 form, so confirm it again for the year you selected.";
+  const lines = formLines(taxYear);
+  const f1040 = lines.form1040;
+  const lineCertainty = lines.certainty;
+  const yearNote = lines.note;
 
   if (has(session, "check_w2")) {
     items.push({
       id: "w2",
       form: "Form 1040",
-      line: "1a",
-      summary: `Verify W-2 box 1 wages on Form 1040 line 1a.${yearNote}`,
+      line: f1040.wages,
+      summary: `Verify W-2 box 1 wages on Form 1040 line ${f1040.wages}.${yearNote}`,
       certainty: lineCertainty,
-      source: citations.form1040_2025,
+      source: f1040.source,
     });
     items.push({
       id: "w2-withheld",
       form: "Form 1040",
-      line: "25a — confirm on the form",
-      summary:
-        "The filing notes map W-2 box 2 (federal income tax withheld) to Form 1040 line 25a. Boxes 16 and 17 go on the state return. Confirm line 25a on the form in front of you.",
-      certainty: "verify",
+      line: f1040.w2Withholding,
+      summary: `Verify W-2 box 2 (federal income tax withheld) on Form 1040 line ${f1040.w2Withholding}, the line for withholding from Forms W-2. Boxes 16 and 17 go on the state return.${yearNote}`,
+      certainty: lineCertainty,
+      source: f1040.source,
     });
   }
   if (has(session, "schedule_c")) {
@@ -215,7 +213,7 @@ export function buildChecklist(session: Session): ChecklistItem[] {
       line: "2 and 4a",
       summary:
         "Verify Schedule SE. Net profit from Schedule C line 31 is included on Schedule SE line 2. The 92.35% computation is line 4a under the regular method in Publication 334 (2025). One-half of the tax is Schedule 1 line 15. Net earnings were not entered, so the $400 filing threshold is not applied as a conclusion.",
-      certainty: yearIs2025(session) ? "sourced" : "verify",
+      certainty: taxYear === 2025 ? "sourced" : "verify",
       source: citations.pub334_2025,
     });
     items.push({
@@ -223,7 +221,7 @@ export function buildChecklist(session: Session): ChecklistItem[] {
       form: "Schedule 2 and Schedule SE",
       line: "Schedule SE line 7 — confirm on the form",
       summary:
-        "The filing notes place self-employment tax on Schedule 2 and call the Social Security wage-base cap Schedule SE line 7. Confirm both on the form. The 2025 wage base in Publication 334 is stored separately and is not applied as a tax computation.",
+        "The filing notes place self-employment tax on Schedule 2 and call the Social Security wage-base cap Schedule SE line 7. Confirm both on the form. The Social Security wage base for the selected year (Publication 334 for 2025, SSA for 2026) is stored separately and is not applied as a tax computation.",
       certainty: "verify",
       source: citations.pub334_2025,
     });
@@ -245,7 +243,7 @@ export function buildChecklist(session: Session): ChecklistItem[] {
       line: "5 — confirm on the form",
       summary: has(session, "flag_qbi")
         ? "Qualified business income is unknown. Form 8995 is not assumed, and the 20% deduction is not computed."
-        : "Verify Form 8995 or Form 8995-A. The filing notes show the 20% deduction, subject to limits, on line 5. Confirm that line. The notes enter the business name (or Unclassified Establishments Unable to Classify) and the SSN as the taxpayer identification number for a sole proprietor; an EIN is used only for a pass-through entity on a K-1. " + qbiNote,
+        : `Verify Form 8995 or Form 8995-A. The filing notes show the 20% deduction, subject to limits, on line 5. Confirm that line. The deduction carries to Form 1040 line ${f1040.qbi}${taxYear === 2026 ? " (it was line 13a on the 2025 form)" : ""}.${yearNote} The notes enter the business name (or Unclassified Establishments Unable to Classify) and the SSN as the taxpayer identification number for a sole proprietor; an EIN is used only for a pass-through entity on a K-1. ${qbiNote}`,
       certainty: "verify",
     });
   }
@@ -448,7 +446,7 @@ export function buildChecklist(session: Session): ChecklistItem[] {
       form: "Schedule B (Form 1040)",
       summary:
         "Verify Schedule B, including Forms 1099-INT and 1099-DIV. Tax-exempt interest is Form 1040 line 2a. On the 2025 form, taxable interest is line 2b and ordinary dividends are line 3b. The 2025 instructions require Schedule B when taxable interest or ordinary dividends are over $1,500, and in the other listed cases.",
-      certainty: yearIs2025(session) ? "sourced" : "verify",
+      certainty: taxYear === 2025 ? "sourced" : "verify",
       source: citations.scheduleB_2025,
     });
   }
@@ -457,18 +455,19 @@ export function buildChecklist(session: Session): ChecklistItem[] {
       id: "8949",
       form: "Form 8949 and Schedule D",
       summary:
-        "Verify Form 1099-B, Form 8949, and Schedule D, including a capital-loss carryforward. The filing notes put the net gain or loss on Form 1040 line 7. Confirm line 7 on the form. Do not start those forms from this chart.",
+        `Verify Form 1099-B, Form 8949, and Schedule D, including a capital-loss carryforward. The net gain or loss goes on Form 1040 line ${f1040.capitalGain} (the filing notes say line 7; the form numbers it ${f1040.capitalGain}).${yearNote} Do not start those forms from this chart.`,
       certainty: "verify",
+      source: f1040.source,
     });
   }
   if (has(session, "check_capital_loss") || has(session, "flag_capital_loss")) {
     items.push({
       id: "capital-loss",
       form: "Schedule D (Form 1040) Part III and the Capital Loss Carryforward Worksheet",
-      line: "Form 1040 line 7 — confirm on the form",
+      line: `Form 1040 line ${f1040.capitalGain}`,
       summary: has(session, "flag_capital_loss")
         ? "Whether there is a net capital loss or a carryforward is unknown. Nothing is assumed; last year's return is where the carryforward comes from."
-        : "Verify Schedule D Part III, the Capital Loss Carryforward Worksheet in the Schedule D instructions, and Form 1040 line 7. The filing notes cap the loss against other income at $3,000 a year ($1,500 married filing separately) and carry the rest forward; confirm those figures. The carryforward comes from last year's return.",
+        : `Verify Schedule D Part III, the Capital Loss Carryforward Worksheet in the Schedule D instructions, and Form 1040 line ${f1040.capitalGain}. The filing notes cap the loss against other income at $3,000 a year ($1,500 married filing separately) and carry the rest forward; confirm those figures. The carryforward comes from last year's return.`,
       certainty: "verify",
     });
   }
@@ -532,9 +531,9 @@ export function buildChecklist(session: Session): ChecklistItem[] {
     items.push({
       id: "est",
       form: "Form 1040",
-      line: "26",
+      line: f1040.estimatedPayments,
       summary:
-        "Verify estimated tax payments on Form 1040 line 26, which the filing notes label estimated tax payments and amount applied from prior year return. Gather the IRS payment confirmations with the amounts and dates (April, June, September, January) and any overpayment applied from last year. The 2025 Schedule E instructions also refer to line 26 for an estimated-tax amount. Read that line on the form you have open.",
+        `Verify estimated tax payments on Form 1040 line ${f1040.estimatedPayments}, which the filing notes label estimated tax payments and amount applied from prior year return. Gather the IRS payment confirmations with the amounts and dates (April, June, September, January) and any overpayment applied from last year. The 2025 Schedule E instructions also refer to line 26 for an estimated-tax amount. Read that line on the form you have open.${yearNote}`,
       certainty: lineCertainty,
       source: citations.scheduleE_2025,
     });
@@ -582,28 +581,28 @@ export function buildChecklist(session: Session): ChecklistItem[] {
     items.push({
       id: "deduction",
       form: "Form 1040",
-      line: "12e",
-      summary: "Verify the standard deduction or itemized deduction on line 12e against the sourced amount for the year, status, and jurisdiction. See the comparison panel.",
+      line: f1040.charitableNonItemizer ? `${f1040.deduction} and ${f1040.charitableNonItemizer}` : f1040.deduction,
+      summary: `Verify the standard deduction or itemized deduction on line ${f1040.deduction} against the sourced amount for the year, status, and jurisdiction. See the comparison panel.${f1040.charitableNonItemizer ? ` The ${taxYear} draft form adds line ${f1040.charitableNonItemizer}, a charitable contribution deduction for people who do not itemize; check it only if the return claims one. Its dollar limit is not stored here.` : ""}${yearNote}`,
       certainty: "verify",
-      source: citations.form1040_2025,
+      source: f1040.source,
     });
   }
   if (has(session, "form_1040")) {
     items.push({
       id: "1040-flow",
       form: "Form 1040",
-      line: "11b and 12e",
-      summary: "Schedules on this path flow onto Form 1040. Verify line 11b (AGI) and line 12e (deduction) on the 2025 form, and confirm the lines if the year is different.",
+      line: `${f1040.agi} and ${f1040.deduction}`,
+      summary: `Schedules on this path flow onto Form 1040. Verify line ${f1040.agi} (AGI) and line ${f1040.deduction} (deduction).${yearNote}`,
       certainty: lineCertainty,
-      source: citations.form1040_2025,
+      source: f1040.source,
     });
     items.push({
       id: "1040-schedules",
       form: "Schedules 1, 2, and 3 (Form 1040)",
-      line: "15 — confirm on the form",
-      summary:
-        "Schedule 1 is adjustments, Schedule 2 is additional taxes, and Schedule 3 is credits. The filing notes use Form 1040 line 15 for taxable income. Confirm line 15 on the form.",
-      certainty: "verify",
+      line: f1040.taxableIncome,
+      summary: `Schedule 1 is adjustments, Schedule 2 is additional taxes, and Schedule 3 is credits. Taxable income is Form 1040 line ${f1040.taxableIncome}.${yearNote}`,
+      certainty: lineCertainty,
+      source: f1040.source,
     });
   }
   const flaggedForms: { id: string; when: string; form: string; line?: string; summary: string }[] = [
@@ -626,15 +625,15 @@ export function buildChecklist(session: Session): ChecklistItem[] {
       id: "eitc-kids",
       when: "check_eitc_kids",
       form: "Form 1040 and Schedule EIC",
-      line: "27 — confirm on the form",
-      summary: "Verify the earned income credit and Schedule EIC. The filing notes place the credit on Form 1040 line 27. Confirm that line.",
+      line: f1040.eic,
+      summary: `Verify the earned income credit and Schedule EIC. The credit is on Form 1040 line ${f1040.eic} (the filing notes say line 27).${yearNote}`,
     },
     {
       id: "eitc",
       when: "check_eitc",
       form: "Form 1040",
-      line: "27 — confirm on the form",
-      summary: "Verify the earned income credit. The filing notes place it on Form 1040 line 27. Confirm that line. Schedule EIC is not opened from a no-child answer.",
+      line: f1040.eic,
+      summary: `Verify the earned income credit on Form 1040 line ${f1040.eic} (the filing notes say line 27).${yearNote} Schedule EIC is not opened from a no-child answer.`,
     },
     {
       id: "6251",
