@@ -17,6 +17,20 @@ The decision graph, the on-screen chart, and the checklist all come from `src/li
 
 ![Confirmation checklist naming schedules and lines to verify](docs/screenshots/checklist.png)
 
+## The guided flow
+
+The bottom panel's tabs follow one flow. **Start here** opens first and shows where each step stands.
+
+| Tab | Step | What it is for |
+| --- | --- | --- |
+| Start here | Overview | How many documents are staged, whether `Summaries.md` and `Owed Audit.md` exist, and checklist progress. |
+| 1 Document Sorter | Step 1 | Upload your documents and sort them into folders in `sorter/stage`. Every route reads them from there. |
+| 2a Tax Pro Costs | Route: hand off to a tax preparer | Give the preparer `Summaries.md` (the `tax-document-summaries` skill writes it), then judge their quote against typical fees. |
+| 2b Return & Owe Audit | Route: AI owed audit | The `tax-return-owed-audit` skill checks the return's amount owed against your documents. The tab stays grayed out until `Owed Audit.md` exists. |
+| 2c Checklist | Route: file it yourself | The forms and lines your answers call for. It works any time, even with no documents. |
+
+Pick one route after step 1. The chart above the panel is the guided path. It asks one question at a time, starting with Filing status, and each answer adds forms and lines to the Checklist and Tax Pro Costs. **✦ Add / edit with AI** and **Hide** sit apart on the right because they are tools, not steps.
+
 ## Run it
 
 ```bash
