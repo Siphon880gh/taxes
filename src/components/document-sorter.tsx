@@ -85,6 +85,7 @@ export function DocumentSorter({
   const [picked, setPicked] = useState("");
   const [newCategory, setNewCategory] = useState("");
   const [aiOpen, setAiOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const closeAi = useCallback(() => setAiOpen(false), []);
 
   const refresh = useCallback(async () => {
@@ -221,6 +222,19 @@ export function DocumentSorter({
   }
 
   const coverage = useMemo(() => documentCoverage({ revealed }, files.map((file) => file.path)), [revealed, files]);
+  const shown = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return needle ? files.filter((file) => file.path.toLowerCase().includes(needle)) : files;
+  }, [files, query]);
+  /** Shown files by category folder; uncategorized first, then folders in name order. */
+  const groups = useMemo(() => {
+    const byCategory = new Map<string, StagedFile[]>();
+    for (const file of shown) {
+      const category = categoryOf(file);
+      byCategory.set(category, [...(byCategory.get(category) ?? []), file]);
+    }
+    return [...byCategory.entries()].sort(([a], [b]) => (a === "" ? -1 : b === "" ? 1 : a.localeCompare(b)));
+  }, [shown]);
   const editing = files.find((file) => file.path === editingPath) ?? null;
   const categoryDialogRef = useRef<HTMLDivElement>(null);
   useDialogFocus(editing != null, categoryDialogRef);
@@ -336,21 +350,48 @@ export function DocumentSorter({
       {files.length === 0 ? (
         <p className="mt-3 text-stone-700">Nothing is staged.</p>
       ) : (
-        <ul className="sorter-list">
-          {files.map((file) => {
-            const category = categoryOf(file);
-            return (
-              <li key={file.path} className="sorter-card">
-                <p className="break-all font-medium text-stone-900">{file.path}</p>
-                <p className="text-xs uppercase tracking-wide text-stone-500">{formatBytes(file.bytes)}</p>
-                <p className="mt-2 text-sm text-stone-700">Category: {category || "None"}</p>
-                <button type="button" className="btn-secondary mt-2" disabled={busy} onClick={() => openCategory(file)}>
-                  {category ? "Change category" : "Assign category"}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+        <>
+          <div className="sorter-filter">
+            <label htmlFor="sorter-filter-input" className="text-sm font-medium text-stone-800">
+              Filter documents
+            </label>
+            <input
+              id="sorter-filter-input"
+              type="search"
+              className="sorter-select"
+              placeholder="Name, form, or folder, such as 1099"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+            <p className="text-sm text-stone-600" role="status">
+              {shown.length === files.length
+                ? `${files.length} ${files.length === 1 ? "document" : "documents"} in ${groups.length} ${groups.length === 1 ? "group" : "groups"}`
+                : `${shown.length} of ${files.length} documents match`}
+            </p>
+          </div>
+          {shown.length === 0 ? <p className="mt-3 text-stone-700">No staged document matches that filter.</p> : null}
+          {groups.map(([category, list]) => (
+            <section key={category || "(none)"} className="sorter-group" aria-label={`${category || "Not in a category"}, ${list.length} ${list.length === 1 ? "document" : "documents"}`}>
+              <h3 className="sorter-group-title">
+                <span className="break-all">{category || "Not in a category"}</span>
+                <span className="sorter-group-count">{list.length}</span>
+              </h3>
+              <ul className="sorter-list">
+                {list.map((file) => (
+                  <li key={file.path} className="sorter-card">
+                    <p className="break-all font-medium text-stone-900" title={file.path}>
+                      {category ? file.path.slice(category.length + 1) : file.path}
+                    </p>
+                    <p className="text-xs uppercase tracking-wide text-stone-500">{formatBytes(file.bytes)}</p>
+                    <button type="button" className="btn-secondary mt-2" disabled={busy} onClick={() => openCategory(file)}>
+                      {category ? "Change category" : "Assign category"}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </>
       )}
       {categories.length > 0 ? (
         <section className="sorter-categories" aria-labelledby="sorter-categories-heading">
