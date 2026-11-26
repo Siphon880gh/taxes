@@ -53,6 +53,7 @@ import {
 } from "@/lib/graph";
 import { answerOf, sessionFile } from "@/lib/graph/session";
 import { parseYear } from "@/lib/graph/thresholds";
+import { isTaxYearId, TAX_YEARS, taxYearLabel } from "@/lib/graph/tax-years";
 import { onTabListKeyDown } from "@/lib/tablist-keys";
 import type { GraphNode, Session, TipBody } from "@/lib/graph/types";
 
@@ -177,10 +178,6 @@ function NumberEntry({
   );
 }
 
-const YEARS = [
-  { id: "y2025", label: "2025" },
-  { id: "y2026", label: "2026" },
-] as const;
 
 /** "$834" or "$834–$959" for a low/high pair. */
 function dollarSpan(low: number, high: number): string {
@@ -389,7 +386,8 @@ export function CheckerApp() {
   }, [view]);
   const selectedLevel = selectedId ? nodeLevels.get(selectedId) ?? 0 : 0;
   const levelNodes = view.ids.filter((id) => (nodeLevels.get(id) ?? 0) === selectedLevel);
-  const returnYear = YEARS.find((year) => year.id === answerOf(session, "year"))?.label ?? "Not selected";
+  const yearAnswer = answerOf(session, "year");
+  const returnYear = taxYearLabel(yearAnswer) ?? "Not selected";
 
   useEffect(() => {
     setDraft(readAnswer(session, selectedId)?.text ?? "");
@@ -620,6 +618,12 @@ export function CheckerApp() {
     }
   }
 
+  /** Switch the tax year the figures, line numbers, and checklist use. Other answers are kept. */
+  function changeTaxYear(answerId: string) {
+    if (!isTaxYearId(answerId) || answerId === yearAnswer) return;
+    setSession(applyAnswer(session, "year", answerId));
+  }
+
   function showTip(tipId: string, nodeId?: string) {
     const node = nodeId ? getNode(nodeId) : null;
     if (node?.tipId) {
@@ -738,7 +742,7 @@ export function CheckerApp() {
       <section className="checklist-print" aria-hidden="true">
         <h1>{checklistTitle(session)}</h1>
         <p>
-          Return year: {returnYear} · {checklistStats.done} of {checklistStats.total} confirmed
+          Tax year: {returnYear} · {checklistStats.done} of {checklistStats.total} confirmed
           {open.length ? ` · ${open.length} open ${open.length === 1 ? "question" : "questions"} on the chart` : ""}
         </p>
         <ul>
@@ -780,18 +784,18 @@ export function CheckerApp() {
             </div>
             <div>
               <p className="mb-1 text-sm font-medium text-stone-600" id="year-label">
-                Return year
+                Tax year
               </p>
               <div className="flex gap-2" role="group" aria-labelledby="year-label">
-                {YEARS.map((year) => {
-                  const pressed = answerOf(session, "year") === year.id;
+                {TAX_YEARS.map((year) => {
+                  const pressed = yearAnswer === year.id;
                   return (
                     <button
                       key={year.id}
                       type="button"
                       aria-pressed={pressed}
                       className={pressed ? "year-btn year-btn-on" : "year-btn"}
-                      onClick={() => answer("year", year.id)}
+                      onClick={() => changeTaxYear(year.id)}
                     >
                       {year.label}
                     </button>
@@ -820,7 +824,7 @@ export function CheckerApp() {
                 ) : (
                   <p className="font-display text-lg text-stone-900">Tax Final Confirmation</p>
                 )}
-                <span className="text-sm text-stone-700">Return year: {returnYear}</span>
+
                 {topCollapsed ? (
                   <button type="button" className="btn-secondary" onClick={() => setTopCollapsed(false)}><ShortcutText text="Expand" index={headerShowsExpand ? 1 : -1} /></button>
                 ) : null}
@@ -829,7 +833,23 @@ export function CheckerApp() {
             <h2 id="cases-heading" className="font-display text-2xl text-stone-900">
               Path library
             </h2>
-            <label className="ml-auto flex items-center gap-2 text-sm font-medium text-stone-700" htmlFor="case-library">
+            <label className="ml-auto flex items-center gap-2 text-sm font-medium text-stone-700" htmlFor="tax-year-select">
+              Tax year
+              <select
+                id="tax-year-select"
+                className="rounded-md border border-stone-300 bg-white px-3 py-2 text-stone-900"
+                value={isTaxYearId(yearAnswer ?? "") ? yearAnswer : ""}
+                onChange={(event) => changeTaxYear(event.target.value)}
+              >
+                {isTaxYearId(yearAnswer ?? "") ? null : <option value="" disabled>Not selected</option>}
+                {TAX_YEARS.map((year) => (
+                  <option key={year.id} value={year.id}>
+                    {year.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex items-center gap-2 text-sm font-medium text-stone-700" htmlFor="case-library">
               Open an example
               <select
                 id="case-library"
