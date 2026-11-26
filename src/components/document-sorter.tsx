@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { AiReorganizeDialog } from "@/components/ai-reorganize-dialog";
 import { WhyNotAutomatic } from "@/components/prompt-builder";
+import { documentCoverage } from "@/lib/document-coverage";
 import { sorterFetch } from "@/lib/sorter-client";
 import { sorterEndpoint, unreachableMessage } from "@/lib/sorter-endpoint";
 import { useDialogFocus } from "@/lib/use-dialog-focus";
@@ -51,16 +52,28 @@ function formatBytes(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function fileName(path: string) {
+  return path.slice(path.lastIndexOf("/") + 1);
+}
+
 export function DocumentSorter({
   onUploaded,
   onSuggestSummaries,
+  revealed = [],
+  onFiles,
 }: {
   onUploaded: () => void;
   onSuggestSummaries?: (suggest: boolean) => void;
+  /** Chart boxes on the current path, used to list the documents the path calls for. */
+  revealed?: string[];
+  /** Hears the staged paths (relative to sorter/stage) after every refresh. */
+  onFiles?: (paths: string[]) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const onSuggestSummariesRef = useRef(onSuggestSummaries);
   onSuggestSummariesRef.current = onSuggestSummaries;
+  const onFilesRef = useRef(onFiles);
+  onFilesRef.current = onFiles;
   const [files, setFiles] = useState<StagedFile[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [suggestSummaries, setSuggestSummaries] = useState(false);
@@ -88,12 +101,12 @@ export function DocumentSorter({
         setError(body.error || "Could not list the staging directory.");
         return;
       }
-      setFiles(
-        (body.files ?? []).map((file) => ({
-          ...file,
-          category: typeof file.category === "string" ? file.category : categoryOf(file),
-        })),
-      );
+      const listed = (body.files ?? []).map((file) => ({
+        ...file,
+        category: typeof file.category === "string" ? file.category : categoryOf(file),
+      }));
+      setFiles(listed);
+      onFilesRef.current?.(listed.map((file) => file.path));
       setCategories(body.categories ?? []);
       const suggest = body.summaries !== true && body.folders === true;
       setSuggestSummaries(suggest);
@@ -207,6 +220,7 @@ export function DocumentSorter({
     setNewCategory("");
   }
 
+  const coverage = useMemo(() => documentCoverage({ revealed }, files.map((file) => file.path)), [revealed, files]);
   const editing = files.find((file) => file.path === editingPath) ?? null;
   const categoryDialogRef = useRef<HTMLDivElement>(null);
   useDialogFocus(editing != null, categoryDialogRef);
@@ -282,6 +296,43 @@ export function DocumentSorter({
           {error}
         </p>
       ) : null}
+      {coverage.expected.length > 0 ? (
+        <section className="sorter-coverage" aria-labelledby="sorter-coverage-heading">
+          <h3 id="sorter-coverage-heading" className="font-medium text-stone-900">
+            Documents this path calls for
+          </h3>
+          <p className="text-sm text-stone-600">
+            {coverage.found} of {coverage.expected.length} look like they are on file in sorter/stage, judging by folder and file
+            names. The list grows as you answer more of the chart.
+          </p>
+          <ul className="sorter-coverage-list">
+            {coverage.expected.map((doc) => {
+              const found = doc.files.length > 0;
+              return (
+                <li key={doc.id} className={found ? "is-found" : "is-missing"}>
+                  <span className="sorter-coverage-mark" aria-hidden="true">
+                    {found ? "✓" : "○"}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="font-medium text-stone-900">
+                      {doc.label}
+                      <span className="sr-only">{found ? ", on file" : ", not found yet"}</span>
+                    </p>
+                    <p className="text-sm text-stone-700">{doc.reason}</p>
+                    <p className="break-all text-xs text-stone-600">
+                      {found
+                        ? `On file: ${doc.files.map(fileName).join(", ")}`
+                        : "Nothing in sorter/stage matches by name yet. Upload it, or rename it so the form name is in the file name."}
+                    </p>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : (
+        <p className="mt-3 text-sm text-stone-600">Answer questions on the chart to see which source documents this return calls for.</p>
+      )}
       {files.length === 0 ? (
         <p className="mt-3 text-stone-700">Nothing is staged.</p>
       ) : (

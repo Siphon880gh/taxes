@@ -2121,3 +2121,54 @@ button.question-dock-tile {
     color: #444;
   }
 }
+
+/* Document coverage: what the chart calls for vs what is in sorter/stage */
+.sorter-coverage {
+  margin-top: 1rem;
+  border: 1px solid #d6d3d1;
+  border-radius: 0.5rem;
+  background: #fffdf8;
+  padding: 0.75rem 1rem;
+}
+
+.sorter-coverage-list {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.sorter-coverage-list li {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+}
+
+.sorter-coverage-mark {
+  flex: none;
+  width: 1.25rem;
+  text-align: center;
+  font-weight: 700;
+}
+
+.sorter-coverage-list .is-found .sorter-coverage-mark {
+  color: #047857;
+}
+
+.sorter-coverage-list .is-missing .sorter-coverage-mark {
+  color: #9a3412;
+}
+
+.checklist-coverage {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border: 1px solid #d6d3d1;
+  border-radius: 0.375rem;
+  background: #fafaf9;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: #292524;
+}

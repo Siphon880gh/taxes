@@ -11,6 +11,7 @@ import { decodeNumbers, encodeNumbers, numberEntryError, suggestionText } from "
 import { DISCLAIMER } from "@/lib/disclaimer";
 import { readStoredQuote, writeStoredQuote } from "@/lib/quote-storage";
 import { clearStoredSession, readStoredSession, writeStoredSession } from "@/lib/session-storage";
+import { documentCoverage } from "@/lib/document-coverage";
 import {
   checklistMarkdown,
   checklistProgress,
@@ -231,6 +232,8 @@ export function CheckerApp() {
   const [walkthroughOpen, setWalkthroughOpen] = useState(false);
   const [quoteDraft, setQuoteDraft] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState<string[]>([]);
+  /** Files in sorter/stage as of the Document Sorter's last refresh; null until it has listed them. */
+  const [stagedPaths, setStagedPaths] = useState<string[] | null>(null);
   const [sorterReminder, setSorterReminder] = useState(false);
   const [suggestSummaries, setSuggestSummaries] = useState(false);
   const [chartToolsNode, setChartToolsNode] = useState<HTMLDivElement | null>(null);
@@ -347,6 +350,7 @@ export function CheckerApp() {
   );
   const checklist = useMemo(() => buildChecklist(session), [session]);
   const checklistStats = checklistProgress(checklist, confirmed);
+  const coverage = useMemo(() => documentCoverage(session, stagedPaths ?? []), [session, stagedPaths]);
   const cost = useMemo(() => costReport(session), [session]);
   const deduction = useMemo(() => deductionNarrative(session), [session]);
   const open = openQuestions(session);
@@ -973,6 +977,18 @@ export function CheckerApp() {
                         </button>
                       </div>
                     </div>
+                    {coverage.expected.length > 0 ? (
+                      <p className="checklist-coverage" role="note">
+                        <span>
+                          {stagedPaths == null
+                            ? `This path calls for ${coverage.expected.length} source ${coverage.expected.length === 1 ? "document" : "documents"}.`
+                            : `Documents on file: ${coverage.found} of ${coverage.expected.length} this path calls for${coverage.missing ? ` (${coverage.missing} not found by name)` : ""}.`}
+                        </span>
+                        <button type="button" className="btn-secondary" onClick={() => showFrame("sorter")}>
+                          {stagedPaths == null ? "Check in Document Sorter" : "Open Document Sorter"}
+                        </button>
+                      </p>
+                    ) : null}
                     <ul className="mt-3 flex flex-col gap-3">
                       {checklist.map((item) => (
                         <li key={item.id} className={`rounded-md border px-3 py-2 ${confirmed.includes(item.id) ? "checklist-item-done" : "border-stone-200 bg-[#fffdf8]"}`}>
@@ -1162,6 +1178,8 @@ export function CheckerApp() {
                 <DocumentSorter
                   onUploaded={() => setSorterReminder(true)}
                   onSuggestSummaries={setSuggestSummaries}
+                  revealed={session.revealed}
+                  onFiles={setStagedPaths}
                 />
               ) : (
                 <OwedAuditPanel onDialog={setOwedDialog} />
