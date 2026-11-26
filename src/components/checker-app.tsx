@@ -14,7 +14,7 @@ import { readStoredQuote, writeStoredQuote } from "@/lib/quote-storage";
 import { clearStoredSession, readStoredSession, writeStoredSession } from "@/lib/session-storage";
 import { documentCoverage } from "@/lib/document-coverage";
 import { auditTab } from "@/lib/owed-reports";
-import { flowSegments, PANEL_LEDES, spokenPrefix, type FrameMode } from "@/lib/flow";
+import { flowSegments, guidePlan, PANEL_LEDES, spokenPrefix, type FrameMode } from "@/lib/flow";
 import { useOwedReports } from "@/lib/use-owed-reports";
 import type { PdfHints } from "@/lib/pdf-hints";
 import {
@@ -271,6 +271,9 @@ export function CheckerApp() {
   const [dockHeight, setDockHeight] = useState<number | null>(null);
   const [dockCollapsed, setDockCollapsed] = useState(false);
   const [checklistOpen, setChecklistOpen] = useState(false);
+  /** Bumped by openGuide(); after that render, the chart scrolls into view and focus moves to the question. */
+  const [guideKey, setGuideKey] = useState(0);
+  const chartSectionRef = useRef<HTMLElement>(null);
   const [fitFocus, setFitFocus] = useState<{ key: number; ids: string[]; answeredId: string } | null>(null);
   const fitFocusKey = useRef(0);
   const dockScale =
@@ -292,19 +295,44 @@ export function CheckerApp() {
   }
 
   function expandDock() {
-    setChecklistOpen(false);
+    // Guide me on forms (the Checklist frame) keeps the Checklist open beside the answers; other frames give way.
+    if (frameMode !== "checklist") setChecklistOpen(false);
     setDockCollapsed(false);
     if (dockHeightBeforeCollapse.current != null) setDockHeight(dockHeightBeforeCollapse.current);
   }
 
-  function openChecklist() {
-    collapseDock();
+  function openChecklist(mode: FrameMode = frameMode) {
+    if (mode !== "checklist") collapseDock();
     setChecklistOpen(true);
   }
 
   function showFrame(mode: FrameMode) {
+    if (mode === "checklist") {
+      openGuide();
+      return;
+    }
     setFrameMode(mode);
-    if (!dockCollapsed) openChecklist();
+    if (!dockCollapsed) openChecklist(mode);
+  }
+
+  /**
+   * Guide me on forms (route 2c), from any entry point: the path chart under the Path library, the Checklist frame,
+   * and the answer / comments panel on the next open question, all at once. Focus lands on that question.
+   */
+  function openGuide(prefer?: string) {
+    const plan = guidePlan(openQuestions(session), selectedId, session.revealed, prefer);
+    setAuditHint(null);
+    setFrameMode(plan.frameMode);
+    setSelectedId(plan.selectId);
+    setDockTab(firstDockTab(getNode(plan.selectId)));
+    setLevelExpanded(false);
+    setTopCollapsed(plan.topCollapsed);
+    setChecklistOpen(plan.checklistOpen);
+    if (dockCollapsed) {
+      setDockCollapsed(plan.dockCollapsed);
+      if (dockHeightBeforeCollapse.current != null) setDockHeight(dockHeightBeforeCollapse.current);
+    }
+    setGuideKey((key) => key + 1);
   }
 
   /** The grayed-out tab checks again first (the skill may have just written the file), then opens or explains. */
@@ -432,6 +460,27 @@ export function CheckerApp() {
   useEffect(() => {
     setDraft(readAnswer(session, selectedId)?.text ?? "");
   }, [selectedId, session]);
+
+  // After Guide me on forms: bring the chart up under the sticky Path library, then focus the question.
+  useEffect(() => {
+    if (!guideKey) return;
+    const frame = requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        // A phone can't fit the library, chart and both frames at once: there the library scrolls away (one swipe up)
+        // and the chart's own tools row goes to the top, so the chart keeps the room above the frames.
+        const phone = window.matchMedia("(max-width: 719px)").matches;
+        const chart = chartSectionRef.current;
+        const target = phone ? (document.querySelector(".chart-tools-bar") ?? chart) : chart;
+        const stack = document.querySelector(".library-stack");
+        if (target) {
+          const offset = phone ? 0 : (stack?.getBoundingClientRect().height ?? 0) + 8;
+          window.scrollTo({ top: Math.max(0, target.getBoundingClientRect().top + window.scrollY - offset) });
+        }
+        document.getElementById("question-heading")?.focus({ preventScroll: true });
+      }),
+    );
+    return () => cancelAnimationFrame(frame);
+  }, [guideKey]);
 
   useLayoutEffect(() => {
     const frames = framesRef.current;
@@ -946,7 +995,7 @@ export function CheckerApp() {
           </p>
         ) : null}
 
-        <section aria-label="What this path turns up" className="min-w-0">
+        <section ref={chartSectionRef} aria-label="What this path turns up" className="min-w-0">
           {!topCollapsed ? <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
             <h2 id="chart-heading" className="font-display text-2xl text-stone-900">
               What this path turns up
@@ -979,7 +1028,7 @@ export function CheckerApp() {
           />
         </section>
 
-        <div ref={framesRef} className="bottom-frames">
+        <div ref={framesRef} className={checklistOpen && !dockCollapsed ? "bottom-frames is-paired" : "bottom-frames"}>
         <section
           className={checklistOpen ? "checklist-frame" : "checklist-frame is-collapsed"}
           aria-labelledby="check-heading"
@@ -1050,7 +1099,7 @@ export function CheckerApp() {
                 className="question-dock-collapse"
                 aria-expanded={checklistOpen}
                 aria-label={checklistOpen ? "Hide this frame" : "Expand this frame"}
-                onClick={checklistOpen ? () => setChecklistOpen(false) : openChecklist}
+                onClick={checklistOpen ? () => setChecklistOpen(false) : () => openChecklist()}
               >
                 <ShortcutText text={checklistOpen ? "Hide" : "Expand"} index={checklistOpen || checklistShowsExpand ? (checklistOpen ? 0 : 1) : -1} />
               </button>
@@ -1083,9 +1132,7 @@ export function CheckerApp() {
                   nextQuestion={open.length ? getNode(open[0]).title : null}
                   onOpen={showFrame}
                   onOpenAudit={() => void openAuditTab()}
-                  onAnswerNext={() => {
-                    if (open.length) selectNode(open[0]);
-                  }}
+                  onAnswerNext={() => openGuide(open[0])}
                 />
               ) : frameMode === "checklist" ? (
                 <>
@@ -1370,7 +1417,7 @@ export function CheckerApp() {
               ) : null}
             </div>
           ) : (
-            <button type="button" className="question-dock-tile" onClick={openChecklist}>
+            <button type="button" className="question-dock-tile" onClick={() => openChecklist()}>
               <p id="check-heading" className="truncate font-medium text-stone-900">{frameMode === "start" ? "Start here: sort documents, then pick a route" : frameMode === "costs" ? "Tax Pro Costs" : frameMode === "sorter" ? "Document Sorter" : frameMode === "audit" ? "Return & Owe Audit" : checklistTitle(session)}</p>
             </button>
           )}
@@ -1407,7 +1454,7 @@ export function CheckerApp() {
           <div className={dockCollapsed ? "hidden" : "question-dock-inner flex flex-col gap-4"}>
             <section className="panel" aria-labelledby="question-heading">
               <div className="flex items-start justify-between gap-3">
-                <h2 id="question-heading" className="font-display text-2xl text-stone-900">
+                <h2 id="question-heading" tabIndex={-1} className="font-display text-2xl text-stone-900">
                   {selected ? selected.title : "Pick a box"}
                 </h2>
                 <div className="flex items-center gap-2">
