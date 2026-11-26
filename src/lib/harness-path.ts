@@ -9,7 +9,10 @@ const NS = `harnessAi:${HARNESS_APP_ID}:`;
 export type HarnessTile = "about" | "path";
 export type HarnessMode = "path" | "command";
 
-export function loadHarness(key: "path" | "mode" | "openTile"): string | null {
+/** "uploadsPath" and "uploadsMode" belong to the Document Sorter's "Ask AI to reorganize" dialog. */
+export type HarnessKey = "path" | "mode" | "openTile" | "uploadsPath" | "uploadsMode";
+
+export function loadHarness(key: HarnessKey): string | null {
   try {
     return window.localStorage.getItem(NS + key);
   } catch {
@@ -17,7 +20,7 @@ export function loadHarness(key: "path" | "mode" | "openTile"): string | null {
   }
 }
 
-export function saveHarness(key: "path" | "mode" | "openTile", value: string | null): void {
+export function saveHarness(key: HarnessKey, value: string | null): void {
   try {
     if (value === null || value === "") window.localStorage.removeItem(NS + key);
     else window.localStorage.setItem(NS + key, value);
