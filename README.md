@@ -76,7 +76,7 @@ The signing key is `sorter/.app-secret.php`, created with `random_bytes` the fir
 
 Before you walk the chart, you can drop W-2s, 1099s, receipts, bills, and scans into the **Document Sorter** tab, or straight into `sorter/stage/`.
 
-The tab uploads and places files through PHP. Copy [`.env.sample`](.env.sample) to `.env` and set `SERVER_URL_UPLOAD_API_PHP` to the URL where PHP serves [`sorter/api.php`](sorter/api.php). Restart `npm run dev` after changing `.env`. The value is inlined by `npm run dev` and `npm run build`. A built `out/` on another host skips a localhost value and calls `../sorter/api.php` next to itself (see Deploy). Putting files directly in `sorter/stage/` does not need that endpoint.
+The tab uploads and places files through PHP. Copy [`.example.env`](.example.env) to `.env` and set `SERVER_URL_UPLOAD_API_PHP` to the URL where PHP serves [`sorter/api.php`](sorter/api.php). Restart `npm run dev` after changing `.env`. The value is inlined by `npm run dev` and `npm run build`. A built `out/` on another host skips a localhost value and calls `../sorter/api.php` next to itself (see Deploy). Putting files directly in `sorter/stage/` does not need that endpoint.
 
 An AI skill, `tax-document-classification`, then sorts them into folders such as Income - Self-employment, Income - Rental, Deductions, and _Last year's return, and it renames generic filenames so each pile is easier to think about and to match against the schedules the chart names.
 
