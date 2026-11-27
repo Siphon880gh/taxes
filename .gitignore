@@ -57,3 +57,10 @@ next-env.d.ts
 !/public/sorter/return.htaccess
 # vendored PHP PDF reader (composer.json at the repo root installs it here; the build copies it to out/sorter/vendor)
 !/public/sorter/vendor/
+
+# python bytecode from the skills scripts
+__pycache__/
+*.pyc
+
+# impeccable design checker: per-session hook cache (its config.json is project config and is committed)
+/.impeccable/hook.cache.json
