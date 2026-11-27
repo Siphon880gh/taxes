@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "src/app/globals.css"
+        ],
+        "createdAt": "2026-11-26T10:00:49.423Z",
+        "reason": "Agent: pre-existing callout rules on the disclaimer, sorter note, and warning. They are this product's note treatment, not side-tab cards."
+      }
+    ]
+  }
+}
