@@ -2602,3 +2602,37 @@ body {
     width: 100%;
   }
 }
+
+/*
+ * Phones: the readable desktop step bar and the sticky Path library together were taller than the screen, so the
+ * chart could not be reached. Here the library scrolls with the page and the bar keeps the same rows at phone size.
+ */
+@media (max-width: 719px) {
+  .library-stack {
+    position: static;
+  }
+
+  .frame-switch {
+    gap: 0.5rem 0.45rem;
+  }
+
+  .tab-label,
+  .tab-group-label {
+    font-size: 0.8rem;
+  }
+
+  .tab-group {
+    gap: 0.35rem 0.45rem;
+    padding: 0.7rem 0.5rem 0.3rem;
+  }
+
+  .frame-switch button,
+  .frame-tools button.harness-help-toggle {
+    padding: 0.25rem 0.55rem;
+    font-size: 0.95rem;
+  }
+
+  .tab-step {
+    font-size: 0.8rem;
+  }
+}
